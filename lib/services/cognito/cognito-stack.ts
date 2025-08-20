@@ -27,7 +27,7 @@ export class CognitoStack extends cdk.Stack {
       signInAliases: {
         email: true 
       },
-      autoVerify: { email: true },
+      autoVerify: { email: false },
       standardAttributes: {
         email: {
           required: true, mutable: false 
