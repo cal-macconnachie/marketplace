@@ -28,13 +28,25 @@ export class CognitoStack extends cdk.Stack {
         email: true 
       },
       autoVerify: { email: false },
+      signInCaseSensitive: false,
       standardAttributes: {
         email: {
           required: true, mutable: false 
         } 
       },
       lambdaTriggers: postAuthTriggerFunction ? {
-        postAuthentication: postAuthTriggerFunction
+        postAuthentication: postAuthTriggerFunction,
+        preSignUp: new lambda.Function(this, `PreSignUpTrigger-${envName}`, {
+          runtime: lambda.Runtime.NODEJS_18_X,
+          handler: 'index.handler',
+          code: lambda.Code.fromInline(`
+            exports.handler = async (event) => {
+              event.response.autoConfirmUser = true;
+              event.response.autoVerifyEmail = true;
+              return event;
+            };
+          `)
+        })
       } : undefined
     })
     this.userPoolClient = new cognito.UserPoolClient(this, `UserPoolClient-${envName}`, {
