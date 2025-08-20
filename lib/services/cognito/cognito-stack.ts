@@ -25,7 +25,7 @@ export class CognitoStack extends cdk.Stack {
       userPoolName: `UserPool-${envName}`,
       selfSignUpEnabled: true,
       signInAliases: {
-        username: true, email: true 
+        email: true 
       },
       autoVerify: { email: true },
       standardAttributes: {
