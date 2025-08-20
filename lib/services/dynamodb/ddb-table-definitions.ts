@@ -40,13 +40,13 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
         },
         projectionType: 'ALL'
       },
-      // {
-      //   indexName: 'cognito_id-index',
-      //   partitionKey: {
-      //     name: 'cognito_id', type: 'S' 
-      //   },
-      //   projectionType: 'ALL'
-      // },
+      {
+        indexName: 'cognito_id-index',
+        partitionKey: {
+          name: 'cognito_id', type: 'S' 
+        },
+        projectionType: 'ALL'
+      },
       {
         indexName: 'stripe_id-index',
         partitionKey: {

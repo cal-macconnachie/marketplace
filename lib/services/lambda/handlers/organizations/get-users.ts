@@ -10,6 +10,7 @@ export const getUsers = async (event: APIGatewayProxyEvent) => {
   try {
     const {
       organization_id: organizationId,
+      cognito_id: cognitoId,
       id,
       stripe_id: stripeId,
       email
@@ -26,7 +27,7 @@ export const getUsers = async (event: APIGatewayProxyEvent) => {
         'Content-Type': 'application/json'
       }
     }
-    if (organizationId) return {
+    if (organizationId && !id) return {
       statusCode: 200,
       body: JSON.stringify(await getOrganizationUsers({ orgId: organizationId })),
       headers: {
@@ -72,6 +73,36 @@ export const getUsers = async (event: APIGatewayProxyEvent) => {
         keyConditionExpression: 'stripe_id = :stripe_id',
         expressionAttributeValues: {
           ':stripe_id': stripeId
+        }
+      })
+      if (users == null || users.length === 0) {
+        return {
+          statusCode: 404,
+          body: JSON.stringify({ error: 'User not found' }),
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': true,
+            'Content-Type': 'application/json'
+          }
+        }
+      }
+      return {
+        statusCode: 200,
+        body: JSON.stringify(users),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
+      }
+    }
+    if (cognitoId) {
+      const users = await queryAll<User>({
+        tableName: process.env.USERS_TABLE!,
+        indexName: 'cognito_id-index',
+        keyConditionExpression: 'cognito_id = :cognito_id',
+        expressionAttributeValues: {
+          ':cognito_id': cognitoId
         }
       })
       if (users == null || users.length === 0) {
