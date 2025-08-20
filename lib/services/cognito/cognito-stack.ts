@@ -46,8 +46,8 @@ export class CognitoStack extends cdk.Stack {
           cognito.OAuthScope.EMAIL,
           cognito.OAuthScope.PROFILE
         ],
-        callbackUrls: ['http://localhost:3000/callback'], // Your app's redirect URL
-        logoutUrls: ['http://localhost:3000/logout'],
+        callbackUrls: ['https://csm.codes/oauth'], // Your app's redirect URL
+        logoutUrls: ['https://resume.csm.codes'],
       },
       authFlows: {
         userPassword: true, userSrp: true 

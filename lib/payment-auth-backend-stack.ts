@@ -9,7 +9,7 @@ import { LambdaStack } from './services/lambda/lambda-stack'
 export class PaymentAuthBackendStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps & { envName?: string }) {
     super(scope, id, props)
-    const envName = props?.envName || 'dev'
+    const envName = props?.envName ?? 'dev'
     // The code that defines your stack goes here
     const ddbTables = new DdbTablesStack(this, `DdbTablesStack-${envName}`, { envName })
     const postAuthTriggerFunction = createDefaultNodejsFunction(this, `PostAuthTriggerFunction-${envName}`, {
