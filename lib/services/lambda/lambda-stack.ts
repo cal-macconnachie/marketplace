@@ -1,0 +1,265 @@
+import { Construct } from 'constructs'
+import {
+  aws_apigateway as apiGW,
+  aws_iam,
+  aws_dynamodb as dynamodb,
+  aws_sqs as sqs,
+  aws_lambda_event_sources as lambdaEventSources,
+  aws_s3,
+  aws_stepfunctions as sfn,
+  Duration
+} from 'aws-cdk-lib'
+import { createDefaultNodejsFunction, addApiResourceWithApiKey } from './lambda-defaults'
+import * as path from 'node:path'
+import { LambdaEndpointDefinition, lambdaEndpointDefinitions } from './lambda-endpoint-definitions'
+import * as cdk from 'aws-cdk-lib'
+
+export interface LambdaStackProps extends cdk.StackProps {
+  envVars: Record<string, string>
+  envName: string
+  tables?: Record<string, dynamodb.Table>
+  queues?: Record<string, { queue: sqs.IQueue; queueArn: string; queueName: string }>
+  buckets?: Record<string, aws_s3.IBucket>
+  userPool: cdk.aws_cognito.UserPool
+  userPoolClient: cdk.aws_cognito.UserPoolClient
+}
+
+export class LambdaStack extends cdk.Stack {
+  public readonly lambdas: Record<string, unknown> = {}
+  public readonly api: apiGW.RestApi
+  public readonly apiKey: apiGW.IApiKey
+  public readonly usagePlan: apiGW.UsagePlan
+  public readonly cognitoAuthorizer: apiGW.CognitoUserPoolsAuthorizer
+
+  constructor(scope: Construct, id: string, props: LambdaStackProps) {
+    super(scope, id, props)
+    const { envVars, envName, userPool } = props
+    // Create API Gateway and Cognito Authorizer here
+    this.api = new apiGW.RestApi(this, `ApiGwEndpoint-${envName}`, {
+      restApiName: `${envName}`,
+      description: `API Gateway for Generic Lambda Stack in ${envName} environment`,
+      deployOptions: { stageName: envName }
+    })
+    this.apiKey = this.api.addApiKey('ApiKey')
+    this.usagePlan = this.api.addUsagePlan('UsagePlan', {
+      name: 'DefaultUsagePlan',
+      throttle: { rateLimit: 10, burstLimit: 2 }
+    })
+    this.usagePlan.addApiKey(this.apiKey)
+    this.usagePlan.addApiStage({
+      stage: this.api.deploymentStage
+    })
+    this.cognitoAuthorizer = new apiGW.CognitoUserPoolsAuthorizer(
+      this,
+      `CognitoAuthorizer-${envName}`,
+      {
+        cognitoUserPools: [userPool],
+        authorizerName: `CognitoAuthorizer-${envName}`
+      }
+    )
+    const endpointDefs: LambdaEndpointDefinition[] = lambdaEndpointDefinitions
+
+    for (const def of endpointDefs) {
+      // Prepare environment variables, including table names if needed
+      const lambdaEnv: Record<string, string> = {
+        NODE_ENV: envName,
+        ...def.environment?.reduce((acc: { [envKey: string]: string }, key: string) => {
+          const value = envVars[`${key}_${envName.toUpperCase()}`] ?? envVars[key]
+          if (value) {
+            acc[key] = value
+          } else {
+            console.warn(`Environment variable ${key} is not set, skipping for ${def.name}`)
+          }
+          return acc
+        }, {})
+      }
+      // Add table environment variables
+      if (props.tables) {
+        for (const tableName of Object.keys(props.tables)) {
+          const table = props.tables[tableName]
+          if (table) {
+            const envVarName = `${tableName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}_TABLE`
+            lambdaEnv[envVarName] = table.tableName
+          }
+        }
+      }
+      // Add queue environment variables
+      if (def.queues && props.queues) {
+        for (const queueName of def.queues) {
+          const queueObj = props.queues[queueName]
+          if (queueObj) {
+            // Environment variable name: QUEUE_<QUEUE_NAME>, QUEUE_<QUEUE_NAME>_ARN, and QUEUE_<QUEUE_NAME>_URL
+            const envVarBase = `QUEUE_${queueName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`
+            lambdaEnv[envVarBase] = queueObj.queueName
+            lambdaEnv[`${envVarBase}_ARN`] = queueObj.queueArn
+            // Add queue URL if available
+            if (queueObj.queue && typeof queueObj.queue.queueUrl === 'string') {
+              lambdaEnv[`${envVarBase}_URL`] = queueObj.queue.queueUrl
+            }
+          }
+        }
+      }
+      // Add S3 bucket environment variables BEFORE Lambda creation
+      if (def.buckets && props.buckets) {
+        for (const bucketName of def.buckets) {
+          const bucket = props.buckets[bucketName]
+          if (bucket) {
+            lambdaEnv[`BUCKET_${bucketName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`] =
+              bucket.bucketName
+          } else {
+            console.warn(`Bucket ${bucketName} not found for Lambda ${def.name}`)
+          }
+        }
+      }
+      // Now create the Lambda function
+      const fn = createDefaultNodejsFunction(this, `${def.name}-${envName}`, {
+        entry: path.join(__dirname, 'handlers', `${def.handler.split('.')[0]}.ts`),
+        handler: def.handler.split('.')[1],
+        functionName: `${def.name}-${envName}`,
+        description: def.description,
+        environment: lambdaEnv,
+        timeout: def.timeout ? Duration.seconds(def.timeout) : Duration.seconds(30),
+        memorySize: def.memorySize || 128,
+        ...(def.streaming ? { invokeMode: 'RESPONSE_STREAM' } : {})
+      })
+      this.lambdas[def.name] = fn
+      // Attach IAM policies if specified
+      if (def.iamPolicies) {
+        for (const policy of def.iamPolicies) {
+          fn.addToRolePolicy(
+            new aws_iam.PolicyStatement({
+              actions: policy.actions,
+              resources: policy.resources
+            })
+          )
+        }
+      }
+      // Grant DynamoDB table access if specified
+      if (props.tables) {
+        for (const tableName of Object.keys(props.tables)) {
+          const table = props.tables[tableName]
+          if (table) {
+            table.grantReadWriteData(fn)
+          } else {
+            console.warn(`Table ${tableName} not found for Lambda ${def.name}`)
+          }
+        }
+      }
+      // Grant SQS queue access if specified
+      if (def.queues && props.queues) {
+        for (const queueName of def.queues) {
+          const queueObj = props.queues[queueName]
+          if (
+            queueObj &&
+            queueObj.queue &&
+            typeof queueObj.queue.grantSendMessages === 'function'
+          ) {
+            queueObj.queue.grantSendMessages(fn)
+          }
+        }
+      }
+      // Grant S3 bucket access if specified (after Lambda creation)
+      if (def.buckets && props.buckets) {
+        for (const bucketName of def.buckets) {
+          const bucket = props.buckets[bucketName]
+          if (bucket) {
+            bucket.grantReadWrite(fn)
+          }
+        }
+      }
+      // Attach SQS event source if queueEvent is defined
+      if (def.queueEvent && props.queues) {
+        const { queueName, batchSize, enabled } = def.queueEvent
+        const queueObj = props.queues[queueName]
+        if (queueObj && queueObj.queue) {
+          const eventSource = new lambdaEventSources.SqsEventSource(queueObj.queue, {
+            batchSize: batchSize ?? 10,
+            enabled: enabled ?? true
+          })
+          fn.addEventSource(eventSource)
+        } else {
+          console.warn(`Queue ${queueName} not found for Lambda ${def.name} queueEvent`)
+        }
+      }
+      // Attach DynamoDB stream event source if dynamoStreamEvent is defined
+      if (def.dynamoStreamEvent && props.tables) {
+        const { tableName, batchSize, enabled } = def.dynamoStreamEvent
+        const table = props.tables[tableName]
+        if (table) {
+          const eventSource = new lambdaEventSources.DynamoEventSource(table, {
+            startingPosition: cdk.aws_lambda.StartingPosition.LATEST,
+            batchSize: batchSize ?? 100,
+            enabled: enabled ?? true
+          })
+          fn.addEventSource(eventSource)
+        } else {
+          console.warn(`Table ${tableName} not found for Lambda ${def.name} dynamoStreamEvent`)
+        }
+      }
+      // Attach EventBridge event source if eventBridgeEvent is defined
+      if (def.eventBridgeEvent) {
+        const events = cdk.aws_events
+        const eventsTargets = cdk.aws_events_targets
+        let eventBusName = 'default'
+        if (def.eventBridgeEvent.detailType === 'Stripe Event') {
+          const stripeEventDestination = envVars['STRIPE_EVENT_DESTINATION']
+          if (stripeEventDestination) {
+            eventBusName = `aws.partner/stripe.com/${stripeEventDestination}`
+          }
+        } else if (def.eventBridgeEvent.eventBus) {
+          eventBusName = def.eventBridgeEvent.eventBus
+        }
+        const eventBus = events.EventBus.fromEventBusName(
+          this,
+          `EventBus-${def.name}-${envName}`,
+          eventBusName
+        )
+        const rule = new events.Rule(this, `${def.name}EventBridgeRule`, {
+          eventPattern: def.eventBridgeEvent.pattern ?? {
+            detailType: [def.eventBridgeEvent.detailType]
+          },
+          enabled: def.eventBridgeEvent.enabled ?? true,
+          eventBus
+        })
+        rule.addTarget(new eventsTargets.LambdaFunction(fn))
+      }
+      if (def.apiGw) {
+        // Create API Gateway resource and method with support for nested paths
+        const pathSegments = def.apiGw.path.split('/')
+        let resource: apiGW.Resource = this.api.root as apiGW.Resource
+        
+        // Create nested resources for each path segment
+        for (const segment of pathSegments) {
+          if (segment) { // Skip empty segments
+            const existingResource = resource.getResource(segment)
+            if (existingResource) {
+              resource = existingResource as apiGW.Resource
+            } else {
+              resource = resource.addResource(segment)
+            }
+          }
+        }
+        
+        const integration = new apiGW.LambdaIntegration(fn)
+        // Enable CORS if specified
+        if (def.apiGw.cors) {
+          resource.addCorsPreflight({
+            allowOrigins: apiGW.Cors.ALL_ORIGINS,
+            allowMethods: [def.apiGw.method],
+            allowHeaders: apiGW.Cors.DEFAULT_HEADERS
+          })
+        }
+        if (def.apiGw.auth === 'apiKey') {
+          addApiResourceWithApiKey(resource, integration, def.apiGw.method)
+        } else if (def.apiGw.auth === 'cognito') {
+          resource.addMethod(def.apiGw.method, integration, {
+            authorizationType: apiGW.AuthorizationType.COGNITO,
+            authorizer: this.cognitoAuthorizer
+          })
+        } else {
+          resource.addMethod(def.apiGw.method, integration)
+        }
+      }
+    }
+  }
+}
