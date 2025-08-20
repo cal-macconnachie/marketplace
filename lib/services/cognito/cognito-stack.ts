@@ -12,6 +12,7 @@ export interface CognitoStackProps extends cdk.StackProps {
 export class CognitoStack extends cdk.Stack {
   public readonly userPool: cognito.UserPool
   public readonly userPoolClient: cognito.UserPoolClient
+  public readonly cognitoDomain: cognito.UserPoolDomain
 
   constructor(scope: Construct, id: string, props: CognitoStackProps) {
     super(scope, id, props)
@@ -92,5 +93,12 @@ export class CognitoStack extends cdk.Stack {
       })
       this.userPoolClient.node.addDependency(appleProvider)
     }
+
+    this.cognitoDomain = new cognito.UserPoolDomain(this, `CognitoDomain-${envName}`, {
+      userPool: this.userPool,
+      cognitoDomain: {
+        domainPrefix: `payment-auth-${envName.toLowerCase()}`
+      }
+    })
   }
 }
