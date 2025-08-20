@@ -36,35 +36,35 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
         },
         projectionType: 'ALL'
       },
-      {
-        indexName: 'cognito_id-index',
-        partitionKey: { name: 'cognito_id', type: 'S' },
-        projectionType: 'ALL'
-      },
-      {
-        indexName: 'stripe_id-index',
-        partitionKey: {
-          name: 'stripe_id',
-          type: 'S'
-        },
-        sortKey: {
-          name: 'id',
-          type: 'S'
-        },
-        projectionType: 'ALL'
-      },
-      {
-        indexName: 'organization_id-index',
-        partitionKey: {
-          name: 'organization_id',
-          type: 'S'
-        },
-        sortKey: {
-          name: 'id',
-          type: 'S'
-        },
-        projectionType: 'ALL'
-      }
+      // {
+      //   indexName: 'cognito_id-index',
+      //   partitionKey: { name: 'cognito_id', type: 'S' },
+      //   projectionType: 'ALL'
+      // },
+      // {
+      //   indexName: 'stripe_id-index',
+      //   partitionKey: {
+      //     name: 'stripe_id',
+      //     type: 'S'
+      //   },
+      //   sortKey: {
+      //     name: 'id',
+      //     type: 'S'
+      //   },
+      //   projectionType: 'ALL'
+      // },
+      // {
+      //   indexName: 'organization_id-index',
+      //   partitionKey: {
+      //     name: 'organization_id',
+      //     type: 'S'
+      //   },
+      //   sortKey: {
+      //     name: 'id',
+      //     type: 'S'
+      //   },
+      //   projectionType: 'ALL'
+      // }
     ],
     stream: 'NEW_AND_OLD_IMAGES'
   },
