@@ -34,12 +34,12 @@ export const login = async (event: APIGatewayProxyEvent) => {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let response: any
-    let email: string | undefined
+    let userEmail: string | undefined
     if (accessToken) {
       // Social authentication - decode the access token to get user info
       // In practice, you might validate this token with Cognito
       const payload = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64').toString('utf-8'))
-      email = payload.email || payload['cognito:username']
+      userEmail = payload.email || payload['cognito:username']
       
       // For social auth, we already have valid tokens
       response = {
@@ -67,8 +67,8 @@ export const login = async (event: APIGatewayProxyEvent) => {
         throw new Error('[404] User not found')
       }
       
-      email = items[0].email
-      if (email == null) {
+      userEmail = items[0].email
+      if (userEmail == null) {
         throw new Error('[404] User not found')
       }
       
@@ -76,17 +76,17 @@ export const login = async (event: APIGatewayProxyEvent) => {
         AuthFlow: 'USER_PASSWORD_AUTH',
         ClientId: CLIENT_ID,
         AuthParameters: {
-          USERNAME: email,
+          USERNAME: userEmail,
           PASSWORD: password
         }
       })
 
       response = await cognitoClient.send(command)
     }
-    if (email == null) throw new Error('[404] User not found')
+    if (userEmail == null) throw new Error('[404] User not found')
 
     // Get user from DynamoDB
-    const user = await getUserByEmail(email)
+    const user = await getUserByEmail(userEmail)
 
     return {
       statusCode: 200,
