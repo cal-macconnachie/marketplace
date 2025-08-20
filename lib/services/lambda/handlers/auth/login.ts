@@ -13,15 +13,15 @@ const CLIENT_ID = process.env.USER_POOL_CLIENT_ID || ''
 export const login = async (event: APIGatewayProxyEvent) => {
   const { body } = event
   const {
-    username, password, accessToken 
+    email, password, accessToken 
   } = JSON.parse(body || '{}')
   
   // Support both email/password and social token authentication
-  if (!accessToken && (!username || !password)) {
+  if (!accessToken && (!email || !password)) {
     return {
       statusCode: 400,
       body: JSON.stringify({ 
-        message: 'Either username/password or accessToken is required' 
+        message: 'Either email/password or accessToken is required' 
       }),
       headers: {
         'Access-Control-Allow-Origin': '*',
@@ -59,7 +59,7 @@ export const login = async (event: APIGatewayProxyEvent) => {
           '#email': 'email'
         },
         expressionAttributeValues: {
-          ':email': username
+          ':email': email
         }
       })
       
