@@ -1,14 +1,12 @@
 import {
   CognitoIdentityProviderClient,
-  AdminCreateUserCommand,
-  AdminSetUserPasswordCommand
+  SignUpCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { createUpdateUser } from '../../helpers/users/create-update-user'
 import { v4 } from 'uuid'
 
 const cognitoClient = new CognitoIdentityProviderClient({})
-const USER_POOL_ID = process.env.USER_POOL_ID || ''
 
 export const register = async (event: APIGatewayProxyEvent) => {
   const {
@@ -25,30 +23,20 @@ export const register = async (event: APIGatewayProxyEvent) => {
     }
   }
   try {
-    const command = new AdminCreateUserCommand({
-      UserPoolId: USER_POOL_ID,
+    const command = new SignUpCommand({
+      ClientId: process.env.COGNITO_CLIENT_ID,
       Username: email,
+      Password: password,
       UserAttributes: [
         {
           Name: 'email', Value: email 
         }
       ],
-      MessageAction: 'SUPPRESS' // Suppress the welcome email
     })
     const createUserResponse = await cognitoClient.send(command)
 
-    const adminSetUserPasswordCommand = new AdminSetUserPasswordCommand({
-      UserPoolId: USER_POOL_ID,
-      Username: email,
-      Password: password,
-      Permanent: true
-    })
-    await cognitoClient.send(adminSetUserPasswordCommand)
-
     // Extract Cognito user sub (id)
-    const cognitoId = createUserResponse?.User?.Attributes?.find(
-      (attr) => attr.Name === 'sub'
-    )?.Value
+    const cognitoId = createUserResponse?.UserSub
 
     if (!cognitoId) {
       throw new Error('Failed to retrieve Cognito user sub')
