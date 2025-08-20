@@ -42,21 +42,23 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
       },
       // {
       //   indexName: 'cognito_id-index',
-      //   partitionKey: { name: 'cognito_id', type: 'S' },
-      //   projectionType: 'ALL'
-      // },
-      // {
-      //   indexName: 'stripe_id-index',
       //   partitionKey: {
-      //     name: 'stripe_id',
-      //     type: 'S'
-      //   },
-      //   sortKey: {
-      //     name: 'id',
-      //     type: 'S'
+      //     name: 'cognito_id', type: 'S' 
       //   },
       //   projectionType: 'ALL'
       // },
+      {
+        indexName: 'stripe_id-index',
+        partitionKey: {
+          name: 'stripe_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'id',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      },
       // {
       //   indexName: 'organization_id-index',
       //   partitionKey: {

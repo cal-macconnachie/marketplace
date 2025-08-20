@@ -247,6 +247,18 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     }
   },
   {
+    name: 'getProducts',
+    handler: 'payments/get-products.getProducts',
+    description: 'Get Products',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'get-products',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
     name: 'purchaseProducts',
     handler: 'payments/purchase-products.purchaseProducts',
     description: 'Purchase Products',
