@@ -1,10 +1,8 @@
 import { PostAuthenticationTriggerEvent } from 'aws-lambda'
-import { get } from '../../helpers/dynamo-helpers/get'
 import { createUpdateUser } from '../../helpers/users/create-update-user'
 import { v4 } from 'uuid'
 import { User } from '../users'
 import { getUserByEmail } from '../../helpers/users/get-user-by-email'
-
 
 export const postAuthTrigger = async (event: PostAuthenticationTriggerEvent) => {
   console.log('Post-authentication trigger event:', JSON.stringify(event, null, 2))

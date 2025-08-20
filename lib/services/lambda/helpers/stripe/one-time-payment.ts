@@ -1,4 +1,6 @@
-import { Product, PurchasedProduct } from "../../handlers/products"
+import {
+  Product, PurchasedProduct 
+} from "../../handlers/products"
 import { User } from "../../handlers/users"
 import { getPromoByCode } from "./get-promo-by-code"
 import { getStripeClient } from "./stripe-client"
@@ -23,11 +25,7 @@ export const createOneTimePayment = async ({
   const stripe = getStripeClient()
   const customerId = user.id
   // Implementation for creating a one-time payment using Stripe API
-  const [
-    stripeProduct
-  ] = await Promise.all([
-    stripe.products.retrieve(product.id)
-  ])
+  const [stripeProduct] = await Promise.all([stripe.products.retrieve(product.id)])
   const priceId = typeof stripeProduct.default_price === 'string' ? stripeProduct.default_price : stripeProduct.default_price?.id
 
   if (!priceId) {

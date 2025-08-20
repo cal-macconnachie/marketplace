@@ -1,4 +1,6 @@
-import { aws_dynamodb as dynamodb, Stack, StackProps } from 'aws-cdk-lib'
+import {
+  aws_dynamodb as dynamodb, Stack, StackProps 
+} from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import { ddbTableDefinitions } from './ddb-table-definitions'
 

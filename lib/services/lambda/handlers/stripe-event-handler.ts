@@ -44,22 +44,22 @@ export const stripeEventHandler = async (event: EventBridgeEvent<'Stripe Event',
           item.period && 
           item.pricing?.price_details?.price && 
           item.pricing?.price_details?.product
-        );
+        )
         
         if (subscriptionLineItems.length > 0) {
           // Create a map of product periods for updating purchased_products
-          const productPeriods = new Map<string, number>();
+          const productPeriods = new Map<string, number>()
           
           // Process each line item
           for (const lineItem of subscriptionLineItems) {
-            const periodEnd = lineItem.period?.end;
-            const productId = lineItem.pricing?.price_details?.product;
+            const periodEnd = lineItem.period?.end
+            const productId = lineItem.pricing?.price_details?.product
             
             if (periodEnd && productId) {
               // Keep track of the latest period end for each product
-              const currentPeriodEnd = productPeriods.get(productId) || 0;
+              const currentPeriodEnd = productPeriods.get(productId) || 0
               if (periodEnd > currentPeriodEnd) {
-                productPeriods.set(productId, periodEnd);
+                productPeriods.set(productId, periodEnd)
               }
             }
           }
@@ -67,26 +67,29 @@ export const stripeEventHandler = async (event: EventBridgeEvent<'Stripe Event',
           // Update the organization's purchased products with new in_good_standing_until dates
           if (organization.purchased_products && productPeriods.size > 0) {
             const updatedPurchasedProducts = organization.purchased_products.map(product => {
-              const newPeriodEnd = productPeriods.get(product.id);
+              const newPeriodEnd = productPeriods.get(product.id)
               if (newPeriodEnd) {
                 return {
                   ...product,
                   in_good_standing_until: newPeriodEnd
-                };
+                }
               }
-              return product;
-            });
+              return product
+            })
             
             // Update the organization with the new purchased products
             await update<Organization>({
               tableName: process.env.ORGANIZATIONS_TABLE!,
               key: { id: organization.id },
               updates: { purchased_products: updatedPurchasedProducts }
-            });
+            })
             
             // Log the updates
-            for (const [productId, periodEnd] of productPeriods.entries()) {
-              console.log(`Updated product ${productId} for organization ${organization.id} in_good_standing_until to ${new Date(periodEnd * 1000).toISOString()}`);
+            for (const [
+              productId,
+              periodEnd
+            ] of productPeriods.entries()) {
+              console.log(`Updated product ${productId} for organization ${organization.id} in_good_standing_until to ${new Date(periodEnd * 1000).toISOString()}`)
             }
           }
         }

@@ -1,4 +1,6 @@
-import { DynamoDBClient, DeleteItemCommand } from '@aws-sdk/client-dynamodb'
+import {
+  DynamoDBClient, DeleteItemCommand 
+} from '@aws-sdk/client-dynamodb'
 import { marshall } from '@aws-sdk/util-dynamodb'
 
 const dynamo = new DynamoDBClient({})

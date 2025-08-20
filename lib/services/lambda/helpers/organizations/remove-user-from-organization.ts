@@ -60,14 +60,14 @@ export const removeUserFromOrganization = async ({
       key: {
         id: newOrgId
       },
-    record: {
-      id: newOrgId,
-      ...(orgDefaultPaymentMethod && isThisUsersSub ? { default_payment_method: orgDefaultPaymentMethod } : {}),
-      ...(orgPurchasedProducts != null && orgPurchasedProducts.length > 0 && isThisUsersSub ? { purchased_products: orgPurchasedProducts } : {}),
-      ...(orgSubId && isThisUsersSub ? { stripe_subscription_id: orgSubId } : {}),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }
+      record: {
+        id: newOrgId,
+        ...(orgDefaultPaymentMethod && isThisUsersSub ? { default_payment_method: orgDefaultPaymentMethod } : {}),
+        ...(orgPurchasedProducts != null && orgPurchasedProducts.length > 0 && isThisUsersSub ? { purchased_products: orgPurchasedProducts } : {}),
+        ...(orgSubId && isThisUsersSub ? { stripe_subscription_id: orgSubId } : {}),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
     }),
     update<User>({
       tableName: process.env.USERS_TABLE!,

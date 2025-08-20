@@ -1,9 +1,7 @@
-import { Organization } from "../../handlers/organizations"
 import { PurchasedProduct } from "../../handlers/products"
 import { User } from "../../handlers/users"
 import { get } from "../dynamo-helpers/get"
 import { update } from "../dynamo-helpers/update"
-import { getOrganizationUsers } from "./get-organization-users"
 
 export const clearOrganizationProducts = async (purchasedProducts: (PurchasedProduct)[]) => {
   for (const product of purchasedProducts) {

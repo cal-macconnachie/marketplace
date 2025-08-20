@@ -52,7 +52,10 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     name: 'register',
     handler: 'auth/register.register',
     description: 'Register',
-    environment: ['USER_POOL_CLIENT_ID', 'USER_POOL_ID'],
+    environment: [
+      'USER_POOL_CLIENT_ID',
+      'USER_POOL_ID'
+    ],
     iamPolicies: [
       {
         actions: ['cognito-idp:SignUp'],
@@ -142,7 +145,10 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     name: 'adminChangePassword',
     handler: 'auth/admin-change-password.adminChangePassword',
     description: 'Admin Change Password',
-    environment: ['USER_POOL_CLIENT_ID', 'USER_POOL_ID'],
+    environment: [
+      'USER_POOL_CLIENT_ID',
+      'USER_POOL_ID'
+    ],
     iamPolicies: [
       {
         actions: ['cognito-idp:AdminSetUserPassword'],

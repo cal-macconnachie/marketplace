@@ -1,5 +1,7 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { getOrganizationUsers, getOrganizationUsers as getOrganizationUsersHelper } from '../../helpers/organizations/get-organization-users'
+import {
+  getOrganizationUsers 
+} from '../../helpers/organizations/get-organization-users'
 import { get } from '../../helpers/dynamo-helpers/get'
 import { User } from '../users'
 import { queryAll } from '../../helpers/dynamo-helpers/query'

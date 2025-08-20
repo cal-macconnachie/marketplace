@@ -1,12 +1,16 @@
 import Stripe from "stripe"
 import { Organization } from "../../handlers/organizations"
-import { Product, PurchasedProduct } from "../../handlers/products"
+import {
+  Product, PurchasedProduct 
+} from "../../handlers/products"
 import { User } from "../../handlers/users"
 import { getStripeClient } from "./stripe-client"
 import { getPromoByCode } from "./get-promo-by-code"
 import { v4 } from "uuid"
 import { update } from "../dynamo-helpers/update"
-import { addDays, addMonths, addWeeks, addYears } from "date-fns"
+import {
+  addDays, addMonths, addWeeks, addYears 
+} from "date-fns"
 
 export const manageSubscription = async ({
   promotionCode,
@@ -35,41 +39,41 @@ export const manageSubscription = async ({
   const stripe = getStripeClient()
   const discounts: Array<{promotion_code?: string, coupon?: string}> = []
   if (promotionCode || couponId) {
-      if (promotionCode) {
-        // Look up promotion code in database to get the actual Stripe promotion code ID
-        const promoRecord = await getPromoByCode(promotionCode)
-        if (!promoRecord || promoRecord.type !== 'promotion_code') {
-          throw new Error(`Promotion code ${promotionCode} not found`)
-        }
-        
-        // Use stripeId if available, fallback to id for backwards compatibility
-        const stripePromoId = promoRecord.stripeId || promoRecord.id
-        
-        // Validate promotion code exists and is active in Stripe
-        try {
-          const promoCode = await stripe.promotionCodes.retrieve(stripePromoId)
-          if (!promoCode.active) {
-            throw new Error(`Promotion code ${promotionCode} is not active`)
-          }
-          discounts.push({ promotion_code: stripePromoId })
-        } catch {
-          throw new Error(`Invalid promotion code: ${promotionCode}`)
-        }
+    if (promotionCode) {
+      // Look up promotion code in database to get the actual Stripe promotion code ID
+      const promoRecord = await getPromoByCode(promotionCode)
+      if (!promoRecord || promoRecord.type !== 'promotion_code') {
+        throw new Error(`Promotion code ${promotionCode} not found`)
       }
-      
-      if (couponId) {
-        // Validate coupon exists and is valid
-        try {
-          const coupon = await stripe.coupons.retrieve(couponId)
-          if (!coupon.valid) {
-            throw new Error(`Coupon ${couponId} is not valid`)
-          }
-          discounts.push({ coupon: couponId })
-        } catch {
-          throw new Error(`Invalid coupon: ${couponId}`)
+        
+      // Use stripeId if available, fallback to id for backwards compatibility
+      const stripePromoId = promoRecord.stripeId || promoRecord.id
+        
+      // Validate promotion code exists and is active in Stripe
+      try {
+        const promoCode = await stripe.promotionCodes.retrieve(stripePromoId)
+        if (!promoCode.active) {
+          throw new Error(`Promotion code ${promotionCode} is not active`)
         }
+        discounts.push({ promotion_code: stripePromoId })
+      } catch {
+        throw new Error(`Invalid promotion code: ${promotionCode}`)
       }
     }
+      
+    if (couponId) {
+      // Validate coupon exists and is valid
+      try {
+        const coupon = await stripe.coupons.retrieve(couponId)
+        if (!coupon.valid) {
+          throw new Error(`Coupon ${couponId} is not valid`)
+        }
+        discounts.push({ coupon: couponId })
+      } catch {
+        throw new Error(`Invalid coupon: ${couponId}`)
+      }
+    }
+  }
   const currentOrgSubscriptionId = organization.stripe_subscription_id
   let [
     subscription,
@@ -92,7 +96,9 @@ export const manageSubscription = async ({
       ? stripeProduct.default_price
       : stripeProduct.default_price?.id
     if (priceId) {
-      acc[priceId] = { group_id: stripeProduct.metadata.group_id, id: stripeProduct.id }
+      acc[priceId] = {
+        group_id: stripeProduct.metadata.group_id, id: stripeProduct.id 
+      }
     }
     return acc
   }, {})
@@ -110,7 +116,9 @@ export const manageSubscription = async ({
     if (existingItem) {
       existingItem.quantity += 1
     } else {
-      acc.push({ price: priceId, quantity: 1 })
+      acc.push({
+        price: priceId, quantity: 1 
+      })
     }
     return acc
   }, [])
@@ -121,7 +129,6 @@ export const manageSubscription = async ({
     added: [],
     removed: []
   }
-  let subCreated = false
   if (subscription != null) {
     let subscriptionItems = subscription.items.data
     // if adding its simple to add prices or items
@@ -197,7 +204,6 @@ export const manageSubscription = async ({
       startSubscriptionParams.discounts = discounts
     }
     subscription = await stripe.subscriptions.create(startSubscriptionParams)
-    subCreated = true
     for (const priceItem of priceItems) {
       const priceId = priceItem.price
       const productKey = productKeysByPrice[priceId]

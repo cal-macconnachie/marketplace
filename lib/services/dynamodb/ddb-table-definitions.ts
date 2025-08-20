@@ -24,12 +24,16 @@ export interface DdbTableDefinition {
 export const ddbTableDefinitions: DdbTableDefinition[] = [
   {
     tableName: 'users',
-    partitionKey: { name: 'id', type: 'S' },
+    partitionKey: {
+      name: 'id', type: 'S' 
+    },
     billingMode: 'PAY_PER_REQUEST',
     globalSecondaryIndexes: [
       {
         indexName: 'email-index',
-        partitionKey: { name: 'email', type: 'S' },
+        partitionKey: {
+          name: 'email', type: 'S' 
+        },
         sortKey: {
           name: 'id',
           type: 'S'

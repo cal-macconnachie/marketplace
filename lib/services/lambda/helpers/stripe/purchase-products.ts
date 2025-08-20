@@ -29,32 +29,38 @@ export const purchaseProducts = async ({
     }
     return acc
   }, []).map((key) => {
-    const [id, group_id] = key.split(":")
-    return { id, group_id }
+    const [
+      id,
+      group_id
+    ] = key.split(":")
+    return {
+      id, group_id 
+    }
   })
   let [
     user,
     paymentMethod,
     products
-  ]: [User | undefined, PaymentMethod | undefined, (Product | undefined)[]] = await Promise.all([
-    get<User>({
-      tableName: process.env.USERS_TABLE!,
-      key: { id: userId }
-    }),
-    paymentMethodId ? get<PaymentMethod>({
-      tableName: process.env.PAYMENT_METHODS_TABLE!,
-      key: {
-        user_id: userId,
-        id: paymentMethodId
-      }
-    }) : Promise.resolve(undefined),
-    await Promise.all(uniqueProductKeys.map(async (key) => {
-      return get<Product>({
-        tableName: process.env.PRODUCTS_TABLE!,
-        key
-      })
-    }))
-  ])
+  ]: [User | undefined, PaymentMethod | undefined, (Product | undefined)[]
+] = await Promise.all([
+  get<User>({
+    tableName: process.env.USERS_TABLE!,
+    key: { id: userId }
+  }),
+  paymentMethodId ? get<PaymentMethod>({
+    tableName: process.env.PAYMENT_METHODS_TABLE!,
+    key: {
+      user_id: userId,
+      id: paymentMethodId
+    }
+  }) : Promise.resolve(undefined),
+  await Promise.all(uniqueProductKeys.map(async (key) => {
+    return get<Product>({
+      tableName: process.env.PRODUCTS_TABLE!,
+      key
+    })
+  }))
+])
   if (user == null) {
     throw new Error(`User not found: ${userId}`)
   }
@@ -81,16 +87,19 @@ export const purchaseProducts = async ({
       throw new Error(`Payment method not found for organization: ${user.organization_id}`)
     }
     const currentUserHasOrgPaymentMethod = organization.default_payment_method.user_id === user.id
-    ;([paymentMethod, user] = await Promise.all([
-        get<PaymentMethod>({
-          tableName: process.env.PAYMENT_METHODS_TABLE!,
-          key: { id: organization.default_payment_method.id }
-        }),
-        currentUserHasOrgPaymentMethod ? Promise.resolve(user) : get<User>({
-          tableName: process.env.USERS_TABLE!,
-          key: { id: organization.default_payment_method.user_id }
-        })
-      ])
+    ;([
+      paymentMethod,
+      user
+    ] = await Promise.all([
+      get<PaymentMethod>({
+        tableName: process.env.PAYMENT_METHODS_TABLE!,
+        key: { id: organization.default_payment_method.id }
+      }),
+      currentUserHasOrgPaymentMethod ? Promise.resolve(user) : get<User>({
+        tableName: process.env.USERS_TABLE!,
+        key: { id: organization.default_payment_method.user_id }
+      })
+    ])
     )
     if (user == null) {
       throw new Error(`User not found for payment method: ${organization.default_payment_method.user_id}`)

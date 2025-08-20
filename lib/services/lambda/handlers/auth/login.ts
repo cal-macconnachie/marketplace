@@ -3,7 +3,6 @@ import {
   InitiateAuthCommand
 } from '@aws-sdk/client-cognito-identity-provider'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { get } from '../../helpers/dynamo-helpers/get'
 import { query } from '../../helpers/dynamo-helpers/query'
 import { User } from '../users'
 import { getUserByEmail } from '../../helpers/users/get-user-by-email'
@@ -13,7 +12,9 @@ const CLIENT_ID = process.env.USER_POOL_CLIENT_ID || ''
 
 export const login = async (event: APIGatewayProxyEvent) => {
   const { body } = event
-  const { username, password, accessToken } = JSON.parse(body || '{}')
+  const {
+    username, password, accessToken 
+  } = JSON.parse(body || '{}')
   
   // Support both email/password and social token authentication
   if (!accessToken && (!username || !password)) {
@@ -31,6 +32,7 @@ export const login = async (event: APIGatewayProxyEvent) => {
   }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let response: any
     let email: string | undefined
     if (accessToken) {

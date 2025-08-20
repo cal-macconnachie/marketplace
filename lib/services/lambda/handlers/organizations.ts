@@ -1,8 +1,6 @@
 import { unmarshall } from "@aws-sdk/util-dynamodb"
 import { DynamoDBStreamEvent } from "aws-lambda"
 import { PurchasedProduct } from "./products"
-import { update } from "../helpers/dynamo-helpers/update"
-import { User } from "./users"
 import { clearOrganizationProducts } from "../helpers/organizations/clear-organization-products"
 import { allocateOrganizationProducts } from "../helpers/organizations/allocate-organization-products"
 import isEqual from "lodash.isequal"
@@ -40,9 +38,11 @@ export interface Organization {
 export const organizations = async (event: DynamoDBStreamEvent) => {
   for (const record of event.Records) {
     const oldOrg = record.dynamodb?.OldImage
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? (unmarshall(record.dynamodb.OldImage as Record<string, any>) as Organization)
       : undefined
     const newOrg = record.dynamodb?.NewImage
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? (unmarshall(record.dynamodb.NewImage as Record<string, any>) as Organization)
       : undefined
     switch (record.eventName) {

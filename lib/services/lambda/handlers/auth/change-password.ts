@@ -1,11 +1,13 @@
-import { APIGatewayProxyEvent } from "aws-lambda";
-import { get } from "../../helpers/dynamo-helpers/get";
-import { User } from "./register";
-import { AdminSetUserPasswordCommand, ChangePasswordCommand, CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
+import { APIGatewayProxyEvent } from "aws-lambda"
+import {
+  ChangePasswordCommand, CognitoIdentityProviderClient 
+} from "@aws-sdk/client-cognito-identity-provider"
 const cognitoClient = new CognitoIdentityProviderClient({})
 export async function changePassword(event: APIGatewayProxyEvent) {
-  const { body } = event;
-  const { accessToken, oldPassword, newPassword } = JSON.parse(body || "{}");
+  const { body } = event
+  const {
+    accessToken, oldPassword, newPassword 
+  } = JSON.parse(body || "{}")
   if (!accessToken || !oldPassword || !newPassword) {
     return {
       statusCode: 400,
@@ -17,12 +19,12 @@ export async function changePassword(event: APIGatewayProxyEvent) {
     AccessToken: accessToken,
     PreviousPassword: oldPassword,
     ProposedPassword: newPassword
-  });
+  })
 
-  await cognitoClient.send(command);
+  await cognitoClient.send(command)
 
   return {
     statusCode: 200,
     body: JSON.stringify({ message: 'Password changed successfully' })
-  };
+  }
 }

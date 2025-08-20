@@ -4,7 +4,6 @@ import { unmarshall } from '@aws-sdk/util-dynamodb'
 import { AttributeValue } from '@aws-sdk/client-dynamodb'
 import Stripe from 'stripe'
 import isEqual from 'lodash.isequal'
-import { is } from 'date-fns/locale'
 import { getStripeClient } from '../helpers/stripe/stripe-client'
 import { update } from '../helpers/dynamo-helpers/update'
 

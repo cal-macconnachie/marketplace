@@ -1,5 +1,4 @@
 import { create } from "../dynamo-helpers/create"
-import { get } from "../dynamo-helpers/get"
 import { update } from "../dynamo-helpers/update"
 import { User } from "../../handlers/users"
 import { v4 } from "uuid"

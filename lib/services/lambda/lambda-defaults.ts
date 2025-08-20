@@ -1,4 +1,6 @@
-import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs'
+import {
+  NodejsFunction, NodejsFunctionProps 
+} from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Construct } from 'constructs'
 import { Runtime } from 'aws-cdk-lib/aws-lambda'
 import { aws_apigateway as apiGW } from 'aws-cdk-lib'
@@ -21,10 +23,11 @@ export function createDefaultNodejsFunction(scope: Construct, id: string, props:
 export function addApiResourceWithApiKey(resource: any, integration: any, method: string = 'GET') {
   resource.addMethod(method, integration, { apiKeyRequired: true })
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function addApiResourceWithCognito(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   resource: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   integration: any,
   authorizer: apiGW.CognitoUserPoolsAuthorizer,
   method: string = 'GET'
@@ -34,10 +37,11 @@ export function addApiResourceWithCognito(
     authorizer
   })
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function addApiResourcePublic(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   resource: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   integration: any,
   method: string = 'GET'
 ) {

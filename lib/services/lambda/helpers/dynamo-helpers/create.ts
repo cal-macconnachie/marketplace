@@ -1,4 +1,6 @@
-import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb'
+import {
+  DynamoDBClient, PutItemCommand 
+} from '@aws-sdk/client-dynamodb'
 import { marshall } from '@aws-sdk/util-dynamodb'
 
 const dynamo = new DynamoDBClient({})
@@ -30,7 +32,9 @@ export async function create<T>({
   returnCreated?: boolean
 }): Promise<void | T> {
   // Merge key and updates into a single item
-  const item = { ...record, ...key }
+  const item = {
+    ...record, ...key 
+  }
   // delete any empty string values to avoid issues with DynamoDB
   Object.keys(item).forEach((k) => item[k] === '' && delete item[k])
   const command = new PutItemCommand({

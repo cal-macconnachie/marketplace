@@ -1,10 +1,14 @@
-import { AdminSetUserPasswordCommand, CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider"
+import {
+  AdminSetUserPasswordCommand, CognitoIdentityProviderClient 
+} from "@aws-sdk/client-cognito-identity-provider"
 import { APIGatewayProxyEvent } from "aws-lambda"
-  const cognitoClient = new CognitoIdentityProviderClient({})
+const cognitoClient = new CognitoIdentityProviderClient({})
 
 export async function adminChangePassword(event: APIGatewayProxyEvent) {
   const { body } = event
-  const { email, newPassword } = JSON.parse(body || '{}')
+  const {
+    email, newPassword 
+  } = JSON.parse(body || '{}')
   if (!email || !newPassword) {
     return {
       statusCode: 400,

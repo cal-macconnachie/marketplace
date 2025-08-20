@@ -6,7 +6,6 @@ import {
   aws_sqs as sqs,
   aws_lambda_event_sources as lambdaEventSources,
   aws_s3,
-  aws_stepfunctions as sfn,
   Duration
 } from 'aws-cdk-lib'
 import { 
@@ -16,7 +15,9 @@ import {
   addApiResourcePublic
 } from './lambda-defaults'
 import * as path from 'node:path'
-import { LambdaEndpointDefinition, lambdaEndpointDefinitions } from './lambda-endpoint-definitions'
+import {
+  LambdaEndpointDefinition, lambdaEndpointDefinitions 
+} from './lambda-endpoint-definitions'
 import * as cdk from 'aws-cdk-lib'
 
 export interface LambdaStackProps extends cdk.StackProps {
@@ -38,7 +39,9 @@ export class LambdaStack extends cdk.Stack {
 
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props)
-    const { envVars, envName, userPool } = props
+    const {
+      envVars, envName, userPool 
+    } = props
     // Create API Gateway and Cognito Authorizer here
     this.api = new apiGW.RestApi(this, `ApiGwEndpoint-${envName}`, {
       restApiName: `${envName}`,
@@ -181,7 +184,9 @@ export class LambdaStack extends cdk.Stack {
       }
       // Attach SQS event source if queueEvent is defined
       if (def.queueEvent && props.queues) {
-        const { queueName, batchSize, enabled } = def.queueEvent
+        const {
+          queueName, batchSize, enabled 
+        } = def.queueEvent
         const queueObj = props.queues[queueName]
         if (queueObj && queueObj.queue) {
           const eventSource = new lambdaEventSources.SqsEventSource(queueObj.queue, {
@@ -195,7 +200,9 @@ export class LambdaStack extends cdk.Stack {
       }
       // Attach DynamoDB stream event source if dynamoStreamEvent is defined
       if (def.dynamoStreamEvent && props.tables) {
-        const { tableName, batchSize, enabled } = def.dynamoStreamEvent
+        const {
+          tableName, batchSize, enabled 
+        } = def.dynamoStreamEvent
         const table = props.tables[tableName]
         if (table) {
           const eventSource = new lambdaEventSources.DynamoEventSource(table, {

@@ -47,7 +47,6 @@ export interface Promo {
   last_processed_at?: string
 }
 
-
 const getChangedAttributes = (
   oldRecord: Promo | undefined,
   newRecord: Promo

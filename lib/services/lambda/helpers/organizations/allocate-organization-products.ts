@@ -1,7 +1,7 @@
-import { Organization } from "../../handlers/organizations";
-import { PurchasedProduct } from "../../handlers/products";
-import { User } from "../../handlers/users";
-import { update } from "../dynamo-helpers/update";
+import { Organization } from "../../handlers/organizations"
+import { PurchasedProduct } from "../../handlers/products"
+import { User } from "../../handlers/users"
+import { update } from "../dynamo-helpers/update"
 
 export const allocateOrganizationProducts = async (organization: Organization) => {
   const {

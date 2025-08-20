@@ -1,5 +1,5 @@
-import * as cdk from 'aws-cdk-lib';
-import { Construct } from 'constructs';
+import * as cdk from 'aws-cdk-lib'
+import { Construct } from 'constructs'
 import { DdbTablesStack } from './services/dynamodb/ddb-tables-stack'
 import { CognitoStack } from './services/cognito/cognito-stack'
 import { createDefaultNodejsFunction } from './services/lambda/lambda-defaults'
@@ -8,7 +8,7 @@ import { LambdaStack } from './services/lambda/lambda-stack'
 
 export class PaymentAuthBackendStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps & { envName?: string }) {
-    super(scope, id, props);
+    super(scope, id, props)
     const envName = props?.envName || 'dev'
     // The code that defines your stack goes here
     const ddbTables = new DdbTablesStack(this, `DdbTablesStack-${envName}`, { envName })
@@ -25,7 +25,9 @@ export class PaymentAuthBackendStack extends cdk.Stack {
     })
     // Grant permissions to the post-auth trigger function
     ddbTables.tables.users.grantReadWriteData(postAuthTriggerFunction)
-    const cognitoStack = new CognitoStack(this, `CognitoStack-${envName}`, { envName, postAuthTriggerFunction })
+    const cognitoStack = new CognitoStack(this, `CognitoStack-${envName}`, {
+      envName, postAuthTriggerFunction 
+    })
 
     const envVars = {
       'USER_POOL_CLIENT_ID': cognitoStack.userPoolClient.userPoolClientId,

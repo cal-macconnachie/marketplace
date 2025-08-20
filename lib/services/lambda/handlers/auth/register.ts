@@ -9,10 +9,11 @@ import { v4 } from 'uuid'
 
 const cognitoClient = new CognitoIdentityProviderClient({})
 const USER_POOL_ID = process.env.USER_POOL_ID || ''
-const USERS_TABLE = process.env.USERS_TABLE! || 'users-dev'
 
 export const register = async (event: APIGatewayProxyEvent) => {
-  const { email, password, phone_number } = JSON.parse(event.body ?? '{}')
+  const {
+    email, password, phone_number 
+  } = JSON.parse(event.body ?? '{}')
   if (!email || !password) {
     return {
       statusCode: 400,
@@ -27,7 +28,11 @@ export const register = async (event: APIGatewayProxyEvent) => {
     const command = new AdminCreateUserCommand({
       UserPoolId: USER_POOL_ID,
       Username: email,
-      UserAttributes: [{ Name: 'email', Value: email }],
+      UserAttributes: [
+        {
+          Name: 'email', Value: email 
+        }
+      ],
       MessageAction: 'SUPPRESS' // Suppress the welcome email
     })
     const createUserResponse = await cognitoClient.send(command)
