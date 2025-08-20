@@ -9,7 +9,12 @@ import {
   aws_stepfunctions as sfn,
   Duration
 } from 'aws-cdk-lib'
-import { createDefaultNodejsFunction, addApiResourceWithApiKey } from './lambda-defaults'
+import { 
+  createDefaultNodejsFunction, 
+  addApiResourceWithApiKey,
+  addApiResourceWithCognito,
+  addApiResourcePublic
+} from './lambda-defaults'
 import * as path from 'node:path'
 import { LambdaEndpointDefinition, lambdaEndpointDefinitions } from './lambda-endpoint-definitions'
 import * as cdk from 'aws-cdk-lib'
@@ -43,7 +48,14 @@ export class LambdaStack extends cdk.Stack {
     this.apiKey = this.api.addApiKey('ApiKey')
     this.usagePlan = this.api.addUsagePlan('UsagePlan', {
       name: 'DefaultUsagePlan',
-      throttle: { rateLimit: 10, burstLimit: 2 }
+      throttle: { 
+        rateLimit: 100, // requests per second
+        burstLimit: 200 // burst capacity
+      },
+      quota: {
+        limit: 10000, // daily quota
+        period: apiGW.Period.DAY
+      }
     })
     this.usagePlan.addApiKey(this.apiKey)
     this.usagePlan.addApiStage({
@@ -252,12 +264,9 @@ export class LambdaStack extends cdk.Stack {
         if (def.apiGw.auth === 'apiKey') {
           addApiResourceWithApiKey(resource, integration, def.apiGw.method)
         } else if (def.apiGw.auth === 'cognito') {
-          resource.addMethod(def.apiGw.method, integration, {
-            authorizationType: apiGW.AuthorizationType.COGNITO,
-            authorizer: this.cognitoAuthorizer
-          })
+          addApiResourceWithCognito(resource, integration, this.cognitoAuthorizer, def.apiGw.method)
         } else {
-          resource.addMethod(def.apiGw.method, integration)
+          addApiResourcePublic(resource, integration, def.apiGw.method)
         }
       }
     }
