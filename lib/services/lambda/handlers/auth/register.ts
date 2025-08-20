@@ -24,7 +24,7 @@ export const register = async (event: APIGatewayProxyEvent) => {
   }
   try {
     const command = new SignUpCommand({
-      ClientId: process.env.COGNITO_CLIENT_ID,
+      ClientId: process.env.USER_POOL_CLIENT_ID,
       Username: email,
       Password: password,
       UserAttributes: [
