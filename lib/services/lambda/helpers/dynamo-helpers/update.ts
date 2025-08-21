@@ -35,12 +35,12 @@ export async function update<T>({
 }): Promise<void | T> {
   // Remove key attributes from updates
   Object.keys(updates).forEach((k) => {
-    if ((updates as Record<string, unknown>)[k] === '') {
+    if ((updates as Record<string, unknown>)[k] == null) {
       delete (updates as Record<string, unknown>)[k]
     }
   })
   Object.keys(key).forEach((k) => {
-    if ((key as Record<string, unknown>)[k] === '') {
+    if ((key as Record<string, unknown>)[k] == null) {
       delete (key as Record<string, unknown>)[k]
     }
   })
