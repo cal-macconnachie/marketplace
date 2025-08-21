@@ -9,7 +9,7 @@ const cognitoClient = new CognitoIdentityProviderClient({})
 
 export const register = async (event: APIGatewayProxyEvent) => {
   const {
-    email, password, phone_number 
+    email, password, phone_number, family_name, given_name 
   } = JSON.parse(event.body ?? '{}')
   if (!email || !password) {
     return {
@@ -46,7 +46,10 @@ export const register = async (event: APIGatewayProxyEvent) => {
       email,
       phone_number,
       cognito_id: cognitoId,
-      is_organization_admin: true
+      is_organization_admin: true,
+      ...(family_name != null && given_name != null ? {
+        family_name, given_name
+      } : family_name != null ? { family_name } : given_name != null ? { given_name } : {})
     })
 
     return {
