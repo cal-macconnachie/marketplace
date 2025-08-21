@@ -4,6 +4,7 @@ import { User } from "../../handlers/users"
 import { v4 } from "uuid"
 import isEqual from "lodash.isequal"
 import { getUserByEmail } from "./get-user-by-email"
+import { Organization } from '../../handlers/organizations'
 
 export const createUpdateUser = async (userInput: Partial<User>) => {
   if (userInput.email == null) throw new Error('Email is required to create user')
@@ -33,6 +34,7 @@ export const createUpdateUser = async (userInput: Partial<User>) => {
       returnUpdated: true
     })
   } else {
+    const orgId = userInput.organization_id ?? v4()
     user = await create<User>({
       tableName: process.env.USERS_TABLE!,
       key: { email: userInput.email },
@@ -45,6 +47,18 @@ export const createUpdateUser = async (userInput: Partial<User>) => {
       } satisfies User,
       returnCreated: true
     })
+    if (!userInput.organization_id) {
+      await create<Organization>({
+        tableName: process.env.ORGANIZATIONS_TABLE!,
+        key: { id: orgId },
+        record: {
+          id: orgId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        } satisfies Organization,
+        returnCreated: true
+      })
+    }
   }
   return user
 }
