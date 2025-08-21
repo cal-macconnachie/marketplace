@@ -341,5 +341,17 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       auth: 'cognito',
       cors: true
     }
+  },
+  {
+    name: 'updateUser',
+    handler: 'organizations/update-user.updateUser',
+    description: 'Update User',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'update-user',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
   }
 ]
