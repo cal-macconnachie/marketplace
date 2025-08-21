@@ -5,9 +5,19 @@ import { v4 } from "uuid"
 import isEqual from "lodash.isequal"
 import { getUserByEmail } from "./get-user-by-email"
 import { Organization } from '../../handlers/organizations'
+import { getOrganizationById } from '../organizations/get-organization-by-id'
 
 export const createUpdateUser = async (userInput: Partial<User>) => {
   if (userInput.email == null) throw new Error('Email is required to create user')
+  
+  // Validate organization_id exists if provided
+  if (userInput.organization_id) {
+    const organization = await getOrganizationById(userInput.organization_id)
+    if (!organization) {
+      throw new Error(`Organization with id ${userInput.organization_id} does not exist`)
+    }
+  }
+  
   // get user if exists
   const existingUser = await getUserByEmail(userInput.email)
   let user: User | undefined
@@ -41,7 +51,7 @@ export const createUpdateUser = async (userInput: Partial<User>) => {
       record: {
         ...userInput,
         email: userInput.email,
-        organization_id: userInput.organization_id ?? v4(),
+        organization_id: orgId,
         is_organization_admin: userInput.is_organization_admin ?? true,
         id: v4()
       } satisfies User,

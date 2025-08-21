@@ -1,7 +1,6 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { User } from '../users'
-import { create } from '../../helpers/dynamo-helpers/create'
-import { v4 } from 'uuid'
+import { createUpdateUser } from '../../helpers/users/create-update-user'
 
 export const createUser = async (event: APIGatewayProxyEvent) => {
   try {
@@ -18,16 +17,9 @@ export const createUser = async (event: APIGatewayProxyEvent) => {
         }
       }
     }
-    const userId = v4()
-    userToCreate.id = userId
-    const user = await create({
-      tableName: process.env.USERS_TABLE!,
-      key: {
-        id: userId
-      },
-      record: userToCreate,
-      returnCreated: true
-    })
+    
+    const user = await createUpdateUser(userToCreate)
+    
     return {
       statusCode: 201,
       body: JSON.stringify(user),
