@@ -22,11 +22,10 @@ export const postAuthTrigger = async (event: PostAuthenticationTriggerEvent) => 
 
     if (!existingUser) {
       // Create new user record for social sign-in
-      const userData: User = {
+      const userData: Partial<User> = {
         id: v4(),
         email,
         cognito_id: cognitoId,
-        organization_id: v4(),
         is_organization_admin: true, // Default to false, can be updated later
         // Add social provider info if available
         ...(userAttributes.identities && {

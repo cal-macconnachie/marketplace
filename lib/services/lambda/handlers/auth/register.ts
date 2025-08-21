@@ -4,7 +4,6 @@ import {
 } from '@aws-sdk/client-cognito-identity-provider'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { createUpdateUser } from '../../helpers/users/create-update-user'
-import { v4 } from 'uuid'
 
 const cognitoClient = new CognitoIdentityProviderClient({})
 
@@ -47,7 +46,6 @@ export const register = async (event: APIGatewayProxyEvent) => {
       email,
       phone_number,
       cognito_id: cognitoId,
-      organization_id: v4(),
       is_organization_admin: true
     })
 
