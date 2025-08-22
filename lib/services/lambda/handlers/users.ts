@@ -68,7 +68,14 @@ export const users = async (event: DynamoDBStreamEvent) => {
         name: newUser.name || `${newUser.given_name} ${newUser.family_name}`,
         email: newUser.email,
         phone: newUser.phone_number,
-        address: newUser.address,
+        address: newUser.address ? {
+          line1: newUser.address.line_1,
+          line2: newUser.address.line_2,
+          state: newUser.address.state,
+          city: newUser.address.city,
+          country: newUser.address.country,
+          postal_code: newUser.address.postal_code
+        } : undefined,
         metadata: {
           user_id: newUser.id,
           organization_id: newUser.organization_id
@@ -113,7 +120,14 @@ export const users = async (event: DynamoDBStreamEvent) => {
         name: newUser.name || `${newUser.given_name} ${newUser.family_name}`,
         email: newUser.email,
         phone: newUser.phone_number,
-        address: newUser.address,
+        address: newUser.address ? {
+          line1: newUser.address.line_1,
+          line2: newUser.address.line_2,
+          state: newUser.address.state,
+          city: newUser.address.city,
+          country: newUser.address.country,
+          postal_code: newUser.address.postal_code
+        } : undefined,
         metadata: {
           user_id: newUser.id,
           organization_id: newUser.organization_id

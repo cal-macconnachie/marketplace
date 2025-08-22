@@ -22,17 +22,20 @@ export const purchaseProducts = async (event: APIGatewayProxyEvent) => {
       promoCode?: string
       couponId?: string
     } = JSON.parse(body ?? '{}')
-    try {
-      await purchaseProductsHelper({
-        userId,
-        paymentMethodId,
-        productKeys,
-        promoCode,
-        couponId
-      })
-    } catch (error) {
-      console.error(`Error purchasing products for user ${userId}:`, error)
-    }
+    console.log(`Purchasing products for user ${userId}:`, {
+      userId,
+      paymentMethodId,
+      productKeys,
+      promoCode,
+      couponId
+    })
+    await purchaseProductsHelper({
+      userId,
+      paymentMethodId,
+      productKeys,
+      promoCode,
+      couponId
+    })
     return {
       statusCode: 200,
       body: JSON.stringify({ success: true }),

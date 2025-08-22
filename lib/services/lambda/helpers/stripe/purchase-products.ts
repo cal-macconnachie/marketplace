@@ -93,7 +93,10 @@ export const purchaseProducts = async ({
     ] = await Promise.all([
       get<PaymentMethod>({
         tableName: process.env.PAYMENT_METHODS_TABLE!,
-        key: { id: organization.default_payment_method.id }
+        key: {
+          user_id: organization.default_payment_method.user_id,
+          id: organization.default_payment_method.id
+        }
       }),
       currentUserHasOrgPaymentMethod ? Promise.resolve(user) : get<User>({
         tableName: process.env.USERS_TABLE!,
