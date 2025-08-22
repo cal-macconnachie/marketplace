@@ -75,12 +75,12 @@ export async function update<T>({
 
   const command = new UpdateItemCommand({
     TableName: tableName,
-    Key: marshall(key),
+    Key: marshall(key, { removeUndefinedValues: true }),
     UpdateExpression,
     ExpressionAttributeNames,
     ExpressionAttributeValues:
       Object.keys(ExpressionAttributeValues).length > 0
-        ? marshall(ExpressionAttributeValues)
+        ? marshall(ExpressionAttributeValues, { removeUndefinedValues: true })
         : undefined,
     ReturnValues: returnUpdated ? 'ALL_NEW' : undefined
   })
