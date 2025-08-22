@@ -247,6 +247,30 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     }
   },
   {
+    name: 'archivePaymentMethod',
+    handler: 'payments/archive-payment-method.archivePaymentMethod',
+    description: 'Archive Payment Method',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'archive-payment-method',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'purchases',
+    handler: 'purchases.purchasesCrud',
+    description: 'operations for purchases',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'purchases',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
     name: 'getProducts',
     handler: 'payments/get-products.getProducts',
     description: 'Get Products',

@@ -4,6 +4,10 @@ import { get } from '../helpers/dynamo-helpers/get'
 import { update } from '../helpers/dynamo-helpers/update'
 import { User } from './users'
 import { Organization } from './organizations'
+import { addPurchase } from '../helpers/add-purchase'
+import { Purchase } from './purchases'
+import { v4 } from 'uuid'
+import { getStripeClient } from '../helpers/stripe/stripe-client'
 
 export const stripeEventHandler = async (event: EventBridgeEvent<'Stripe Event', Stripe.Event>) => {
   const type = event.detail.type
@@ -83,6 +87,36 @@ export const stripeEventHandler = async (event: EventBridgeEvent<'Stripe Event',
               key: { id: organization.id },
               updates: { purchased_products: updatedPurchasedProducts }
             })
+            
+            // Create purchase records for each subscription renewal
+            const stripe = getStripeClient()
+            for (const lineItem of subscriptionLineItems) {
+              const productId = lineItem.pricing?.price_details?.product
+              if (productId) {
+                try {
+                  const stripeProduct = await stripe.products.retrieve(productId)
+                  const amount = lineItem.amount || 0
+                  
+                  const purchase: Purchase = {
+                    id: v4(),
+                    user_id: user.id,
+                    product_id: productId,
+                    product_name: stripeProduct.name,
+                    is_one_time: false,
+                    is_subscription: true,
+                    purchased_at: new Date().toISOString(),
+                    organization_id: organization.id,
+                    payment_method_id: typeof invoice.default_payment_method === 'string' ? invoice.default_payment_method : invoice.default_payment_method?.id || '',
+                    amount: amount
+                  }
+                  
+                  await addPurchase(purchase)
+                  console.log(`Created purchase record for product ${productId} renewal for organization ${organization.id}`)
+                } catch (error) {
+                  console.error(`Failed to create purchase record for product ${productId}:`, error)
+                }
+              }
+            }
             
             // Log the updates
             for (const [

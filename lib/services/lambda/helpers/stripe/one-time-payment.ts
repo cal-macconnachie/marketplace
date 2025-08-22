@@ -6,6 +6,8 @@ import { getPromoByCode } from "./get-promo-by-code"
 import { getStripeClient } from "./stripe-client"
 import { update } from "../dynamo-helpers/update"
 import { Organization } from "../../handlers/organizations"
+import { addPurchase } from '../add-purchase'
+import { v4 } from 'uuid'
 
 export const createOneTimePayment = async ({
   promotionCode,
@@ -167,6 +169,18 @@ export const createOneTimePayment = async ({
     updates: {
       purchased_products: (organization.purchased_products ?? []).concat([purchasedProduct])
     }
+  })
+  await addPurchase({
+    id: v4(),
+    user_id: user.id,
+    product_id: product.id,
+    organization_id: user.organization_id,
+    purchased_at: new Date().toISOString(),
+    is_one_time: true,
+    is_subscription: false,
+    payment_method_id: paymentMethodId!,
+    product_name: product.name,
+    amount: finalAmount
   })
   return {
     success: true,

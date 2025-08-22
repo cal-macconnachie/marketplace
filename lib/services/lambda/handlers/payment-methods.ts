@@ -5,4 +5,5 @@ export interface PaymentMethod {
   brand: string
   expiry_month: number
   expiry_year: number
+  archived?: boolean
 }

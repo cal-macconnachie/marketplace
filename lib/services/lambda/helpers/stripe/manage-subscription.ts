@@ -11,6 +11,8 @@ import { update } from "../dynamo-helpers/update"
 import {
   addDays, addMonths, addWeeks, addYears 
 } from "date-fns"
+import { addPurchase } from "../add-purchase"
+import { Purchase } from "../../handlers/purchases"
 
 export const manageSubscription = async ({
   promotionCode,
@@ -257,6 +259,30 @@ export const manageSubscription = async ({
     }
     purchasedProducts.push(purchasedProduct)
   }
+  
+  // Create purchase records for each added product
+  for (const productKey of productChanges.added) {
+    const stripeProduct = stripeProducts.find(p => p.id === productKey.id)
+    const ourProduct = products.find(p => p.id === productKey.id)
+    
+    if (stripeProduct && ourProduct) {
+      const purchase: Purchase = {
+        id: v4(),
+        user_id: user.id,
+        product_id: productKey.id,
+        product_name: stripeProduct.name,
+        is_one_time: false,
+        is_subscription: true,
+        purchased_at: new Date().toISOString(),
+        organization_id: organization.id,
+        payment_method_id: paymentMethodId || '',
+        amount: ourProduct.default_price_data?.unit_amount || 0
+      }
+      
+      await addPurchase(purchase)
+    }
+  }
+  
   await update<Organization>({
     tableName: process.env.ORGANIZATIONS_TABLE!,
     key: { id: organization.id },

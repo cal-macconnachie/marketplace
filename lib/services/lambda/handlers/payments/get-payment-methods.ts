@@ -1,25 +1,17 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { get } from '../../helpers/dynamo-helpers/get'
-import { queryAll } from '../../helpers/dynamo-helpers/query'
+import {
+  queryAll, QueryAllInput 
+} from '../../helpers/dynamo-helpers/query'
 import { PaymentMethod } from '../payment-methods'
 
 export const getPaymentMethods = async (event: APIGatewayProxyEvent) => {
   try {
     const {
       user_id,
-      id
+      id,
+      include_archived = false
     } = JSON.parse(event.body ?? '{}')
-    if (!user_id) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Missing user_id' }),
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Credentials': true,
-          'Content-Type': 'application/json'
-        }
-      }
-    }
     if (id != null) {
       return {
         statusCode: 200,
@@ -37,18 +29,34 @@ export const getPaymentMethods = async (event: APIGatewayProxyEvent) => {
         }
       }
     }
-    return {
-      statusCode: 200,
-      body: JSON.stringify(await queryAll<PaymentMethod>({
+    if (user_id) {
+      const params: QueryAllInput = {
         tableName: process.env.PAYMENT_METHODS_TABLE!,
         keyConditionExpression: '#userId = :userId',
         expressionAttributeNames: {
-          '#userId': 'user_id'
+          '#userId': 'user_id',
         },
         expressionAttributeValues: {
-          ':userId': user_id
+          ':userId': user_id,
         }
-      })),
+      }
+      if (!include_archived) {
+        params.filterExpression = 'archived = :archived'
+        params.expressionAttributeValues[':archived'] = false
+      }
+      return {
+        statusCode: 200,
+        body: JSON.stringify(await queryAll<PaymentMethod>(params)),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
+      }
+    }
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'User ID not provided' }),
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,

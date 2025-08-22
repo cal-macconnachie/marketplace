@@ -59,8 +59,7 @@ export async function query<T>({
     items, lastEvaluatedKey 
   }
 }
-
-export async function queryAll<T>(params: {
+export interface QueryAllInput {
   tableName: string
   keyConditionExpression: string
   expressionAttributeValues: Record<string, unknown>
@@ -68,7 +67,8 @@ export async function queryAll<T>(params: {
   filterExpression?: string
   indexName?: string
   scanIndexForward?: boolean
-}): Promise<T[]> {
+}
+export async function queryAll<T>(params: QueryAllInput): Promise<T[]> {
   let items: T[] = []
   let lastEvaluatedKey: Record<string, unknown> | undefined = undefined
   do {

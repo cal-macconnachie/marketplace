@@ -130,5 +130,43 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
     },
     billingMode: 'PAY_PER_REQUEST',
     stream: 'NEW_AND_OLD_IMAGES'
+  },
+  {
+    tableName: 'purchases',
+    partitionKey: {
+      name: 'user_id',
+      type: 'S'
+    },
+    sortKey: {
+      name: 'id',
+      type: 'S'
+    },
+    globalSecondaryIndexes: [
+      {
+        indexName: 'payment_method_id-index',
+        partitionKey: {
+          name: 'payment_method_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'purchased_at',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      },
+      {
+        indexName: 'organization_id-index',
+        partitionKey: {
+          name: 'organization_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'purchased_at',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      }
+    ],
+    billingMode: 'PAY_PER_REQUEST'
   }
 ]
