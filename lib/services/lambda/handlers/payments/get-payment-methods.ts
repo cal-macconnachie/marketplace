@@ -41,7 +41,7 @@ export const getPaymentMethods = async (event: APIGatewayProxyEvent) => {
         }
       }
       if (!include_archived) {
-        params.filterExpression = 'archived = :archived'
+        params.filterExpression = 'attribute_not_exists(archived) OR archived = :archived'
         params.expressionAttributeValues[':archived'] = false
       }
       return {
