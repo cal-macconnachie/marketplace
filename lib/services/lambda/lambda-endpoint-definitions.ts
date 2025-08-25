@@ -46,6 +46,11 @@ export interface LambdaEndpointDefinition {
     pattern?: Record<string, any> // Optional event pattern for filtering events
   }
   streaming?: boolean // Enable Lambda response streaming for this endpoint
+  /**
+   * If set, these HTML files will be bundled with the Lambda function and available at runtime.
+   * Paths should be relative to the handlers directory.
+   */
+  bundleHtml?: string[] // List of HTML files to bundle with this specific Lambda
 }
 export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
   {
@@ -422,6 +427,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       'STRIPE_SECRET_KEY',
       'USER_POOL_CLIENT_ID'
     ],
+    bundleHtml: ['super-admin-manager.html'],
     apiGw: {
       path: 'manager',
       method: 'GET',

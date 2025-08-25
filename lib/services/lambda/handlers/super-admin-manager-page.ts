@@ -1,7 +1,7 @@
-import { readFileSync } from 'fs'
-import { join } from 'path'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { getUserByEmail } from '../helpers/users/get-user-by-email'
+import * as fs from 'fs'
+import * as path from 'path'
 
 export const superAdminManagerPage = async (event: APIGatewayProxyEvent) => {
   try {
@@ -32,8 +32,7 @@ export const superAdminManagerPage = async (event: APIGatewayProxyEvent) => {
       console.log('User authenticated:', email)
 
       // User is authenticated, serve the management interface
-      const templatePath = join(__dirname, 'super-admin-manager.html')
-      let htmlTemplate = readFileSync(templatePath, 'utf8')
+      let htmlTemplate = getManagerTemplate()
       
       // Inject the token and environment prefix into the HTML for API calls
       const envPrefix = process.env.NODE_ENV === 'prod' ? '/prod' : '/dev'
@@ -303,4 +302,9 @@ function getLoginPage(errorMessage?: string) {
       </html>
     `
   }
+}
+
+function getManagerTemplate(): string {
+  const htmlPath = path.join(__dirname, 'super-admin-manager.html')
+  return fs.readFileSync(htmlPath, 'utf-8')
 }

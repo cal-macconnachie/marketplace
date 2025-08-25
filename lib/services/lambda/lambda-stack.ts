@@ -126,6 +126,20 @@ export class LambdaStack extends cdk.Stack {
           }
         }
       }
+      // Prepare bundling options for HTML files if specified
+      const bundlingOptions = def.bundleHtml ? {
+        commandHooks: {
+          beforeBundling: () => [],
+          beforeInstall: () => [],
+          afterBundling: (inputDir: string, outputDir: string): string[] => {
+            const copyCommands = def.bundleHtml!.map(htmlFile => 
+              `cp "${path.join(inputDir, 'lib/services/lambda/handlers', htmlFile)}" "${outputDir}/" 2>/dev/null || true`
+            )
+            return copyCommands
+          }
+        }
+      } : undefined
+
       // Now create the Lambda function
       const fn = createDefaultNodejsFunction(this, `${def.name}-${envName}`, {
         entry: path.join(__dirname, 'handlers', `${def.handler.split('.')[0]}.ts`),
@@ -135,7 +149,8 @@ export class LambdaStack extends cdk.Stack {
         environment: lambdaEnv,
         timeout: def.timeout ? Duration.seconds(def.timeout) : Duration.seconds(30),
         memorySize: def.memorySize || 128,
-        ...(def.streaming ? { invokeMode: 'RESPONSE_STREAM' } : {})
+        ...(def.streaming ? { invokeMode: 'RESPONSE_STREAM' } : {}),
+        ...(bundlingOptions ? { bundling: bundlingOptions } : {})
       })
       this.lambdas[def.name] = fn
       // Attach IAM policies if specified
