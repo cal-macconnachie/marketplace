@@ -2,15 +2,12 @@ import { deleteItem } from '../../helpers/dynamo-helpers/delete'
 import { get } from '../../helpers/dynamo-helpers/get'
 import { Product } from '../products'
 import {
-  DeleteProductRequest,
-  HandlerResponse,
-  DeleteProductResponse,
-  DeleteProductHandler
+  DeleteProductRequest
 } from './types'
 
-export const handler: DeleteProductHandler = async (
+export const deleteProduct = async (
   request: DeleteProductRequest
-): Promise<HandlerResponse<DeleteProductResponse>> => {
+) => {
   try {
     const { pathParameters } = request
     const {
@@ -19,7 +16,6 @@ export const handler: DeleteProductHandler = async (
 
     if (!group_id || !id) {
       return {
-        statusCode: 400,
         error: 'group_id and id are required path parameters'
       }
     }
@@ -27,7 +23,6 @@ export const handler: DeleteProductHandler = async (
     const tableName = process.env.TABLE_PRODUCTS
     if (!tableName) {
       return {
-        statusCode: 500,
         error: 'TABLE_PRODUCTS environment variable not set'
       }
     }
@@ -45,7 +40,6 @@ export const handler: DeleteProductHandler = async (
 
     if (!product) {
       return {
-        statusCode: 404,
         error: 'Product not found'
       }
     }
@@ -57,7 +51,6 @@ export const handler: DeleteProductHandler = async (
     })
 
     return {
-      statusCode: 200,
       data: {
         message: 'Product deleted successfully',
         deletedProduct: product
@@ -66,7 +59,6 @@ export const handler: DeleteProductHandler = async (
   } catch (error) {
     console.error('Error deleting product:', error)
     return {
-      statusCode: 500,
       error: 'Failed to delete product',
       details: error instanceof Error ? error.message : 'Unknown error'
     }

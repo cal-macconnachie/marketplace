@@ -13,7 +13,7 @@ export interface UpdatePromotionCodeRequest {
   metadata?: Record<string, string>
 }
 
-export const handler = async (request: { type: 'coupon' } & UpdateCouponRequest | { type: 'promotion_code' } & UpdatePromotionCodeRequest) => {
+export const updatePromos = async (request: { type: 'coupon' } & UpdateCouponRequest | { type: 'promotion_code' } & UpdatePromotionCodeRequest) => {
   try {
     const stripe = getStripeClient()
 

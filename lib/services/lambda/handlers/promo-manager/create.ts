@@ -41,7 +41,7 @@ export interface CreatePromoRequest extends CreateCouponRequest {
   }
 }
 
-export const handler = async (request: CreatePromoRequest | { type: 'promotion_code' } & CreatePromotionCodeRequest) => {
+export const createPromo = async (request: CreatePromoRequest | { type: 'promotion_code' } & CreatePromotionCodeRequest) => {
   try {
     if (!process.env.TABLE_PROMOS) {
       throw new Error('TABLE_PROMOS environment variable is not set')

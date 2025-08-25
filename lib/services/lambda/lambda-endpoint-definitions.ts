@@ -399,52 +399,26 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     }
   },
   {
-    name: 'superAdminManager',
-    handler: 'manager/super-admin-manager-api.superAdminManagerApi',
-    description: 'Super Admin Manager API',
-    environment: [
-      'STRIPE_SECRET_KEY',
-      'USER_POOL_CLIENT_ID'
-    ],
-    iamPolicies: [
-      {
-        actions: ['cognito-idp:GetUser'],
-        resources: ['*']
-      }
-    ],
+    name: 'productManager',
+    description: 'Product Management',
+    environment: ['STRIPE_SECRET_KEY'],
+    handler: 'product-manager/index.productManager',
     apiGw: {
-      path: 'manager/api',
+      path: 'product-manager',
       method: 'POST',
       auth: 'cognito',
       cors: true
     }
   },
   {
-    name: 'superAdminManagerPage',
-    handler: 'manager/super-admin-manager-page.superAdminManagerPage',
-    description: 'Super Admin Manager Page',
-    environment: [
-      'STRIPE_SECRET_KEY',
-      'USER_POOL_CLIENT_ID'
-    ],
-    bundleHtml: ['manager/templates/super-admin-manager.html'],
+    name: 'promoManager',
+    description: 'Promo Management',
+    environment: ['STRIPE_SECRET_KEY'],
+    handler: 'promo-manager/index.promoManager',
     apiGw: {
-      path: 'manager',
-      method: 'GET',
+      path: 'promo-manager',
+      method: 'POST',
       auth: 'cognito',
-      cors: true
-    }
-  },
-  {
-    name: 'superAdminManagerLogin',
-    handler: 'manager/super-admin-manager-login.superAdminManagerLogin',
-    description: 'Super Admin Manager Login',
-    environment: ['USER_POOL_CLIENT_ID'],
-    bundleHtml: ['manager/templates/login.html'],
-    apiGw: {
-      path: 'manager/login',
-      method: 'GET',
-      auth: 'none',
       cors: true
     }
   }

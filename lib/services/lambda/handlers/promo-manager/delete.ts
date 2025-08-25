@@ -8,7 +8,7 @@ export interface DeletePromotionCodeRequest {
   id: string
 }
 
-export const handler = async (request: { type: 'coupon' } & DeleteCouponRequest | { type: 'promotion_code' } & DeletePromotionCodeRequest) => {
+export const deletePromo = async (request: { type: 'coupon' } & DeleteCouponRequest | { type: 'promotion_code' } & DeletePromotionCodeRequest) => {
   try {
     if (!process.env.TABLE_PROMOS) {
       throw new Error('TABLE_PROMOS environment variable is not set')

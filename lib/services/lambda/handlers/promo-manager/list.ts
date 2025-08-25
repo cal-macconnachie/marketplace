@@ -19,7 +19,7 @@ export interface ListPromotionCodesRequest {
   active?: boolean
 }
 
-export const handler = async (request: { type: 'coupons' } & ListCouponsRequest | { type: 'promotion_codes' } & ListPromotionCodesRequest) => {
+export const listPromos = async (request: { type: 'coupons' } & ListCouponsRequest | { type: 'promotion_codes' } & ListPromotionCodesRequest) => {
   try {
     if (!process.env.TABLE_PROMOS) {
       throw new Error('TABLE_PROMOS environment variable is not set')

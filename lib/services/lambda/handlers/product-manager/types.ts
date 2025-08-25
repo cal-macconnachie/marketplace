@@ -6,6 +6,9 @@ export interface HandlerResponse<T = any> {
   data?: T
   error?: string
   details?: string
+  headers?: {
+    [key: string]: string | number | boolean
+  }
 }
 
 export interface CreateProductRequest {

@@ -2,17 +2,16 @@ import { query } from '../../helpers/dynamo-helpers/query'
 import { scan } from '../../helpers/dynamo-helpers/scan'
 import { Product } from '../products'
 import {
-  ListProductsRequest, HandlerResponse, ListProductsHandler 
+  ListProductsRequest 
 } from './types'
 
-export const handler: ListProductsHandler = async (
+export const listProducts = async (
   request: ListProductsRequest
-): Promise<HandlerResponse<Product[]>> => {
+) => {
   try {
     const tableName = process.env.TABLE_PRODUCTS
     if (!tableName) {
       return {
-        statusCode: 500,
         error: 'TABLE_PRODUCTS environment variable not set'
       }
     }
@@ -31,7 +30,6 @@ export const handler: ListProductsHandler = async (
       })
 
       return {
-        statusCode: 200,
         data: result.items
       }
     } else {
@@ -41,14 +39,12 @@ export const handler: ListProductsHandler = async (
       })
 
       return {
-        statusCode: 200,
         data: result.items
       }
     }
   } catch (error) {
     console.error('Error listing products:', error)
     return {
-      statusCode: 500,
       error: 'Failed to list products',
       details: error instanceof Error ? error.message : 'Unknown error'
     }
