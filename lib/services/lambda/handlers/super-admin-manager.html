@@ -960,7 +960,7 @@
           },
           body: JSON.stringify(requestData)
         };
-        
+        console.log(`${window.location.origin}${ENV_PREFIX}/manager/api`, opitons)
         const response = await fetch(`${window.location.origin}${ENV_PREFIX}/manager/api`, options);
         const result = await response.text();
         
@@ -1179,6 +1179,7 @@
 
     // Tab Management
     function switchTab(tabName) {
+      console.log(tabName)
       // Update tab buttons
       document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
       event.target.classList.add('active');
@@ -1457,6 +1458,7 @@
 
     // Initialize page
     function initializePage() {
+      console.log('Page init called');
       setupValidation();
       setupAutoLoad();
       addMetadata();
