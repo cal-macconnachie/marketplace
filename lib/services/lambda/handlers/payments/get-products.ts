@@ -4,44 +4,9 @@ import {
 import { get } from '../../helpers/dynamo-helpers/get'
 import { Product } from '../products'
 import { queryAll } from '../../helpers/dynamo-helpers/query'
-import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 
 export const getProducts = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-  try {
-    // When using API Gateway Cognito authorizer, user info is in requestContext
-    const cognitoIdentity = event.requestContext?.authorizer?.claims
-    if (!cognitoIdentity?.email) {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ message: 'Authentication required, missing user claims' }),
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Credentials': true,
-          'Content-Type': 'application/json'
-        }
-      }
-    }
-
-    const userEmail = cognitoIdentity.email
-    console.log('User email from Cognito claims:', userEmail)
-    
-    // Get user from database using email from Cognito claims
-    const user = await getUserByEmail(userEmail)
-    
-    if (!user || !user.organization_id) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ message: 'Invalid authentication or missing organization' }),
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Credentials': true,
-          'Content-Type': 'application/json'
-        }
-      }
-    }
-
-    const organizationId = user.organization_id
-    
+  try {    
     const {
       group_id: groupId,
       id
@@ -57,19 +22,6 @@ export const getProducts = async (event: APIGatewayProxyEvent): Promise<APIGatew
         }
       })
       
-      // Check if product belongs to user's organization
-      if (!product || product.organization_id !== organizationId) {
-        return {
-          statusCode: 404,
-          body: JSON.stringify({ message: 'Product not found' }),
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Credentials': true,
-            'Content-Type': 'application/json'
-          }
-        }
-      }
-      
       return {
         statusCode: 200,
         body: JSON.stringify(product),
@@ -81,7 +33,7 @@ export const getProducts = async (event: APIGatewayProxyEvent): Promise<APIGatew
       }
     }
     
-    // Case 2: Get all products in a specific group (filtered by organization)
+    // Case 2: Get all products in a specific group
     if (groupId) {
       const products = await queryAll<Product>({
         tableName: process.env.PRODUCTS_TABLE!,
@@ -90,13 +42,9 @@ export const getProducts = async (event: APIGatewayProxyEvent): Promise<APIGatew
           ':group_id': groupId
         }
       })
-      
-      // Filter products to only include those from user's organization
-      const organizationProducts = products.filter(product => product.organization_id === organizationId)
-      
       return {
         statusCode: 200,
-        body: JSON.stringify(organizationProducts),
+        body: JSON.stringify(products),
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Credentials': true,
@@ -104,20 +52,9 @@ export const getProducts = async (event: APIGatewayProxyEvent): Promise<APIGatew
         }
       }
     }
-    
-    // Case 3: Get all products for user's organization using GSI
-    const allProducts = await queryAll<Product>({
-      tableName: process.env.PRODUCTS_TABLE!,
-      indexName: 'organization_id-index',
-      keyConditionExpression: 'organization_id = :organization_id',
-      expressionAttributeValues: {
-        ':organization_id': organizationId
-      }
-    })
-    
     return {
-      statusCode: 200,
-      body: JSON.stringify(allProducts),
+      statusCode: 404,
+      body: JSON.stringify({ message: 'Product not found' }),
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,
