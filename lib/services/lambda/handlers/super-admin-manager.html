@@ -359,25 +359,6 @@
       color: #666;
     }
 
-    .time-feature-note {
-      background: #e3f2fd;
-      border: 1px solid #1976d2;
-      border-radius: 6px;
-      padding: 15px;
-      margin-bottom: 15px;
-    }
-
-    .time-feature-note h4 {
-      margin: 0 0 10px 0;
-      color: #1976d2;
-    }
-
-    .time-feature-note p {
-      margin: 0;
-      color: #424242;
-      font-size: 0.9rem;
-    }
-
     @media (max-width: 768px) {
       .form-grid {
         grid-template-columns: 1fr;
@@ -498,18 +479,20 @@
           <div class="metadata-section">
             <h3>Metadata</h3>
             <div id="timeFeatureNote" class="time-feature-note" style="display: none;">
-              <h4>⏱️ One-Time Purchase Duration</h4>
-              <p>
-                For non-recurring products, you can set a custom access duration by adding a metadata field with key <strong>"time"</strong> and value in seconds.
-                <br><br>
-                <strong>Examples:</strong><br>
-                • <code>time: 1800</code> = 30 minutes<br>
-                • <code>time: 3600</code> = 1 hour (default)<br>
-                • <code>time: 86400</code> = 24 hours<br>
-                • <code>time: 604800</code> = 7 days<br>
-                • <code>time: 31536000</code> = 1 year<br>
-                • <code>time: 3155673600</code> = 100 years ("forever")
-              </p>
+              <div style="background: #e3f2fd; border: 1px solid #1976d2; border-radius: 6px; padding: 15px; margin-bottom: 15px;">
+                <h4 style="margin: 0 0 10px 0; color: #1976d2;">⏱️ One-Time Purchase Duration</h4>
+                <p style="margin: 0; color: #424242; font-size: 0.9rem;">
+                  For non-recurring products, you can set a custom access duration by adding a metadata field with key <strong>"time"</strong> and value in seconds.
+                  <br><br>
+                  <strong>Examples:</strong><br>
+                  • <code>time: 1800</code> = 30 minutes<br>
+                  • <code>time: 3600</code> = 1 hour (default)<br>
+                  • <code>time: 86400</code> = 24 hours<br>
+                  • <code>time: 604800</code> = 7 days<br>
+                  • <code>time: 31536000</code> = 1 year<br>
+                  • <code>time: 3155673600</code> = 100 years ("forever")
+                </p>
+              </div>
             </div>
             <div id="metadataContainer">
               <div class="metadata-item">
@@ -709,8 +692,6 @@
   </div>
 
   <script>
-    // Get the current host and path to construct the API base URL
-    const API_BASE = window.location.origin + (typeof ENV_PREFIX !== 'undefined' ? ENV_PREFIX : '/dev') + '/manager/api';
     let currentMode = 'create'; // 'create' or 'update'
     let currentProductKey = null;
     let currentTab = 'products'; // 'products' or 'promos'
@@ -734,11 +715,13 @@
         currentMode = 'update';
         document.getElementById('primaryAction').textContent = 'Update Product';
         document.getElementById('modeToggle').textContent = 'Switch to Create Mode';
+        document.getElementById('deleteBtn').style.display = 'inline-block';
         showResponse('Switched to Update Mode. Fill in Group ID and Product ID to load existing product.');
       } else {
         currentMode = 'create';
         document.getElementById('primaryAction').textContent = 'Create Product';
         document.getElementById('modeToggle').textContent = 'Switch to Update Mode';
+        document.getElementById('deleteBtn').style.display = 'none';
         clearForm();
         showResponse('Switched to Create Mode. Form cleared.');
       }
@@ -768,22 +751,20 @@
     }
 
     // Toggle recurring fields and time feature note
-    document.addEventListener('DOMContentLoaded', function() {
-      document.getElementById('isRecurring').addEventListener('change', function() {
-        const recurringFields = document.getElementById('recurringFields');
-        const timeFeatureNote = document.getElementById('timeFeatureNote');
-        const addTimeBtn = document.getElementById('addTimeBtn');
-        
-        if (this.checked) {
-          recurringFields.classList.add('show');
-          timeFeatureNote.style.display = 'none';
-          addTimeBtn.style.display = 'none';
-        } else {
-          recurringFields.classList.remove('show');
-          timeFeatureNote.style.display = 'block';
-          addTimeBtn.style.display = 'inline-block';
-        }
-      });
+    document.getElementById('isRecurring').addEventListener('change', function() {
+      const recurringFields = document.getElementById('recurringFields');
+      const timeFeatureNote = document.getElementById('timeFeatureNote');
+      const addTimeBtn = document.getElementById('addTimeBtn');
+      
+      if (this.checked) {
+        recurringFields.classList.add('show');
+        timeFeatureNote.style.display = 'none';
+        addTimeBtn.style.display = 'none';
+      } else {
+        recurringFields.classList.remove('show');
+        timeFeatureNote.style.display = 'block';
+        addTimeBtn.style.display = 'inline-block';
+      }
     });
 
     // Metadata management
@@ -900,6 +881,9 @@
     function updateModeUI() {
       document.getElementById('primaryAction').textContent = currentMode === 'create' ? 'Create Product' : 'Update Product';
       document.getElementById('modeToggle').textContent = currentMode === 'create' ? 'Switch to Update Mode' : 'Switch to Create Mode';
+      if (document.getElementById('deleteBtn')) {
+        document.getElementById('deleteBtn').style.display = currentMode === 'update' ? 'inline-block' : 'none';
+      }
     }
 
     function clearForm() {
@@ -977,7 +961,7 @@
           body: JSON.stringify(requestData)
         };
         
-        const response = await fetch(API_BASE, options);
+        const response = await fetch(`${window.location.origin}${ENV_PREFIX}/manager/api`, options);
         const result = await response.text();
         
         let parsed;
@@ -1002,43 +986,70 @@
     }
 
     // Product operations
-    document.addEventListener('DOMContentLoaded', function() {
-      document.getElementById('productForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
+    document.getElementById('productForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      if (!validateForm()) {
+        return;
+      }
+      
+      const productData = getFormData();
+      
+      if (currentMode === 'create') {
+        showResponse('Creating product...');
+        const result = await makeRequest('products', 'POST', 'create', productData);
         
-        if (!validateForm()) {
-          return;
-        }
-        
-        const productData = getFormData();
-        
-        if (currentMode === 'create') {
-          showResponse('Creating product...');
-          const result = await makeRequest('products', 'POST', 'create', productData);
-          
-          if (result.success) {
-            showResponse(`Product created successfully!\\n\\n${JSON.stringify(result.data, null, 2)}`);
-            // Auto-switch to update mode after successful creation
-            currentMode = 'update';
-            updateModeUI();
-          } else {
-            showResponse(`Error creating product: ${JSON.stringify(result.data, null, 2)}`, true);
-          }
+        if (result.success) {
+          showResponse(`Product created successfully!\n\n${JSON.stringify(result.data, null, 2)}`);
+          // Auto-switch to update mode after successful creation
+          currentMode = 'update';
+          updateModeUI();
         } else {
-          showResponse('Updating product...');
-          const result = await makeRequest('products', 'PUT', 'update', productData, {
-            group_id: productData.group_id,
-            id: productData.id
-          });
-          
-          if (result.success) {
-            showResponse(`Product updated successfully!\\n\\n${JSON.stringify(result.data, null, 2)}`);
-          } else {
-            showResponse(`Error updating product: ${JSON.stringify(result.data, null, 2)}`, true);
-          }
+          showResponse(`Error creating product: ${JSON.stringify(result.data, null, 2)}`, true);
         }
-      });
+      } else {
+        showResponse('Updating product...');
+        const result = await makeRequest('products', 'PUT', 'update', productData, {
+          group_id: productData.group_id,
+          id: productData.id
+        });
+        
+        if (result.success) {
+          showResponse(`Product updated successfully!\n\n${JSON.stringify(result.data, null, 2)}`);
+        } else {
+          showResponse(`Error updating product: ${JSON.stringify(result.data, null, 2)}`, true);
+        }
+      }
     });
+
+
+    async function deleteProduct() {
+      const group_id = document.getElementById('group_id').value;
+      const productId = document.getElementById('productId').value;
+      
+      if (!group_id || !productId) {
+        showResponse('Please enter Group ID and Product ID to delete.', true);
+        return;
+      }
+      
+      if (!confirm('Are you sure you want to delete this product?')) {
+        return;
+      }
+      
+      showResponse('Deleting product...');
+      
+      const result = await makeRequest('products', 'DELETE', 'delete', null, {
+        group_id: group_id,
+        id: productId
+      });
+      
+      if (result.success) {
+        showResponse(`Product deleted successfully!\n\n${JSON.stringify(result.data, null, 2)}`);
+        clearForm();
+      } else {
+        showResponse(`Error deleting product: ${JSON.stringify(result.data, null, 2)}`, true);
+      }
+    }
 
     async function loadProducts() {
       const productList = document.getElementById('productList');
@@ -1109,7 +1120,7 @@
       });
       
       if (result.success) {
-        showResponse(`Product deleted successfully!\\n\\n${JSON.stringify(result.data, null, 2)}`);
+        showResponse(`Product deleted successfully!\n\n${JSON.stringify(result.data, null, 2)}`);
         loadProducts(); // Refresh the list
       } else {
         showResponse(`Error deleting product: ${JSON.stringify(result.data, null, 2)}`, true);
@@ -1139,11 +1150,31 @@
       }
       
       if (errors.length > 0) {
-        showResponse(`Validation errors:\\n${errors.join('\\n')}`, true);
+        showResponse(`Validation errors:\n${errors.join('\n')}`, true);
         return false;
       }
       
       return true;
+    }
+
+    // Real-time validation feedback
+    function setupValidation() {
+      const requiredFields = ['group_id', 'productId', 'name', 'description', 'unitAmount'];
+      
+      requiredFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        field.addEventListener('blur', function() {
+          if (!this.value.trim()) {
+            this.style.borderColor = '#dc3545';
+          } else {
+            this.style.borderColor = '#e1e5e9';
+          }
+        });
+        
+        field.addEventListener('input', function() {
+          this.style.borderColor = '#e1e5e9';
+        });
+      });
     }
 
     // Tab Management
@@ -1160,6 +1191,7 @@
     }
 
     // Promo Code Management Functions
+
     function toggleDiscountType() {
       const discountType = document.querySelector('input[name="discountType"]:checked').value;
       const percentOffGroup = document.getElementById('percentOffGroup');
@@ -1226,7 +1258,7 @@
       if (result.success) {
         const couponId = result.data?.coupon?.id || 'Unknown';
         const promoCode = result.data?.promotionCode?.code || result.data?.promotionCode?.id || 'Unknown';
-        showPromoResponse(`Promo code created successfully!\\\\n\\\\nCoupon: ${couponId}\\\\nPromotion Code: ${promoCode}\\\\n\\\\n${JSON.stringify(result.data, null, 2)}`);
+        showPromoResponse(`Promo code created successfully!\\n\\nCoupon: ${couponId}\\nPromotion Code: ${promoCode}\\n\\n${JSON.stringify(result.data, null, 2)}`);
         loadCoupons(); // Refresh both lists
         loadPromotionCodes();
       } else {
@@ -1241,6 +1273,8 @@
       const result = await makeRequest('promos', 'POST', 'list', { type: 'coupons' });
       
       if (result.success) {
+        // Debug logging first
+        
         const coupons = result.data.data.data;
         
         if (!Array.isArray(coupons)) {
@@ -1423,6 +1457,7 @@
 
     // Initialize page
     function initializePage() {
+      setupValidation();
       setupAutoLoad();
       addMetadata();
       clearForm(); // Set defaults
@@ -1434,6 +1469,25 @@
 
     // Initialize when DOM is ready
     document.addEventListener('DOMContentLoaded', initializePage);
+    
+    // Clean up on page unload
+    window.addEventListener('beforeunload', function() {
+      // Cancel any pending requests
+      if (window.fetch && window.fetch.abort) {
+        window.fetch.abort();
+      }
+    });
+    
+    // Handle visibility change (tab switching, minimizing)
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) {
+        // Page is now hidden, could pause any polling or timers
+        console.log('Page hidden - pausing operations');
+      } else {
+        // Page is now visible again
+        console.log('Page visible - resuming operations');
+      }
+    });
   </script>
 </body>
 </html>
