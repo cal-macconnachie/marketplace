@@ -305,6 +305,6 @@ function getLoginPage(errorMessage?: string) {
 }
 
 function getManagerTemplate(): string {
-  const htmlPath = path.join(__dirname, 'super-admin-manager.html')
+  const htmlPath = path.join(__dirname, 'test.html')
   return fs.readFileSync(htmlPath, 'utf-8')
 }

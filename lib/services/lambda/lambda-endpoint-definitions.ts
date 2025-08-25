@@ -427,7 +427,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       'STRIPE_SECRET_KEY',
       'USER_POOL_CLIENT_ID'
     ],
-    bundleHtml: ['super-admin-manager.html'],
+    bundleHtml: ['test.html'],
     apiGw: {
       path: 'manager',
       method: 'GET',

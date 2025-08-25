@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TEST</title>
+    <script>
+      alert('head')
+      console.log('head')
+      document.getElementById('but').addEventListener('click', () => {
+        alert('click head')
+        console.log('click head')
+      })
+      document.addEventListener('DOMContentLoaded', () => {
+        alert('load head')
+        console.log('load head')
+      })
+    </script>
+  </head>
+  <body>
+    <script>
+      alert('body top')
+      console.log('body top')
+      document.getElementById('but').addEventListener('click', () => {
+        alert('click body top')
+        console.log('click body top')
+      })
+      document.addEventListener('DOMContentLoaded', () => {
+        alert('load body top')
+        console.log('load body top')
+      })
+    </script>
+    <h1>TEST</h1>
+    <button id="but">button</button>
+    <script>
+      alert('body bottom')
+      console.log('body bottom')
+      document.getElementById('but').addEventListener('click', () => {
+        alert('click body bottom')
+        console.log('click body bottom')
+      })
+      document.addEventListener('DOMContentLoaded', () => {
+        alert('load body bottom')
+        console.log('load body bottom')
+      })
+    </script>
+  </body>
+
+  <script>
+    alert('html bottom')
+    console.log('html bottom')
+    document.getElementById('but').addEventListener('click', () => {
+      alert('click html bottom')
+      console.log('click html bottom')
+    })
+    document.addEventListener('DOMContentLoaded', () => {
+      alert('load html bottom')
+      console.log('load html bottom')
+    })
+  </script>
+</html>
