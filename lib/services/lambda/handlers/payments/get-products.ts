@@ -4,16 +4,16 @@ import {
 import { get } from '../../helpers/dynamo-helpers/get'
 import { Product } from '../products'
 import { queryAll } from '../../helpers/dynamo-helpers/query'
-import { getUserFromToken } from '../../helpers/get-user-from-auth-token'
+import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 
 export const getProducts = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    // Get user from authentication token
-    const authHeader = event.headers?.Authorization || event.headers?.authorization
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // When using API Gateway Cognito authorizer, user info is in requestContext
+    const cognitoIdentity = event.requestContext?.authorizer?.claims
+    if (!cognitoIdentity?.email) {
       return {
-        statusCode: 500,
-        body: JSON.stringify({ message: 'Authentication required, missing Auth Header' }),
+        statusCode: 401,
+        body: JSON.stringify({ message: 'Authentication required, missing user claims' }),
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Credentials': true,
@@ -21,9 +21,12 @@ export const getProducts = async (event: APIGatewayProxyEvent): Promise<APIGatew
         }
       }
     }
-    const accessToken = authHeader.split(' ')[1]
-    console.log('Auth Header found, proceeding to get user from token', accessToken)
-    const user = await getUserFromToken(accessToken)
+
+    const userEmail = cognitoIdentity.email
+    console.log('User email from Cognito claims:', userEmail)
+    
+    // Get user from database using email from Cognito claims
+    const user = await getUserByEmail(userEmail)
     
     if (!user || !user.organization_id) {
       return {

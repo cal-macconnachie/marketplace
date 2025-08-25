@@ -2,7 +2,6 @@ import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult
 } from 'aws-lambda'
-import { User } from './users'
 import { handler as createProductHandler } from './product-manager/create'
 import { handler as updateProductHandler } from './product-manager/update'
 import { handler as deleteProductHandler } from './product-manager/delete'
@@ -12,7 +11,7 @@ import { handler as createPromoHandler } from './promo-manager/create'
 import { handler as listPromoHandler } from './promo-manager/list'
 import { handler as updatePromoHandler } from './promo-manager/update'
 import { handler as deletePromoHandler } from './promo-manager/delete'
-import { getUserFromToken } from '../helpers/get-user-from-auth-token'
+import { getUserByEmail } from '../helpers/users/get-user-by-email'
 
 export const superAdminManagerApi = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const { body } = event
@@ -26,14 +25,24 @@ export const superAdminManagerApi = async (event: APIGatewayProxyEvent): Promise
       'Content-Type': 'application/json'
     }
 
-    const authHeader = event.headers?.Authorization || event.headers?.authorization
-    let user: User | undefined
-    if (!(!authHeader || !authHeader.startsWith('Bearer '))) {
-      const accessToken = authHeader.split(' ')[1]
-      
-      // Get user from authorization header
-      user = await getUserFromToken(accessToken)
+    // When using API Gateway Cognito authorizer, user info is in requestContext
+    const cognitoIdentity = event.requestContext?.authorizer?.claims
+    if (!cognitoIdentity?.email) {
+      return {
+        statusCode: 401,
+        headers: corsHeaders,
+        body: JSON.stringify({
+          error: 'Unauthorized',
+          message: 'Authentication required, missing user claims'
+        })
+      }
     }
+
+    const userEmail = cognitoIdentity.email
+    console.log('User email from Cognito claims:', userEmail)
+    
+    // Get user from database using email from Cognito claims
+    const user = await getUserByEmail(userEmail)
 
     if (!user) {
       return {
@@ -41,7 +50,7 @@ export const superAdminManagerApi = async (event: APIGatewayProxyEvent): Promise
         headers: corsHeaders,
         body: JSON.stringify({
           error: 'Unauthorized',
-          message: 'Valid authentication token required'
+          message: 'User not found in database'
         })
       }
     }
