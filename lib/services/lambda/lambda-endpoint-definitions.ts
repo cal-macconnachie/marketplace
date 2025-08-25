@@ -422,12 +422,6 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       'STRIPE_SECRET_KEY',
       'USER_POOL_CLIENT_ID'
     ],
-    iamPolicies: [
-      {
-        actions: ['cognito-idp:GetUser'],
-        resources: ['*']
-      }
-    ],
     apiGw: {
       path: 'manager',
       method: 'GET',

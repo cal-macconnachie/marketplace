@@ -1,12 +1,7 @@
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import {
-  CognitoIdentityProviderClient,
-  GetUserCommand
-} from '@aws-sdk/client-cognito-identity-provider'
-
-const cognitoClient = new CognitoIdentityProviderClient({})
+import { getUserByEmail } from '../helpers/users/get-user-by-email'
 
 export const superAdminManagerPage = async (event: APIGatewayProxyEvent) => {
   try {
@@ -17,48 +12,38 @@ export const superAdminManagerPage = async (event: APIGatewayProxyEvent) => {
       return getLoginPage()
     }
 
-    const accessToken = authHeader.split(' ')[1]
+    const token = authHeader.split(' ')[1]
     
     try {
-      // Verify the access token with Cognito
-      const getUserCommand = new GetUserCommand({
-        AccessToken: accessToken
-      })
+      // Decode the token to get user info (works for both ID and access tokens)
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString('utf-8'))
+      const email = payload.email || payload['cognito:username']
       
-      const userResponse = await cognitoClient.send(getUserCommand)
-      
-      // Check if user has admin privileges (you can customize this logic)
-      const userAttributes = userResponse.UserAttributes || []
-      const email = userAttributes.find(attr => attr.Name === 'email')?.Value
-      
-      // For now, we'll allow any authenticated user. You can add role-based checks here
       if (!email) {
-        return getLoginPage('Unable to retrieve user information')
+        return getLoginPage('Unable to retrieve user information from token')
       }
+
+      // Verify user exists in our database
+      const user = await getUserByEmail(email)
+      if (!user) {
+        return getLoginPage('User not found in system')
+      }
+
+      console.log('User authenticated:', email)
 
       // User is authenticated, serve the management interface
       const templatePath = join(__dirname, '..', 'templates', 'super-admin-manager.html')
       let htmlTemplate = readFileSync(templatePath, 'utf8')
       
-      // Inject the access token and environment prefix into the HTML for API calls
+      // Inject the token and environment prefix into the HTML for API calls
       const envPrefix = process.env.NODE_ENV === 'prod' ? '/prod' : '/dev'
       htmlTemplate = htmlTemplate.replace(
         '<script>',
         `<script>
-        const AUTH_TOKEN = '${accessToken}';
+        const AUTH_TOKEN = '${token}';  // ID token for API calls (Cognito authorizer expects this)
         const USER_EMAIL = '${email}';
         const ENV_PREFIX = '${envPrefix}';
         `
-      )
-      
-      // Modify the API calls to include authentication
-      htmlTemplate = htmlTemplate.replace(
-        'const options = {',
-        `const options = {
-          headers: {
-            ...options.headers,
-            'Authorization': 'Bearer ' + AUTH_TOKEN
-          },`
       )
       
       return {
@@ -71,8 +56,8 @@ export const superAdminManagerPage = async (event: APIGatewayProxyEvent) => {
         body: htmlTemplate
       }
       
-    } catch (cognitoError) {
-      console.error('Cognito authentication error:', cognitoError)
+    } catch (tokenError) {
+      console.error('Token validation error:', tokenError)
       return getLoginPage('Invalid or expired authentication token')
     }
     
@@ -278,8 +263,9 @@ function getLoginPage(errorMessage?: string) {
               
               const result = await response.json();
               
-              if (response.ok && result.accessToken) {
-                // Store the token and reload the page with auth header
+              if (response.ok && result.idToken) {
+                // Store the ID token for page authentication and access token for API calls
+                localStorage.setItem('idToken', result.idToken);
                 localStorage.setItem('accessToken', result.accessToken);
                 
                 // Reload the page, which will now include the auth token
@@ -296,13 +282,13 @@ function getLoginPage(errorMessage?: string) {
             }
           });
           
-          // Check if we have a stored token and add it to requests
-          const storedToken = localStorage.getItem('accessToken');
-          if (storedToken) {
-            // Try to access the protected page with the stored token
+          // Check if we have a stored ID token for page authentication
+          const storedIdToken = localStorage.getItem('idToken');
+          if (storedIdToken) {
+            // Try to access the protected page with the stored ID token
             fetch(window.location.href, {
               headers: {
-                'Authorization': 'Bearer ' + storedToken
+                'Authorization': 'Bearer ' + storedIdToken
               }
             }).then(response => {
               if (response.ok) {
