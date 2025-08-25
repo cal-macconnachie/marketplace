@@ -32,7 +32,7 @@ export const superAdminManagerPage = async (event: APIGatewayProxyEvent) => {
       console.log('User authenticated:', email)
 
       // User is authenticated, serve the management interface
-      const templatePath = join(__dirname, '..', 'templates', 'super-admin-manager.html')
+      const templatePath = join(__dirname, 'super-admin-manager.html')
       let htmlTemplate = readFileSync(templatePath, 'utf8')
       
       // Inject the token and environment prefix into the HTML for API calls
