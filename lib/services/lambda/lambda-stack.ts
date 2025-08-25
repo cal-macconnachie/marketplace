@@ -46,7 +46,8 @@ export class LambdaStack extends cdk.Stack {
     this.api = new apiGW.RestApi(this, `ApiGwEndpoint-${envName}`, {
       restApiName: `${envName}`,
       description: `API Gateway for Generic Lambda Stack in ${envName} environment`,
-      deployOptions: { stageName: envName }
+      deployOptions: { stageName: envName },
+      binaryMediaTypes: ['text/html']
     })
     this.apiKey = this.api.addApiKey('ApiKey')
     this.usagePlan = this.api.addUsagePlan('UsagePlan', {

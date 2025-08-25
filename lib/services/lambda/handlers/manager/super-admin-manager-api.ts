@@ -2,16 +2,16 @@ import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult
 } from 'aws-lambda'
-import { handler as createProductHandler } from './product-manager/create'
-import { handler as updateProductHandler } from './product-manager/update'
-import { handler as deleteProductHandler } from './product-manager/delete'
-import { handler as listProductHandler } from './product-manager/list'
-import { handler as getProductHandler } from './product-manager/get'
-import { handler as createPromoHandler } from './promo-manager/create'
-import { handler as listPromoHandler } from './promo-manager/list'
-import { handler as updatePromoHandler } from './promo-manager/update'
-import { handler as deletePromoHandler } from './promo-manager/delete'
-import { getUserByEmail } from '../helpers/users/get-user-by-email'
+import { handler as createProductHandler } from '../product-manager/create'
+import { handler as updateProductHandler } from '../product-manager/update'
+import { handler as deleteProductHandler } from '../product-manager/delete'
+import { handler as listProductHandler } from '../product-manager/list'
+import { handler as getProductHandler } from '../product-manager/get'
+import { handler as createPromoHandler } from '../promo-manager/create'
+import { handler as listPromoHandler } from '../promo-manager/list'
+import { handler as updatePromoHandler } from '../promo-manager/update'
+import { handler as deletePromoHandler } from '../promo-manager/delete'
+import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 
 export const superAdminManagerApi = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const { body } = event

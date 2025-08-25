@@ -400,7 +400,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
   },
   {
     name: 'superAdminManager',
-    handler: 'super-admin-manager-api.superAdminManagerApi',
+    handler: 'manager/super-admin-manager-api.superAdminManagerApi',
     description: 'Super Admin Manager API',
     environment: [
       'STRIPE_SECRET_KEY',
@@ -421,15 +421,28 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
   },
   {
     name: 'superAdminManagerPage',
-    handler: 'super-admin-manager-page.superAdminManagerPage',
+    handler: 'manager/super-admin-manager-page.superAdminManagerPage',
     description: 'Super Admin Manager Page',
     environment: [
       'STRIPE_SECRET_KEY',
       'USER_POOL_CLIENT_ID'
     ],
-    bundleHtml: ['test.html'],
+    bundleHtml: ['manager/templates/super-admin-manager.html'],
     apiGw: {
       path: 'manager',
+      method: 'GET',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'superAdminManagerLogin',
+    handler: 'manager/super-admin-manager-login.superAdminManagerLogin',
+    description: 'Super Admin Manager Login',
+    environment: ['USER_POOL_CLIENT_ID'],
+    bundleHtml: ['manager/templates/login.html'],
+    apiGw: {
+      path: 'manager/login',
       method: 'GET',
       auth: 'none',
       cors: true
