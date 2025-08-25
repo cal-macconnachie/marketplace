@@ -6,6 +6,7 @@ import { update } from '../helpers/dynamo-helpers/update'
 export interface Product {
   group_id: string
   id: string
+  organization_id: string
   name: string
   description: string
   active: boolean

@@ -85,6 +85,20 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
       type: 'S'
     },
     billingMode: 'PAY_PER_REQUEST',
+    globalSecondaryIndexes: [
+      {
+        indexName: 'organization_id-index',
+        partitionKey: {
+          name: 'organization_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'id',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      }
+    ],
     stream: 'NEW_AND_OLD_IMAGES' // Enable DynamoDB Streams for Lambda triggers
   },
   {
@@ -116,6 +130,18 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
         indexName: 'code-index',
         partitionKey: {
           name: 'code',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      },
+      {
+        indexName: 'organization_id-index',
+        partitionKey: {
+          name: 'organization_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'id',
           type: 'S'
         },
         projectionType: 'ALL'

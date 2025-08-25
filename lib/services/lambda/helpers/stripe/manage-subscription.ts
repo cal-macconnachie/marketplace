@@ -288,7 +288,9 @@ export const manageSubscription = async ({
     key: { id: organization.id },
     updates: {
       purchased_products: purchasedProducts,
-      ...(purchasedProducts.length === 0 ? { stripe_subscription_id: '' } : {})
+      ...(purchasedProducts.length === 0 
+        ? { stripe_subscription_id: '' } 
+        : subscription ? { stripe_subscription_id: subscription.id } : {})
     }
   })
 }

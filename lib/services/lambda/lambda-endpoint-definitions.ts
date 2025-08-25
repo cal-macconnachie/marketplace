@@ -274,7 +274,16 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     name: 'getProducts',
     handler: 'payments/get-products.getProducts',
     description: 'Get Products',
-    environment: ['STRIPE_SECRET_KEY'],
+    environment: [
+      'STRIPE_SECRET_KEY',
+      'USER_POOL_CLIENT_ID'
+    ],
+    iamPolicies: [
+      {
+        actions: ['cognito-idp:GetUser'],
+        resources: ['*']
+      }
+    ],
     apiGw: {
       path: 'get-products',
       method: 'POST',
@@ -375,6 +384,48 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       path: 'update-user',
       method: 'POST',
       auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'superAdminManager',
+    handler: 'super-admin-manager-api.superAdminManagerApi',
+    description: 'Super Admin Manager API',
+    environment: [
+      'STRIPE_SECRET_KEY',
+      'USER_POOL_CLIENT_ID'
+    ],
+    iamPolicies: [
+      {
+        actions: ['cognito-idp:GetUser'],
+        resources: ['*']
+      }
+    ],
+    apiGw: {
+      path: 'manager/api',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'superAdminManagerPage',
+    handler: 'super-admin-manager-page.superAdminManagerPage',
+    description: 'Super Admin Manager Page',
+    environment: [
+      'STRIPE_SECRET_KEY',
+      'USER_POOL_CLIENT_ID'
+    ],
+    iamPolicies: [
+      {
+        actions: ['cognito-idp:GetUser'],
+        resources: ['*']
+      }
+    ],
+    apiGw: {
+      path: 'manager',
+      method: 'GET',
+      auth: 'none',
       cors: true
     }
   }
