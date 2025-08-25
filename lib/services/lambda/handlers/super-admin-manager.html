@@ -370,808 +370,832 @@
       }
     }
   </style>
-</head>
-<body>
   <script>
-    let currentMode = 'create'; // 'create' or 'update'
-    let currentProductKey = null;
-    let currentTab = 'products'; // 'products' or 'promos'
-    
-    // ID Generation functions
-    function generategroup_id() {
-      const timestamp = Date.now().toString(36);
-      const randomStr = Math.random().toString(36).substr(2, 5);
-      document.getElementById('group_id').value = `group_${timestamp}_${randomStr}`;
-    }
-
-    function generateProductId() {
-      const timestamp = Date.now().toString(36);
-      const randomStr = Math.random().toString(36).substr(2, 5);
-      document.getElementById('productId').value = `prod_${timestamp}_${randomStr}`;
-    }
-
-    // Mode switching functions
-    function switchMode() {
-      if (currentMode === 'create') {
-        currentMode = 'update';
-        document.getElementById('primaryAction').textContent = 'Update Product';
-        document.getElementById('modeToggle').textContent = 'Switch to Create Mode';
-        document.getElementById('deleteBtn').style.display = 'inline-block';
-        showResponse('Switched to Update Mode. Fill in Group ID and Product ID to load existing product.');
-      } else {
-        currentMode = 'create';
-        document.getElementById('primaryAction').textContent = 'Create Product';
-        document.getElementById('modeToggle').textContent = 'Switch to Update Mode';
-        document.getElementById('deleteBtn').style.display = 'none';
-        clearForm();
-        showResponse('Switched to Create Mode. Form cleared.');
-      }
-    }
-
-    // Auto-load product when Group ID and Product ID are filled in update mode
-    function setupAutoLoad() {
-      const group_idInput = document.getElementById('group_id');
-      const productIdInput = document.getElementById('productId');
+    document.addEventListener('DOMContentLoaded', function() {
+      let currentMode = 'create'; // 'create' or 'update'
+      let currentProductKey = null;
+      let currentTab = 'products'; // 'products' or 'promos'
       
-      function checkAutoLoad() {
-        if (currentMode === 'update' && group_idInput.value && productIdInput.value) {
-          const timeout = setTimeout(() => {
-            if (group_idInput.value && productIdInput.value) {
-              editProduct(group_idInput.value, productIdInput.value);
-            }
-          }, 1000);
-          
-          // Clear timeout if user continues typing
-          group_idInput.addEventListener('input', () => clearTimeout(timeout), { once: true });
-          productIdInput.addEventListener('input', () => clearTimeout(timeout), { once: true });
-        }
-      }
-      
-      group_idInput.addEventListener('input', checkAutoLoad);
-      productIdInput.addEventListener('input', checkAutoLoad);
-    }
-
-    // Toggle recurring fields and time feature note
-    document.getElementById('isRecurring').addEventListener('change', function() {
-      const recurringFields = document.getElementById('recurringFields');
-      const timeFeatureNote = document.getElementById('timeFeatureNote');
-      const addTimeBtn = document.getElementById('addTimeBtn');
-      
-      if (this.checked) {
-        recurringFields.classList.add('show');
-        timeFeatureNote.style.display = 'none';
-        addTimeBtn.style.display = 'none';
-      } else {
-        recurringFields.classList.remove('show');
-        timeFeatureNote.style.display = 'block';
-        addTimeBtn.style.display = 'inline-block';
-      }
-    });
-
-    // Metadata management
-    function addMetadata() {
-      const container = document.getElementById('metadataContainer');
-      const div = document.createElement('div');
-      div.className = 'metadata-item';
-      div.innerHTML = `
-        <input type="text" placeholder="Key" class="metadata-key">
-        <input type="text" placeholder="Value" class="metadata-value">
-        <button type="button" class="btn btn-secondary btn-small" onclick="removeMetadata(this)">Remove</button>
-      `;
-      container.appendChild(div);
-    }
-
-    function addTimeMetadata() {
-      const container = document.getElementById('metadataContainer');
-      const div = document.createElement('div');
-      div.className = 'metadata-item';
-      div.innerHTML = `
-        <input type="text" placeholder="Key" class="metadata-key" value="time">
-        <input type="text" placeholder="Value (seconds)" class="metadata-value" value="3600">
-        <button type="button" class="btn btn-secondary btn-small" onclick="removeMetadata(this)">Remove</button>
-      `;
-      container.appendChild(div);
-    }
-
-    function removeMetadata(button) {
-      button.parentElement.remove();
-    }
-
-    function collectMetadata() {
-      const metadata = {};
-      document.querySelectorAll('.metadata-item').forEach(item => {
-        const key = item.querySelector('.metadata-key').value.trim();
-        const value = item.querySelector('.metadata-value').value.trim();
-        if (key && value) {
-          metadata[key] = value;
-        }
-      });
-      return metadata;
-    }
-
-    function populateMetadata(metadata) {
-      const container = document.getElementById('metadataContainer');
-      container.innerHTML = '';
-      
-      if (metadata && Object.keys(metadata).length > 0) {
-        Object.entries(metadata).forEach(([key, value]) => {
-          const div = document.createElement('div');
-          div.className = 'metadata-item';
-          div.innerHTML = `
-            <input type="text" placeholder="Key" class="metadata-key" value="${key}">
-            <input type="text" placeholder="Value" class="metadata-value" value="${value}">
-            <button type="button" class="btn btn-secondary btn-small" onclick="removeMetadata(this)">Remove</button>
-          `;
-          container.appendChild(div);
-        });
-      } else {
-        addMetadata();
-      }
-    }
-
-    // Form handling
-    function getFormData() {
-      const form = document.getElementById('productForm');
-      const formData = new FormData(form);
-      const data = {};
-      
-      for (let [key, value] of formData.entries()) {
-        data[key] = value;
-      }
-      
-      // Handle checkboxes
-      data.active = document.getElementById('active').checked;
-      data.persistUpdate = document.getElementById('persistUpdate').checked;
-      data.sort = document.getElementById('sort').value;
-      
-      // Build the product object
-      const product = {
-        group_id: data.group_id,
-        id: data.productId,
-        name: data.name,
-        description: data.description,
-        active: data.active,
-        persist_update: data.persistUpdate,
-        metadata: {
-          ...collectMetadata(),
-          sort: data.sort || '0'
-        },
-        default_price_data: {
-          currency: data.currency,
-          unit_amount: parseInt(data.unitAmount),
-          tax_behavior: data.taxBehavior
-        }
-      };
-
-      if (document.getElementById('isRecurring').checked) {
-        product.default_price_data.recurring = {
-          interval: data.interval,
-          interval_count: parseInt(data.intervalCount) || 1
-        };
+      // ID Generation functions
+      function generategroup_id() {
+        const timestamp = Date.now().toString(36);
+        const randomStr = Math.random().toString(36).substr(2, 5);
+        document.getElementById('group_id').value = `group_${timestamp}_${randomStr}`;
       }
 
-      return product;
-    }
-
-    function showResponse(message, isError = false) {
-      const responseArea = document.getElementById('responseArea');
-      responseArea.textContent = message;
-      responseArea.style.color = isError ? '#dc3545' : '#333';
-    }
-
-    function updateModeUI() {
-      document.getElementById('primaryAction').textContent = currentMode === 'create' ? 'Create Product' : 'Update Product';
-      document.getElementById('modeToggle').textContent = currentMode === 'create' ? 'Switch to Update Mode' : 'Switch to Create Mode';
-      if (document.getElementById('deleteBtn')) {
-        document.getElementById('deleteBtn').style.display = currentMode === 'update' ? 'inline-block' : 'none';
+      function generateProductId() {
+        const timestamp = Date.now().toString(36);
+        const randomStr = Math.random().toString(36).substr(2, 5);
+        document.getElementById('productId').value = `prod_${timestamp}_${randomStr}`;
       }
-    }
 
-    function clearForm() {
-      document.getElementById('productForm').reset();
-      document.getElementById('active').checked = true;
-      document.getElementById('persistUpdate').checked = true;
-      document.getElementById('isRecurring').checked = false;
-      document.getElementById('recurringFields').classList.remove('show');
-      
-      // Show time feature note for non-recurring products
-      document.getElementById('timeFeatureNote').style.display = 'block';
-      document.getElementById('addTimeBtn').style.display = 'inline-block';
-      
-      // Reset to defaults
-      document.getElementById('unitAmount').value = '999';
-      document.getElementById('taxBehavior').value = 'exclusive';
-      document.getElementById('currency').value = 'CAD';
-      document.getElementById('intervalCount').value = '1';
-      document.getElementById('interval').value = 'month';
-      document.getElementById('sort').value = '0';
-      
-      populateMetadata({});
-      showResponse('Form cleared with defaults.');
-    }
-
-    function populateForm(product) {
-      document.getElementById('group_id').value = product.group_id || '';
-      document.getElementById('productId').value = product.id || '';
-      document.getElementById('name').value = product.name || '';
-      document.getElementById('description').value = product.description || '';
-      document.getElementById('active').checked = product.active || false;
-      document.getElementById('persistUpdate').checked = product.persist_update !== false;
-      document.getElementById('sort').value = (product.metadata && product.metadata.sort) || '0';
-      
-      if (product.default_price_data) {
-        document.getElementById('currency').value = product.default_price_data.currency || 'CAD';
-        document.getElementById('unitAmount').value = product.default_price_data.unit_amount || 0;
-        document.getElementById('taxBehavior').value = product.default_price_data.tax_behavior || 'unspecified';
-        
-        if (product.default_price_data.recurring) {
-          document.getElementById('isRecurring').checked = true;
-          document.getElementById('recurringFields').classList.add('show');
-          document.getElementById('timeFeatureNote').style.display = 'none';
-          document.getElementById('addTimeBtn').style.display = 'none';
-          document.getElementById('interval').value = product.default_price_data.recurring.interval || 'month';
-          document.getElementById('intervalCount').value = product.default_price_data.recurring.interval_count || 1;
-        } else {
-          document.getElementById('isRecurring').checked = false;
-          document.getElementById('recurringFields').classList.remove('show');
-          document.getElementById('timeFeatureNote').style.display = 'block';
-          document.getElementById('addTimeBtn').style.display = 'inline-block';
-        }
-      }
-      
-      populateMetadata(product.metadata);
-    }
-
-    // API calls
-    async function makeRequest(route, method, action, data = null, params = null) {
-      try {
-        const requestData = {
-          route,
-          method,
-          action,
-          data,
-          params
-        };
-
-        const options = {
-          method: 'POST', // Always POST since we're using body-based routing
-          headers: {
-            'Content-Type': 'application/json',
-            ...(typeof AUTH_TOKEN !== 'undefined' ? {'Authorization': 'Bearer ' + AUTH_TOKEN} : {})
-          },
-          body: JSON.stringify(requestData)
-        };
-        console.log(`${window.location.origin}${ENV_PREFIX}/manager/api`, opitons)
-        const response = await fetch(`${window.location.origin}${ENV_PREFIX}/manager/api`, options);
-        const result = await response.text();
-        
-        let parsed;
-        try {
-          parsed = JSON.parse(result);
-        } catch {
-          parsed = result;
-        }
-        
-        return {
-          success: response.ok,
-          data: parsed,
-          status: response.status
-        };
-      } catch (error) {
-        return {
-          success: false,
-          data: error.message,
-          status: 0
-        };
-      }
-    }
-
-    // Product operations
-    document.getElementById('productForm').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      
-      if (!validateForm()) {
-        return;
-      }
-      
-      const productData = getFormData();
-      
-      if (currentMode === 'create') {
-        showResponse('Creating product...');
-        const result = await makeRequest('products', 'POST', 'create', productData);
-        
-        if (result.success) {
-          showResponse(`Product created successfully!\n\n${JSON.stringify(result.data, null, 2)}`);
-          // Auto-switch to update mode after successful creation
+      // Mode switching functions
+      function switchMode() {
+        if (currentMode === 'create') {
           currentMode = 'update';
-          updateModeUI();
+          document.getElementById('primaryAction').textContent = 'Update Product';
+          document.getElementById('modeToggle').textContent = 'Switch to Create Mode';
+          document.getElementById('deleteBtn').style.display = 'inline-block';
+          showResponse('Switched to Update Mode. Fill in Group ID and Product ID to load existing product.');
         } else {
-          showResponse(`Error creating product: ${JSON.stringify(result.data, null, 2)}`, true);
+          currentMode = 'create';
+          document.getElementById('primaryAction').textContent = 'Create Product';
+          document.getElementById('modeToggle').textContent = 'Switch to Update Mode';
+          document.getElementById('deleteBtn').style.display = 'none';
+          clearForm();
+          showResponse('Switched to Create Mode. Form cleared.');
         }
-      } else {
-        showResponse('Updating product...');
-        const result = await makeRequest('products', 'PUT', 'update', productData, {
-          group_id: productData.group_id,
-          id: productData.id
+      }
+
+      // Auto-load product when Group ID and Product ID are filled in update mode
+      function setupAutoLoad() {
+        const group_idInput = document.getElementById('group_id');
+        const productIdInput = document.getElementById('productId');
+        
+        function checkAutoLoad() {
+          if (currentMode === 'update' && group_idInput.value && productIdInput.value) {
+            const timeout = setTimeout(() => {
+              if (group_idInput.value && productIdInput.value) {
+                editProduct(group_idInput.value, productIdInput.value);
+              }
+            }, 1000);
+            
+            // Clear timeout if user continues typing
+            group_idInput.addEventListener('input', () => clearTimeout(timeout), { once: true });
+            productIdInput.addEventListener('input', () => clearTimeout(timeout), { once: true });
+          }
+        }
+        
+        group_idInput.addEventListener('input', checkAutoLoad);
+        productIdInput.addEventListener('input', checkAutoLoad);
+      }
+
+      // Toggle recurring fields and time feature note
+      document.getElementById('isRecurring').addEventListener('change', function() {
+        const recurringFields = document.getElementById('recurringFields');
+        const timeFeatureNote = document.getElementById('timeFeatureNote');
+        const addTimeBtn = document.getElementById('addTimeBtn');
+        
+        if (this.checked) {
+          recurringFields.classList.add('show');
+          timeFeatureNote.style.display = 'none';
+          addTimeBtn.style.display = 'none';
+        } else {
+          recurringFields.classList.remove('show');
+          timeFeatureNote.style.display = 'block';
+          addTimeBtn.style.display = 'inline-block';
+        }
+      });
+
+      // Metadata management
+      function addMetadata() {
+        const container = document.getElementById('metadataContainer');
+        const div = document.createElement('div');
+        div.className = 'metadata-item';
+        div.innerHTML = `
+          <input type="text" placeholder="Key" class="metadata-key">
+          <input type="text" placeholder="Value" class="metadata-value">
+          <button type="button" class="btn btn-secondary btn-small remove-metadata-btn">Remove</button>
+        `;
+        container.appendChild(div);
+        
+        div.querySelector('.remove-metadata-btn').addEventListener('click', function() {
+          div.remove();
         });
+      }
+
+      function addTimeMetadata() {
+        const container = document.getElementById('metadataContainer');
+        const div = document.createElement('div');
+        div.className = 'metadata-item';
+        div.innerHTML = `
+          <input type="text" placeholder="Key" class="metadata-key" value="time">
+          <input type="text" placeholder="Value (seconds)" class="metadata-value" value="3600">
+          <button type="button" class="btn btn-secondary btn-small remove-metadata-btn">Remove</button>
+        `;
+        container.appendChild(div);
         
-        if (result.success) {
-          showResponse(`Product updated successfully!\n\n${JSON.stringify(result.data, null, 2)}`);
-        } else {
-          showResponse(`Error updating product: ${JSON.stringify(result.data, null, 2)}`, true);
-        }
+        div.querySelector('.remove-metadata-btn').addEventListener('click', function() {
+          div.remove();
+        });
       }
-    });
 
-
-    async function deleteProduct() {
-      const group_id = document.getElementById('group_id').value;
-      const productId = document.getElementById('productId').value;
-      
-      if (!group_id || !productId) {
-        showResponse('Please enter Group ID and Product ID to delete.', true);
-        return;
-      }
-      
-      if (!confirm('Are you sure you want to delete this product?')) {
-        return;
-      }
-      
-      showResponse('Deleting product...');
-      
-      const result = await makeRequest('products', 'DELETE', 'delete', null, {
-        group_id: group_id,
-        id: productId
-      });
-      
-      if (result.success) {
-        showResponse(`Product deleted successfully!\n\n${JSON.stringify(result.data, null, 2)}`);
-        clearForm();
-      } else {
-        showResponse(`Error deleting product: ${JSON.stringify(result.data, null, 2)}`, true);
-      }
-    }
-
-    async function loadProducts() {
-      const productList = document.getElementById('productList');
-      productList.innerHTML = '<div class="loading">Loading products...</div>';
-      
-      const result = await makeRequest('products', 'GET', 'list');
-      
-      if (result.success) {
-        const products = Array.isArray(result.data) ? result.data : [];
-        
-        if (products.length === 0) {
-          productList.innerHTML = '<div class="loading">No products found.</div>';
-          return;
-        }
-        
-        productList.innerHTML = products.map(product => `
-          <div class="product-card">
-            <h3>${product.name}</h3>
-            <p><strong>ID:</strong> ${product.id}</p>
-            <p><strong>Group:</strong> ${product.group_id}</p>
-            <p><strong>Sort:</strong> ${(product.metadata && product.metadata.sort) || '0'}</p>
-            <p>${product.description}</p>
-            <div class="price">
-              ${product.default_price_data ? 
-                `${(product.default_price_data.unit_amount / 100).toFixed(2)} ${product.default_price_data.currency.toUpperCase()}` +
-                (product.default_price_data.recurring ? ` / ${product.default_price_data.recurring.interval}` : '')
-                : 'No price data'}
-            </div>
-            <span class="status ${product.active ? 'active' : 'inactive'}">
-              ${product.active ? 'Active' : 'Inactive'}
-            </span>
-            <div class="card-actions">
-              <button class="btn btn-small" onclick="editProduct('${product.group_id}', '${product.id}')">Edit</button>
-              <button class="btn btn-danger btn-small" onclick="deleteProductById('${product.group_id}', '${product.id}')">Delete</button>
-            </div>
-          </div>
-        `).join('');
-      } else {
-        productList.innerHTML = `<div class="loading">Error loading products: ${result.data}</div>`;
-      }
-    }
-
-    async function editProduct(group_id, productId) {
-      const result = await makeRequest('products', 'GET', 'get', null, {
-        group_id: group_id,
-        id: productId
-      });
-      
-      if (result.success) {
-        populateForm(result.data);
-        currentMode = 'update';
-        updateModeUI();
-        currentProductKey = `${group_id}#${productId}`;
-        showResponse('Product loaded for editing.');
-      } else {
-        showResponse(`Error loading product: ${JSON.stringify(result.data, null, 2)}`, true);
-      }
-    }
-
-    async function deleteProductById(group_id, productId) {
-      if (!confirm('Are you sure you want to delete this product?')) {
-        return;
-      }
-      
-      const result = await makeRequest('products', 'DELETE', 'delete', null, {
-        group_id: group_id,
-        id: productId
-      });
-      
-      if (result.success) {
-        showResponse(`Product deleted successfully!\n\n${JSON.stringify(result.data, null, 2)}`);
-        loadProducts(); // Refresh the list
-      } else {
-        showResponse(`Error deleting product: ${JSON.stringify(result.data, null, 2)}`, true);
-      }
-    }
-
-    // Form validation
-    function validateForm() {
-      const requiredFields = ['group_id', 'productId', 'name', 'description', 'unitAmount'];
-      const errors = [];
-      
-      requiredFields.forEach(fieldId => {
-        const field = document.getElementById(fieldId);
-        if (!field.value.trim()) {
-          errors.push(`${field.previousElementSibling.textContent} is required`);
-        }
-      });
-      
-      const unitAmount = document.getElementById('unitAmount').value;
-      if (unitAmount && (isNaN(unitAmount) || parseInt(unitAmount) < 0)) {
-        errors.push('Unit amount must be a positive number');
-      }
-      
-      const sort = document.getElementById('sort').value;
-      if (sort && (isNaN(sort) || parseInt(sort) < 0)) {
-        errors.push('Sort order must be a non-negative number');
-      }
-      
-      if (errors.length > 0) {
-        showResponse(`Validation errors:\n${errors.join('\n')}`, true);
-        return false;
-      }
-      
-      return true;
-    }
-
-    // Real-time validation feedback
-    function setupValidation() {
-      const requiredFields = ['group_id', 'productId', 'name', 'description', 'unitAmount'];
-      
-      requiredFields.forEach(fieldId => {
-        const field = document.getElementById(fieldId);
-        field.addEventListener('blur', function() {
-          if (!this.value.trim()) {
-            this.style.borderColor = '#dc3545';
-          } else {
-            this.style.borderColor = '#e1e5e9';
+      function collectMetadata() {
+        const metadata = {};
+        document.querySelectorAll('.metadata-item').forEach(item => {
+          const key = item.querySelector('.metadata-key').value.trim();
+          const value = item.querySelector('.metadata-value').value.trim();
+          if (key && value) {
+            metadata[key] = value;
           }
         });
+        return metadata;
+      }
+
+      function populateMetadata(metadata) {
+        const container = document.getElementById('metadataContainer');
+        container.innerHTML = '';
         
-        field.addEventListener('input', function() {
-          this.style.borderColor = '#e1e5e9';
-        });
-      });
-    }
-
-    // Tab Management
-    function switchTab(tabName) {
-      console.log(tabName)
-      // Update tab buttons
-      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-      event.target.classList.add('active');
-      
-      // Update tab content
-      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-      document.getElementById(tabName + '-tab').classList.add('active');
-      
-      currentTab = tabName;
-    }
-
-    // Promo Code Management Functions
-
-    function toggleDiscountType() {
-      const discountType = document.querySelector('input[name="discountType"]:checked').value;
-      const percentOffGroup = document.getElementById('percentOffGroup');
-      const amountOffGroup = document.getElementById('amountOffGroup');
-      const currencyGroup = document.getElementById('currencyGroup');
-      
-      if (discountType === 'percent') {
-        percentOffGroup.style.display = 'block';
-        amountOffGroup.style.display = 'none';
-        currencyGroup.style.display = 'none';
-      } else {
-        percentOffGroup.style.display = 'none';
-        amountOffGroup.style.display = 'block';
-        currencyGroup.style.display = 'block';
-      }
-    }
-
-    function toggleDurationFields() {
-      const duration = document.getElementById('duration').value;
-      const durationMonthsGroup = document.getElementById('durationMonthsGroup');
-      
-      if (duration === 'repeating') {
-        durationMonthsGroup.style.display = 'block';
-      } else {
-        durationMonthsGroup.style.display = 'none';
-      }
-    }
-
-    function generateCouponId() {
-      const timestamp = Date.now().toString(36);
-      const randomStr = Math.random().toString(36).substr(2, 5);
-      document.getElementById('couponId').value = `coupon_${timestamp}_${randomStr}`;
-    }
-
-    function generatePromoCode() {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      let result = '';
-      for (let i = 0; i < 8; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      document.getElementById('promoCode').value = result;
-    }
-
-    function clearPromoForm() {
-      document.getElementById('promoForm').reset();
-      document.querySelector('input[name="discountType"][value="percent"]').checked = true;
-      toggleDiscountType();
-      document.getElementById('duration').value = 'once';
-      toggleDurationFields();
-      showPromoResponse('Form cleared.');
-    }
-
-    function showPromoResponse(message, isError = false) {
-      const responseArea = document.getElementById('promoResponseArea');
-      responseArea.textContent = message;
-      responseArea.style.color = isError ? '#dc3545' : '#333';
-    }
-
-    // Promo API calls
-    async function createPromoCode(promoData) {
-      showPromoResponse('Creating promo code (coupon + promotion code)...');
-      const result = await makeRequest('promos', 'POST', 'create', promoData);
-      
-      if (result.success) {
-        const couponId = result.data?.coupon?.id || 'Unknown';
-        const promoCode = result.data?.promotionCode?.code || result.data?.promotionCode?.id || 'Unknown';
-        showPromoResponse(`Promo code created successfully!\\n\\nCoupon: ${couponId}\\nPromotion Code: ${promoCode}\\n\\n${JSON.stringify(result.data, null, 2)}`);
-        loadCoupons(); // Refresh both lists
-        loadPromotionCodes();
-      } else {
-        showPromoResponse(`Error creating promo code: ${JSON.stringify(result.data || result.error, null, 2)}`, true);
-      }
-    }
-
-    async function loadCoupons() {
-      const couponsList = document.getElementById('couponsList');
-      couponsList.innerHTML = '<div class="loading">Loading coupons...</div>';
-      
-      const result = await makeRequest('promos', 'POST', 'list', { type: 'coupons' });
-      
-      if (result.success) {
-        // Debug logging first
-        
-        const coupons = result.data.data.data;
-        
-        if (!Array.isArray(coupons)) {
-          couponsList.innerHTML = `<div class="loading">Error: Expected array but got ${typeof coupons}. Check console for details.</div>`;
-          return;
+        if (metadata && Object.keys(metadata).length > 0) {
+          Object.entries(metadata).forEach(([key, value]) => {
+            const div = document.createElement('div');
+            div.className = 'metadata-item';
+            div.innerHTML = `
+              <input type="text" placeholder="Key" class="metadata-key" value="${key}">
+              <input type="text" placeholder="Value" class="metadata-value" value="${value}">
+              <button type="button" class="btn btn-secondary btn-small remove-metadata-btn">Remove</button>
+            `;
+            container.appendChild(div);
+            
+            div.querySelector('.remove-metadata-btn').addEventListener('click', function() {
+              div.remove();
+            });
+          });
+        } else {
+          addMetadata();
         }
-        
-        if (coupons.length === 0) {
-          couponsList.innerHTML = '<div class="loading">No coupons found.</div>';
-          return;
-        }
-        
-        couponsList.innerHTML = '<h3>Coupons</h3>' + coupons.map(coupon => `
-          <div class="product-card">
-            <h3>${coupon.name || 'Unnamed Coupon'}</h3>
-            <p><strong>ID:</strong> ${coupon.id}</p>
-            <p><strong>Duration:</strong> ${coupon.duration}</p>
-            <div class="price">
-              ${coupon.percent_off ? `${coupon.percent_off}% off` : 
-                coupon.amount_off ? `${(coupon.amount_off / 100).toFixed(2)} ${coupon.currency?.toUpperCase()} off` : 
-                'No discount info'}
-            </div>
-            <span class="status ${coupon.valid ? 'active' : 'inactive'}">
-              ${coupon.valid ? 'Valid' : 'Invalid'}
-            </span>
-            <div class="card-actions">
-              <button class="btn btn-small" onclick="editCoupon('${coupon.id}')">Edit</button>
-              <button class="btn btn-danger btn-small" onclick="deleteCoupon('${coupon.id}')">Delete</button>
-            </div>
-          </div>
-        `).join('');
-      } else {
-        couponsList.innerHTML = `<div class="loading">Error loading coupons: ${result.data || result.error}</div>`;
       }
-    }
 
-    async function loadPromotionCodes() {
-      const promoCodesList = document.getElementById('promotionCodesList');
-      promoCodesList.innerHTML = '<div class="loading">Loading promotion codes...</div>';
-      
-      const result = await makeRequest('promos', 'POST', 'list', { type: 'promotion_codes' });
-      
-      if (result.success) {
-        const promoCodes = (result.data && result.data.data) ? result.data.data.data : [];
-        
-        if (!Array.isArray(promoCodes)) {
-          promoCodesList.innerHTML = `<div class="loading">Error: Expected array but got ${typeof promoCodes}. Check console for details.</div>`;
-          return;
-        }
-        
-        if (promoCodes.length === 0) {
-          promoCodesList.innerHTML = '<div class="loading">No promotion codes found.</div>';
-          return;
-        }
-        
-        promoCodesList.innerHTML = '<h3>Promotion Codes</h3>' + promoCodes.map(promo => `
-          <div class="product-card">
-            <h3>${promo.code}</h3>
-            <p><strong>ID:</strong> ${promo.id}</p>
-            <p><strong>Coupon:</strong> ${promo.coupon?.id || promo.coupon}</p>
-            <p><strong>Times Redeemed:</strong> ${promo.times_redeemed || 0}</p>
-            ${promo.expires_at ? `<p><strong>Expires:</strong> ${new Date(promo.expires_at * 1000).toLocaleDateString()}</p>` : ''}
-            <span class="status ${promo.active ? 'active' : 'inactive'}">
-              ${promo.active ? 'Active' : 'Inactive'}
-            </span>
-            <div class="card-actions">
-              <button class="btn btn-small" onclick="editPromotionCode('${promo.id}')">Edit</button>
-              <button class="btn btn-danger btn-small" onclick="deletePromotionCode('${promo.id}')">Deactivate</button>
-            </div>
-          </div>
-        `).join('');
-      } else {
-        promoCodesList.innerHTML = `<div class="loading">Error loading promotion codes: ${result.data || result.error}</div>`;
-      }
-    }
-
-    async function deleteCoupon(couponId) {
-      if (!confirm('Are you sure you want to delete this coupon?')) {
-        return;
-      }
-      
-      const result = await makeRequest('promos', 'DELETE', 'delete', { type: 'coupon', id: couponId });
-      
-      if (result.success) {
-        showPromoResponse(`Coupon deleted successfully!`);
-        loadCoupons(); // Refresh the list
-      } else {
-        showPromoResponse(`Error deleting coupon: ${JSON.stringify(result.data || result.error, null, 2)}`, true);
-      }
-    }
-
-    async function deletePromotionCode(promoId) {
-      if (!confirm('Are you sure you want to deactivate this promotion code?')) {
-        return;
-      }
-      
-      const result = await makeRequest('promos', 'DELETE', 'delete', { type: 'promotion_code', id: promoId });
-      
-      if (result.success) {
-        showPromoResponse(`Promotion code deactivated successfully!`);
-        loadPromotionCodes(); // Refresh the list
-      } else {
-        showPromoResponse(`Error deactivating promotion code: ${JSON.stringify(result.data || result.error, null, 2)}`, true);
-      }
-    }
-
-    function editCoupon(couponId) {
-      showPromoResponse('Coupon editing not yet implemented. Use Stripe Dashboard for advanced editing.');
-    }
-
-    function editPromotionCode(promoId) {
-      showPromoResponse('Promotion code editing not yet implemented. Use Stripe Dashboard for advanced editing.');
-    }
-
-    // Form submission handlers
-    document.addEventListener('DOMContentLoaded', function() {
-      // Unified promo form submission
-      document.getElementById('promoForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(this);
-        const promoData = {};
+      // Form handling
+      function getFormData() {
+        const form = document.getElementById('productForm');
+        const formData = new FormData(form);
+        const data = {};
         
         for (let [key, value] of formData.entries()) {
-          if (value.trim()) {
-            promoData[key] = value;
+          data[key] = value;
+        }
+        
+        // Handle checkboxes
+        data.active = document.getElementById('active').checked;
+        data.persistUpdate = document.getElementById('persistUpdate').checked;
+        data.sort = document.getElementById('sort').value;
+        
+        // Build the product object
+        const product = {
+          group_id: data.group_id,
+          id: data.productId,
+          name: data.name,
+          description: data.description,
+          active: data.active,
+          persist_update: data.persistUpdate,
+          metadata: {
+            ...collectMetadata(),
+            sort: data.sort || '0'
+          },
+          default_price_data: {
+            currency: data.currency,
+            unit_amount: parseInt(data.unitAmount),
+            tax_behavior: data.taxBehavior
+          }
+        };
+
+        if (document.getElementById('isRecurring').checked) {
+          product.default_price_data.recurring = {
+            interval: data.interval,
+            interval_count: parseInt(data.intervalCount) || 1
+          };
+        }
+
+        return product;
+      }
+
+      function showResponse(message, isError = false) {
+        const responseArea = document.getElementById('responseArea');
+        responseArea.textContent = message;
+        responseArea.style.color = isError ? '#dc3545' : '#333';
+      }
+
+      function updateModeUI() {
+        document.getElementById('primaryAction').textContent = currentMode === 'create' ? 'Create Product' : 'Update Product';
+        document.getElementById('modeToggle').textContent = currentMode === 'create' ? 'Switch to Update Mode' : 'Switch to Create Mode';
+        if (document.getElementById('deleteBtn')) {
+          document.getElementById('deleteBtn').style.display = currentMode === 'update' ? 'inline-block' : 'none';
+        }
+      }
+
+      function clearForm() {
+        document.getElementById('productForm').reset();
+        document.getElementById('active').checked = true;
+        document.getElementById('persistUpdate').checked = true;
+        document.getElementById('isRecurring').checked = false;
+        document.getElementById('recurringFields').classList.remove('show');
+        
+        // Show time feature note for non-recurring products
+        document.getElementById('timeFeatureNote').style.display = 'block';
+        document.getElementById('addTimeBtn').style.display = 'inline-block';
+        
+        // Reset to defaults
+        document.getElementById('unitAmount').value = '999';
+        document.getElementById('taxBehavior').value = 'exclusive';
+        document.getElementById('currency').value = 'CAD';
+        document.getElementById('intervalCount').value = '1';
+        document.getElementById('interval').value = 'month';
+        document.getElementById('sort').value = '0';
+        
+        populateMetadata({});
+        showResponse('Form cleared with defaults.');
+      }
+
+      function populateForm(product) {
+        document.getElementById('group_id').value = product.group_id || '';
+        document.getElementById('productId').value = product.id || '';
+        document.getElementById('name').value = product.name || '';
+        document.getElementById('description').value = product.description || '';
+        document.getElementById('active').checked = product.active || false;
+        document.getElementById('persistUpdate').checked = product.persist_update !== false;
+        document.getElementById('sort').value = (product.metadata && product.metadata.sort) || '0';
+        
+        if (product.default_price_data) {
+          document.getElementById('currency').value = product.default_price_data.currency || 'CAD';
+          document.getElementById('unitAmount').value = product.default_price_data.unit_amount || 0;
+          document.getElementById('taxBehavior').value = product.default_price_data.tax_behavior || 'unspecified';
+          
+          if (product.default_price_data.recurring) {
+            document.getElementById('isRecurring').checked = true;
+            document.getElementById('recurringFields').classList.add('show');
+            document.getElementById('timeFeatureNote').style.display = 'none';
+            document.getElementById('addTimeBtn').style.display = 'none';
+            document.getElementById('interval').value = product.default_price_data.recurring.interval || 'month';
+            document.getElementById('intervalCount').value = product.default_price_data.recurring.interval_count || 1;
+          } else {
+            document.getElementById('isRecurring').checked = false;
+            document.getElementById('recurringFields').classList.remove('show');
+            document.getElementById('timeFeatureNote').style.display = 'block';
+            document.getElementById('addTimeBtn').style.display = 'inline-block';
           }
         }
         
-        // Handle discount type
-        const discountType = document.querySelector('input[name="discountType"]:checked').value;
-        if (discountType === 'percent') {
-          promoData.percent_off = parseInt(promoData.percent_off);
-          delete promoData.amount_off;
-          delete promoData.currency;
+        populateMetadata(product.metadata);
+      }
+
+      // API calls
+      async function makeRequest(route, method, action, data = null, params = null) {
+        try {
+          const requestData = {
+            route,
+            method,
+            action,
+            data,
+            params
+          };
+
+          const options = {
+            method: 'POST', // Always POST since we're using body-based routing
+            headers: {
+              'Content-Type': 'application/json',
+              ...(typeof AUTH_TOKEN !== 'undefined' ? {'Authorization': 'Bearer ' + AUTH_TOKEN} : {})
+            },
+            body: JSON.stringify(requestData)
+          };
+
+          const response = await fetch(`${window.location.origin}${ENV_PREFIX}/manager/api`, options);
+          const result = await response.text();
+          
+          let parsed;
+          try {
+            parsed = JSON.parse(result);
+          } catch {
+            parsed = result;
+          }
+          
+          return {
+            success: response.ok,
+            data: parsed,
+            status: response.status
+          };
+        } catch (error) {
+          return {
+            success: false,
+            data: error.message,
+            status: 0
+          };
+        }
+      }
+
+      // Product operations
+      async function deleteProduct() {
+        const group_id = document.getElementById('group_id').value;
+        const productId = document.getElementById('productId').value;
+        
+        if (!group_id || !productId) {
+          showResponse('Please enter Group ID and Product ID to delete.', true);
+          return;
+        }
+        
+        if (!confirm('Are you sure you want to delete this product?')) {
+          return;
+        }
+        
+        showResponse('Deleting product...');
+        
+        const result = await makeRequest('products', 'DELETE', 'delete', null, {
+          group_id: group_id,
+          id: productId
+        });
+        
+        if (result.success) {
+          showResponse(`Product deleted successfully!\n\n${JSON.stringify(result.data, null, 2)}`);
+          clearForm();
         } else {
-          promoData.amount_off = parseInt(promoData.amount_off);
-          delete promoData.percent_off;
+          showResponse(`Error deleting product: ${JSON.stringify(result.data, null, 2)}`, true);
+        }
+      }
+
+      async function loadProducts() {
+        const productList = document.getElementById('productList');
+        productList.innerHTML = '<div class="loading">Loading products...</div>';
+        
+        const result = await makeRequest('products', 'GET', 'list');
+        
+        if (result.success) {
+          const products = Array.isArray(result.data) ? result.data : [];
+          
+          if (products.length === 0) {
+            productList.innerHTML = '<div class="loading">No products found.</div>';
+            return;
+          }
+          
+          productList.innerHTML = products.map(product => `
+            <div class="product-card">
+              <h3>${product.name}</h3>
+              <p><strong>ID:</strong> ${product.id}</p>
+              <p><strong>Group:</strong> ${product.group_id}</p>
+              <p><strong>Sort:</strong> ${(product.metadata && product.metadata.sort) || '0'}</p>
+              <p>${product.description}</p>
+              <div class="price">
+                ${product.default_price_data ? 
+                  `${(product.default_price_data.unit_amount / 100).toFixed(2)} ${product.default_price_data.currency.toUpperCase()}` +
+                  (product.default_price_data.recurring ? ` / ${product.default_price_data.recurring.interval}` : '')
+                  : 'No price data'}
+              </div>
+              <span class="status ${product.active ? 'active' : 'inactive'}">
+                ${product.active ? 'Active' : 'Inactive'}
+              </span>
+              <div class="card-actions">
+                <button class="btn btn-small edit-product-btn" data-group-id="${product.group_id}" data-product-id="${product.id}">Edit</button>
+                <button class="btn btn-danger btn-small delete-product-btn" data-group-id="${product.group_id}" data-product-id="${product.id}">Delete</button>
+              </div>
+            </div>
+          `).join('');
+
+          // Attach event listeners to dynamically created buttons
+          document.querySelectorAll('.edit-product-btn').forEach(button => {
+            button.addEventListener('click', () => {
+              editProduct(button.dataset.groupId, button.dataset.productId);
+            });
+          });
+          document.querySelectorAll('.delete-product-btn').forEach(button => {
+            button.addEventListener('click', () => {
+              deleteProductById(button.dataset.groupId, button.dataset.productId);
+            });
+          });
+        } else {
+          productList.innerHTML = `<div class="loading">Error loading products: ${result.data}</div>`;
+        }
+      }
+
+      async function editProduct(group_id, productId) {
+        const result = await makeRequest('products', 'GET', 'get', null, {
+          group_id: group_id,
+          id: productId
+        });
+        
+        if (result.success) {
+          populateForm(result.data);
+          currentMode = 'update';
+          updateModeUI();
+          currentProductKey = `${group_id}#${productId}`;
+          showResponse('Product loaded for editing.');
+        } else {
+          showResponse(`Error loading product: ${JSON.stringify(result.data, null, 2)}`, true);
+        }
+      }
+
+      async function deleteProductById(group_id, productId) {
+        if (!confirm('Are you sure you want to delete this product?')) {
+          return;
         }
         
-        // Handle restrictions
-        const restrictions = {};
-        if (document.getElementById('firstTimeTransaction').checked) {
-          restrictions.first_time_transaction = true;
+        const result = await makeRequest('products', 'DELETE', 'delete', null, {
+          group_id: group_id,
+          id: productId
+        });
+        
+        if (result.success) {
+          showResponse(`Product deleted successfully!\n\n${JSON.stringify(result.data, null, 2)}`);
+          loadProducts(); // Refresh the list
+        } else {
+          showResponse(`Error deleting product: ${JSON.stringify(result.data, null, 2)}`, true);
         }
-        if (promoData.minimum_amount) {
-          restrictions.minimum_amount = parseInt(promoData.minimum_amount);
-          restrictions.minimum_amount_currency = promoData.minimum_amount_currency;
+      }
+
+      // Form validation
+      function validateForm() {
+        const requiredFields = ['group_id', 'productId', 'name', 'description', 'unitAmount'];
+        const errors = [];
+        
+        requiredFields.forEach(fieldId => {
+          const field = document.getElementById(fieldId);
+          if (!field.value.trim()) {
+            errors.push(`${field.previousElementSibling.textContent} is required`);
+          }
+        });
+        
+        const unitAmount = document.getElementById('unitAmount').value;
+        if (unitAmount && (isNaN(unitAmount) || parseInt(unitAmount) < 0)) {
+          errors.push('Unit amount must be a positive number');
         }
         
-        if (Object.keys(restrictions).length > 0) {
-          promoData.restrictions = restrictions;
+        const sort = document.getElementById('sort').value;
+        if (sort && (isNaN(sort) || parseInt(sort) < 0)) {
+          errors.push('Sort order must be a non-negative number');
         }
         
-        // Clean up form data
-        delete promoData.first_time_transaction;
-        delete promoData.minimum_amount;
-        delete promoData.minimum_amount_currency;
-        
-        // Handle numeric fields
-        if (promoData.duration_in_months) {
-          promoData.duration_in_months = parseInt(promoData.duration_in_months);
-        }
-        if (promoData.max_redemptions) {
-          promoData.max_redemptions = parseInt(promoData.max_redemptions);
-        }
-        if (promoData.redeem_by) {
-          promoData.redeem_by = Math.floor(new Date(promoData.redeem_by).getTime() / 1000);
-        }
-        if (promoData.expires_at) {
-          promoData.expires_at = Math.floor(new Date(promoData.expires_at).getTime() / 1000);
-        }
-        if (promoData.promo_max_redemptions) {
-          promoData.promo_max_redemptions = parseInt(promoData.promo_max_redemptions);
+        if (errors.length > 0) {
+          showResponse(`Validation errors:\n${errors.join('\n')}`, true);
+          return false;
         }
         
-        await createPromoCode(promoData);
+        return true;
+      }
+
+      // Real-time validation feedback
+      function setupValidation() {
+        const requiredFields = ['group_id', 'productId', 'name', 'description', 'unitAmount'];
+        
+        requiredFields.forEach(fieldId => {
+          const field = document.getElementById(fieldId);
+          field.addEventListener('blur', function() {
+            if (!this.value.trim()) {
+              this.style.borderColor = '#dc3545';
+            } else {
+              this.style.borderColor = '#e1e5e9';
+            }
+          });
+          
+          field.addEventListener('input', function() {
+            this.style.borderColor = '#e1e5e9';
+          });
+        });
+      }
+
+      // Tab Management
+      function switchTab(tabName) {
+        // Update tab buttons
+        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+        document.querySelector(`.tab[data-tab-name="${tabName}"]`).classList.add('active');
+        
+        // Update tab content
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        document.getElementById(tabName + '-tab').classList.add('active');
+        
+        currentTab = tabName;
+      }
+
+      // Promo Code Management Functions
+      function toggleDiscountType() {
+        const discountType = document.querySelector('input[name="discountType"]:checked').value;
+        const percentOffGroup = document.getElementById('percentOffGroup');
+        const amountOffGroup = document.getElementById('amountOffGroup');
+        const currencyGroup = document.getElementById('currencyGroup');
+        
+        if (discountType === 'percent') {
+          percentOffGroup.style.display = 'block';
+          amountOffGroup.style.display = 'none';
+          currencyGroup.style.display = 'none';
+        } else {
+          percentOffGroup.style.display = 'none';
+          amountOffGroup.style.display = 'block';
+          currencyGroup.style.display = 'block';
+        }
+      }
+
+      function toggleDurationFields() {
+        const duration = document.getElementById('duration').value;
+        const durationMonthsGroup = document.getElementById('durationMonthsGroup');
+        
+        if (duration === 'repeating') {
+          durationMonthsGroup.style.display = 'block';
+        } else {
+          durationMonthsGroup.style.display = 'none';
+        }
+      }
+
+      function generateCouponId() {
+        const timestamp = Date.now().toString(36);
+        const randomStr = Math.random().toString(36).substr(2, 5);
+        document.getElementById('couponId').value = `coupon_${timestamp}_${randomStr}`;
+      }
+
+      function generatePromoCode() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let result = '';
+        for (let i = 0; i < 8; i++) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        document.getElementById('promoCode').value = result;
+      }
+
+      function clearPromoForm() {
+        document.getElementById('promoForm').reset();
+        document.querySelector('input[name="discountType"][value="percent"]').checked = true;
+        toggleDiscountType();
+        document.getElementById('duration').value = 'once';
+        toggleDurationFields();
+        showPromoResponse('Form cleared.');
+      }
+
+      function showPromoResponse(message, isError = false) {
+        const responseArea = document.getElementById('promoResponseArea');
+        responseArea.textContent = message;
+        responseArea.style.color = isError ? '#dc3545' : '#333';
+      }
+
+      // Promo API calls
+      async function createPromoCode(promoData) {
+        showPromoResponse('Creating promo code (coupon + promotion code)...');
+        const result = await makeRequest('promos', 'POST', 'create', promoData);
+        
+        if (result.success) {
+          const couponId = result.data?.coupon?.id || 'Unknown';
+          const promoCode = result.data?.promotionCode?.code || result.data?.promotionCode?.id || 'Unknown';
+          showPromoResponse(`Promo code created successfully!\\n\\nCoupon: ${couponId}\\nPromotion Code: ${promoCode}\\n\\n${JSON.stringify(result.data, null, 2)}`);
+          loadCoupons(); // Refresh both lists
+          loadPromotionCodes();
+        } else {
+          showPromoResponse(`Error creating promo code: ${JSON.stringify(result.data || result.error, null, 2)}`, true);
+        }
+      }
+
+      async function loadCoupons() {
+        const couponsList = document.getElementById('couponsList');
+        couponsList.innerHTML = '<div class="loading">Loading coupons...</div>';
+        
+        const result = await makeRequest('promos', 'POST', 'list', { type: 'coupons' });
+        
+        if (result.success) {
+          const coupons = result.data.data.data;
+          
+          if (!Array.isArray(coupons)) {
+            couponsList.innerHTML = `<div class="loading">Error: Expected array but got ${typeof coupons}. Check console for details.</div>`;
+            return;
+          }
+          
+          if (coupons.length === 0) {
+            couponsList.innerHTML = '<div class="loading">No coupons found.</div>';
+            return;
+          }
+          
+          couponsList.innerHTML = '<h3>Coupons</h3>' + coupons.map(coupon => `
+            <div class="product-card">
+              <h3>${coupon.name || 'Unnamed Coupon'}</h3>
+              <p><strong>ID:</strong> ${coupon.id}</p>
+              <p><strong>Duration:</strong> ${coupon.duration}</p>
+              <div class="price">
+                ${coupon.percent_off ? `${coupon.percent_off}% off` : 
+                  coupon.amount_off ? `${(coupon.amount_off / 100).toFixed(2)} ${coupon.currency?.toUpperCase()} off` : 
+                  'No discount info'}
+              </div>
+              <span class="status ${coupon.valid ? 'active' : 'inactive'}">
+                ${coupon.valid ? 'Valid' : 'Invalid'}
+              </span>
+              <div class="card-actions">
+                <button class="btn btn-small edit-coupon-btn" data-coupon-id="${coupon.id}">Edit</button>
+                <button class="btn btn-danger btn-small delete-coupon-btn" data-coupon-id="${coupon.id}">Delete</button>
+              </div>
+            </div>
+          `).join('');
+
+          document.querySelectorAll('.edit-coupon-btn').forEach(button => {
+            button.addEventListener('click', () => editCoupon(button.dataset.couponId));
+          });
+          document.querySelectorAll('.delete-coupon-btn').forEach(button => {
+            button.addEventListener('click', () => deleteCoupon(button.dataset.couponId));
+          });
+        } else {
+          couponsList.innerHTML = `<div class="loading">Error loading coupons: ${result.data || result.error}</div>`;
+        }
+      }
+
+      async function loadPromotionCodes() {
+        const promoCodesList = document.getElementById('promotionCodesList');
+        promoCodesList.innerHTML = '<div class="loading">Loading promotion codes...</div>';
+        
+        const result = await makeRequest('promos', 'POST', 'list', { type: 'promotion_codes' });
+        
+        if (result.success) {
+          const promoCodes = (result.data && result.data.data) ? result.data.data.data : [];
+          
+          if (!Array.isArray(promoCodes)) {
+            promoCodesList.innerHTML = `<div class="loading">Error: Expected array but got ${typeof promoCodes}. Check console for details.</div>`;
+            return;
+          }
+          
+          if (promoCodes.length === 0) {
+            promoCodesList.innerHTML = '<div class="loading">No promotion codes found.</div>';
+            return;
+          }
+          
+          promoCodesList.innerHTML = '<h3>Promotion Codes</h3>' + promoCodes.map(promo => `
+            <div class="product-card">
+              <h3>${promo.code}</h3>
+              <p><strong>ID:</strong> ${promo.id}</p>
+              <p><strong>Coupon:</strong> ${promo.coupon?.id || promo.coupon}</p>
+              <p><strong>Times Redeemed:</strong> ${promo.times_redeemed || 0}</p>
+              ${promo.expires_at ? `<p><strong>Expires:</strong> ${new Date(promo.expires_at * 1000).toLocaleDateString()}</p>` : ''}
+              <span class="status ${promo.active ? 'active' : 'inactive'}">
+                ${promo.active ? 'Active' : 'Inactive'}
+              </span>
+              <div class="card-actions">
+                <button class="btn btn-small edit-promo-btn" data-promo-id="${promo.id}">Edit</button>
+                <button class="btn btn-danger btn-small delete-promo-btn" data-promo-id="${promo.id}">Deactivate</button>
+              </div>
+            </div>
+          `).join('');
+
+          document.querySelectorAll('.edit-promo-btn').forEach(button => {
+            button.addEventListener('click', () => editPromotionCode(button.dataset.promoId));
+          });
+          document.querySelectorAll('.delete-promo-btn').forEach(button => {
+            button.addEventListener('click', () => deletePromotionCode(button.dataset.promoId));
+          });
+        } else {
+          promoCodesList.innerHTML = `<div class="loading">Error loading promotion codes: ${result.data || result.error}</div>`;
+        }
+      }
+
+      async function deleteCoupon(couponId) {
+        if (!confirm('Are you sure you want to delete this coupon?')) {
+          return;
+        }
+        
+        const result = await makeRequest('promos', 'DELETE', 'delete', { type: 'coupon', id: couponId });
+        
+        if (result.success) {
+          showPromoResponse(`Coupon deleted successfully!`);
+          loadCoupons(); // Refresh the list
+        } else {
+          showPromoResponse(`Error deleting coupon: ${JSON.stringify(result.data || result.error, null, 2)}`, true);
+        }
+      }
+
+      async function deletePromotionCode(promoId) {
+        if (!confirm('Are you sure you want to deactivate this promotion code?')) {
+          return;
+        }
+        
+        const result = await makeRequest('promos', 'DELETE', 'delete', { type: 'promotion_code', id: promoId });
+        
+        if (result.success) {
+          showPromoResponse(`Promotion code deactivated successfully!`);
+          loadPromotionCodes(); // Refresh the list
+        } else {
+          showPromoResponse(`Error deactivating promotion code: ${JSON.stringify(result.data || result.error, null, 2)}`, true);
+        }
+      }
+
+      function editCoupon(couponId) {
+        showPromoResponse('Coupon editing not yet implemented. Use Stripe Dashboard for advanced editing.');
+      }
+
+      function editPromotionCode(promoId) {
+        showPromoResponse('Promotion code editing not yet implemented. Use Stripe Dashboard for advanced editing.');
+      }
+
+      // Initialize page
+      function initializePage() {
+        console.log('Page init called');
+        
+        // Attach event listeners for static elements
+        document.getElementById('productForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            if (!validateForm()) { return; }
+            const productData = getFormData();
+            if (currentMode === 'create') {
+                showResponse('Creating product...');
+                const result = await makeRequest('products', 'POST', 'create', productData);
+                if (result.success) {
+                    showResponse(`Product created successfully!\n\n${JSON.stringify(result.data, null, 2)}`);
+                    currentMode = 'update';
+                    updateModeUI();
+                } else {
+                    showResponse(`Error creating product: ${JSON.stringify(result.data, null, 2)}`, true);
+                }
+            } else {
+                showResponse('Updating product...');
+                const result = await makeRequest('products', 'PUT', 'update', productData, {
+                    group_id: productData.group_id,
+                    id: productData.id
+                });
+                if (result.success) {
+                    showResponse(`Product updated successfully!\n\n${JSON.stringify(result.data, null, 2)}`);
+                } else {
+                    showResponse(`Error updating product: ${JSON.stringify(result.data, null, 2)}`, true);
+                }
+            }
+        });
+        document.getElementById('promoForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const promoData = {};
+            for (let [key, value] of formData.entries()) {
+                if (value.trim()) { promoData[key] = value; }
+            }
+            const discountType = document.querySelector('input[name="discountType"]:checked').value;
+            if (discountType === 'percent') {
+                promoData.percent_off = parseInt(promoData.percent_off);
+                delete promoData.amount_off;
+                delete promoData.currency;
+            } else {
+                promoData.amount_off = parseInt(promoData.amount_off);
+                delete promoData.percent_off;
+            }
+            const restrictions = {};
+            if (document.getElementById('firstTimeTransaction').checked) { restrictions.first_time_transaction = true; }
+            if (promoData.minimum_amount) {
+                restrictions.minimum_amount = parseInt(promoData.minimum_amount);
+                restrictions.minimum_amount_currency = promoData.minimum_amount_currency;
+            }
+            if (Object.keys(restrictions).length > 0) { promoData.restrictions = restrictions; }
+            delete promoData.first_time_transaction;
+            delete promoData.minimum_amount;
+            delete promoData.minimum_amount_currency;
+            if (promoData.duration_in_months) { promoData.duration_in_months = parseInt(promoData.duration_in_months); }
+            if (promoData.max_redemptions) { promoData.max_redemptions = parseInt(promoData.max_redemptions); }
+            if (promoData.redeem_by) { promoData.redeem_by = Math.floor(new Date(promoData.redeem_by).getTime() / 1000); }
+            if (promoData.expires_at) { promoData.expires_at = Math.floor(new Date(promoData.expires_at).getTime() / 1000); }
+            if (promoData.promo_max_redemptions) { promoData.promo_max_redemptions = parseInt(promoData.promo_max_redemptions); }
+            await createPromoCode(promoData);
+        });
+        
+        // Attach event listeners for buttons and other elements
+        document.querySelector('.tab[data-tab-name="products"]').addEventListener('click', () => switchTab('products'));
+        document.querySelector('.tab[data-tab-name="promos"]').addEventListener('click', () => switchTab('promos'));
+        document.getElementById('addMetadataBtn').addEventListener('click', addMetadata);
+        document.getElementById('addTimeBtn').addEventListener('click', addTimeMetadata);
+        document.getElementById('generategroup_idBtn').addEventListener('click', generategroup_id);
+        document.getElementById('generateProductIdBtn').addEventListener('click', generateProductId);
+        document.getElementById('modeToggle').addEventListener('click', switchMode);
+        document.getElementById('clearFormBtn').addEventListener('click', clearForm);
+        document.getElementById('loadProductsBtn').addEventListener('click', loadProducts);
+        document.getElementById('loadCouponsBtn').addEventListener('click', loadCoupons);
+        document.getElementById('loadPromotionCodesBtn').addEventListener('click', loadPromotionCodes);
+        document.getElementById('generatePromoCodeBtn').addEventListener('click', generatePromoCode);
+        document.getElementById('generateCouponIdBtn').addEventListener('click', generateCouponId);
+        document.getElementById('clearPromoFormBtn').addEventListener('click', clearPromoForm);
+        document.getElementById('deleteBtn').addEventListener('click', deleteProduct);
+        document.getElementById('isRecurring').addEventListener('change', () => {
+          const recurringFields = document.getElementById('recurringFields');
+          const timeFeatureNote = document.getElementById('timeFeatureNote');
+          const addTimeBtn = document.getElementById('addTimeBtn');
+          if (this.checked) {
+            recurringFields.classList.add('show');
+            timeFeatureNote.style.display = 'none';
+            addTimeBtn.style.display = 'none';
+          } else {
+            recurringFields.classList.remove('show');
+            timeFeatureNote.style.display = 'block';
+            addTimeBtn.style.display = 'inline-block';
+          }
+        });
+        document.querySelectorAll('input[name="discountType"]').forEach(radio => {
+          radio.addEventListener('change', toggleDiscountType);
+        });
+        document.getElementById('duration').addEventListener('change', toggleDurationFields);
+
+        setupValidation();
+        setupAutoLoad();
+        addMetadata();
+        clearForm(); // Set defaults
+        updateModeUI();
+        
+        // Load products on initial page load
+        loadProducts();
+      }
+
+      // Initialize when DOM is ready
+      initializePage();
+      
+      // Clean up on page unload
+      window.addEventListener('beforeunload', function() {
+        if (window.fetch && window.fetch.abort) {
+          window.fetch.abort();
+        }
+      });
+      
+      // Handle visibility change (tab switching, minimizing)
+      document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+          console.log('Page hidden - pausing operations');
+        } else {
+          console.log('Page visible - resuming operations');
+        }
       });
     });
-
-    // Initialize page
-    function initializePage() {
-      console.log('Page init called');
-      setupValidation();
-      setupAutoLoad();
-      addMetadata();
-      clearForm(); // Set defaults
-      updateModeUI();
-      
-      // Load products on page load
-      loadProducts();
-    }
-
-    // Initialize when DOM is ready
-    document.addEventListener('DOMContentLoaded', initializePage);
-    
-    // Clean up on page unload
-    window.addEventListener('beforeunload', function() {
-      // Cancel any pending requests
-      if (window.fetch && window.fetch.abort) {
-        window.fetch.abort();
-      }
-    });
-    
-    // Handle visibility change (tab switching, minimizing)
-    document.addEventListener('visibilitychange', function() {
-      if (document.hidden) {
-        // Page is now hidden, could pause any polling or timers
-        console.log('Page hidden - pausing operations');
-      } else {
-        // Page is now visible again
-        console.log('Page visible - resuming operations');
-      }
-    });
   </script>
+</head>
+<body>
   <div class="container">
     <div class="header">
       <h1>Stripe Manager</h1>
@@ -1179,166 +1203,160 @@
     </div>
 
     <div class="tabs">
-      <button class="tab active" onclick="switchTab('products')">Products</button>
-      <button class="tab" onclick="switchTab('promos')">Promo Codes</button>
+      <button class="tab active" data-tab-name="products">Products</button>
+      <button class="tab" data-tab-name="promos">Promo Codes</button>
     </div>
 
     <div class="main-content">
-      <!-- Products Tab Content -->
       <div id="products-tab" class="tab-content active">
-        <!-- Product Form Section -->
         <div class="section">
-        <h2>Product Form</h2>
-        <form id="productForm">
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="group_id">Group ID</label>
-              <input type="text" id="group_id" name="group_id" required placeholder="e.g., group1">
-              <button type="button" class="btn btn-secondary btn-small" onclick="generategroup_id()" style="margin-top: 5px;">Generate ID</button>
-            </div>
-            <div class="form-group">
-              <label for="productId">Product ID</label>
-              <input type="text" id="productId" name="productId" required placeholder="e.g., prod_123">
-              <button type="button" class="btn btn-secondary btn-small" onclick="generateProductId()" style="margin-top: 5px;">Generate ID</button>
-            </div>
-            <div class="form-group">
-              <label for="name">Name</label>
-              <input type="text" id="name" name="name" required placeholder="e.g., Premium Plan">
-            </div>
-            <div class="form-group">
-              <label for="active">Active</label>
-              <div class="checkbox-group">
-                <input type="checkbox" id="active" name="active" checked>
-                <label for="active">Product is active</label>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="sort">Sort Order</label>
-              <input type="number" id="sort" name="sort" min="0" placeholder="0" value="0">
-              <small style="color: #666;">Lower numbers appear first</small>
-            </div>
-            <div class="form-group full-width">
-              <label for="description">Description</label>
-              <textarea id="description" name="description" required placeholder="Describe your product features and benefits..."></textarea>
-            </div>
-          </div>
-
-          <div class="price-section">
-            <h3>Pricing Information</h3>
+          <h2>Product Form</h2>
+          <form id="productForm">
             <div class="form-grid">
               <div class="form-group">
-                <label for="currency">Currency</label>
-                <select id="currency" name="currency" required>
-                  <option value="CAD">CAD</option>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="GBP">GBP</option>
-                </select>
+                <label for="group_id">Group ID</label>
+                <input type="text" id="group_id" name="group_id" required placeholder="e.g., group1">
+                <button type="button" class="btn btn-secondary btn-small" id="generategroup_idBtn" style="margin-top: 5px;">Generate ID</button>
               </div>
               <div class="form-group">
-                <label for="unitAmount">Unit Amount (cents)</label>
-                <input type="number" id="unitAmount" name="unitAmount" required min="0" placeholder="999" value="999">
-                <small style="color: #666;">$9.99 = 999 cents</small>
+                <label for="productId">Product ID</label>
+                <input type="text" id="productId" name="productId" required placeholder="e.g., prod_123">
+                <button type="button" class="btn btn-secondary btn-small" id="generateProductIdBtn" style="margin-top: 5px;">Generate ID</button>
               </div>
               <div class="form-group">
-                <label for="taxBehavior">Tax Behavior</label>
-                <select id="taxBehavior" name="taxBehavior">
-                  <option value="unspecified">Unspecified</option>
-                  <option value="exclusive" selected>Exclusive</option>
-                  <option value="inclusive">Inclusive</option>
-                </select>
+                <label for="name">Name</label>
+                <input type="text" id="name" name="name" required placeholder="e.g., Premium Plan">
               </div>
               <div class="form-group">
-                <label for="isRecurring">Recurring</label>
+                <label for="active">Active</label>
                 <div class="checkbox-group">
-                  <input type="checkbox" id="isRecurring" name="isRecurring">
-                  <label for="isRecurring">This is a recurring product</label>
+                  <input type="checkbox" id="active" name="active" checked>
+                  <label for="active">Product is active</label>
                 </div>
               </div>
+              <div class="form-group">
+                <label for="sort">Sort Order</label>
+                <input type="number" id="sort" name="sort" min="0" placeholder="0" value="0">
+                <small style="color: #666;">Lower numbers appear first</small>
+              </div>
+              <div class="form-group full-width">
+                <label for="description">Description</label>
+                <textarea id="description" name="description" required placeholder="Describe your product features and benefits..."></textarea>
+              </div>
             </div>
-            
-            <div class="recurring-fields" id="recurringFields">
+
+            <div class="price-section">
+              <h3>Pricing Information</h3>
               <div class="form-grid">
                 <div class="form-group">
-                  <label for="interval">Interval</label>
-                  <select id="interval" name="interval">
-                    <option value="month">Month</option>
-                    <option value="year">Year</option>
-                    <option value="week">Week</option>
-                    <option value="day">Day</option>
+                  <label for="currency">Currency</label>
+                  <select id="currency" name="currency" required>
+                    <option value="CAD">CAD</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
                   </select>
                 </div>
                 <div class="form-group">
-                  <label for="intervalCount">Interval Count</label>
-                  <input type="number" id="intervalCount" name="intervalCount" min="1" value="1">
+                  <label for="unitAmount">Unit Amount (cents)</label>
+                  <input type="number" id="unitAmount" name="unitAmount" required min="0" placeholder="999" value="999">
+                  <small style="color: #666;">$9.99 = 999 cents</small>
+                </div>
+                <div class="form-group">
+                  <label for="taxBehavior">Tax Behavior</label>
+                  <select id="taxBehavior" name="taxBehavior">
+                    <option value="unspecified">Unspecified</option>
+                    <option value="exclusive" selected>Exclusive</option>
+                    <option value="inclusive">Inclusive</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="isRecurring">Recurring</label>
+                  <div class="checkbox-group">
+                    <input type="checkbox" id="isRecurring" name="isRecurring">
+                    <label for="isRecurring">This is a recurring product</label>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="recurring-fields" id="recurringFields">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label for="interval">Interval</label>
+                    <select id="interval" name="interval">
+                      <option value="month">Month</option>
+                      <option value="year">Year</option>
+                      <option value="week">Week</option>
+                      <option value="day">Day</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="intervalCount">Interval Count</label>
+                    <input type="number" id="intervalCount" name="intervalCount" min="1" value="1">
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div class="metadata-section">
-            <h3>Metadata</h3>
-            <div id="timeFeatureNote" class="time-feature-note" style="display: none;">
-              <div style="background: #e3f2fd; border: 1px solid #1976d2; border-radius: 6px; padding: 15px; margin-bottom: 15px;">
-                <h4 style="margin: 0 0 10px 0; color: #1976d2;">⏱️ One-Time Purchase Duration</h4>
-                <p style="margin: 0; color: #424242; font-size: 0.9rem;">
-                  For non-recurring products, you can set a custom access duration by adding a metadata field with key <strong>"time"</strong> and value in seconds.
-                  <br><br>
-                  <strong>Examples:</strong><br>
-                  • <code>time: 1800</code> = 30 minutes<br>
-                  • <code>time: 3600</code> = 1 hour (default)<br>
-                  • <code>time: 86400</code> = 24 hours<br>
-                  • <code>time: 604800</code> = 7 days<br>
-                  • <code>time: 31536000</code> = 1 year<br>
-                  • <code>time: 3155673600</code> = 100 years ("forever")
-                </p>
+            <div class="metadata-section">
+              <h3>Metadata</h3>
+              <div id="timeFeatureNote" class="time-feature-note" style="display: none;">
+                <div style="background: #e3f2fd; border: 1px solid #1976d2; border-radius: 6px; padding: 15px; margin-bottom: 15px;">
+                  <h4 style="margin: 0 0 10px 0; color: #1976d2;">⏱️ One-Time Purchase Duration</h4>
+                  <p style="margin: 0; color: #424242; font-size: 0.9rem;">
+                    For non-recurring products, you can set a custom access duration by adding a metadata field with key <strong>"time"</strong> and value in seconds.
+                    <br><br>
+                    <strong>Examples:</strong><br>
+                    • <code>time: 1800</code> = 30 minutes<br>
+                    • <code>time: 3600</code> = 1 hour (default)<br>
+                    • <code>time: 86400</code> = 24 hours<br>
+                    • <code>time: 604800</code> = 7 days<br>
+                    • <code>time: 31536000</code> = 1 year<br>
+                    • <code>time: 3155673600</code> = 100 years ("forever")
+                  </p>
+                </div>
+              </div>
+              <div id="metadataContainer">
+                <div class="metadata-item">
+                  <input type="text" placeholder="Key" class="metadata-key">
+                  <input type="text" placeholder="Value" class="metadata-value">
+                  <button type="button" class="btn btn-secondary btn-small remove-metadata-btn">Remove</button>
+                </div>
+              </div>
+              <button type="button" class="btn btn-secondary btn-small" id="addMetadataBtn">Add Metadata</button>
+              <button type="button" class="btn btn-secondary btn-small" id="addTimeBtn" style="display: none;">Add Time Duration</button>
+            </div>
+
+            <div class="form-group">
+              <label for="persistUpdate">Persist Update</label>
+              <div class="checkbox-group">
+                <input type="checkbox" id="persistUpdate" name="persistUpdate" checked>
+                <label for="persistUpdate">Persist updates to stripe</label>
               </div>
             </div>
-            <div id="metadataContainer">
-              <div class="metadata-item">
-                <input type="text" placeholder="Key" class="metadata-key">
-                <input type="text" placeholder="Value" class="metadata-value">
-                <button type="button" class="btn btn-secondary btn-small" onclick="removeMetadata(this)">Remove</button>
-              </div>
+
+            <div class="actions">
+              <button type="submit" class="btn" id="primaryAction">Create Product</button>
+              <button type="button" class="btn btn-secondary" id="modeToggle">Switch to Update Mode</button>
+              <button type="button" class="btn btn-secondary" id="clearFormBtn">Clear Form</button>
             </div>
-            <button type="button" class="btn btn-secondary btn-small" onclick="addMetadata()">Add Metadata</button>
-            <button type="button" class="btn btn-secondary btn-small" onclick="addTimeMetadata()" id="addTimeBtn" style="display: none;">Add Time Duration</button>
-          </div>
+          </form>
 
-          <div class="form-group">
-            <label for="persistUpdate">Persist Update</label>
-            <div class="checkbox-group">
-              <input type="checkbox" id="persistUpdate" name="persistUpdate" checked>
-              <label for="persistUpdate">Persist updates to stripe</label>
-            </div>
-          </div>
+          <div class="response-area" id="responseArea"></div>
+        </div>
 
-          <div class="actions">
-            <button type="submit" class="btn" id="primaryAction">Create Product</button>
-            <button type="button" class="btn btn-secondary" onclick="switchMode()" id="modeToggle">Switch to Update Mode</button>
-            <button type="button" class="btn btn-secondary" onclick="clearForm()">Clear Form</button>
-          </div>
-        </form>
-
-        <div class="response-area" id="responseArea"></div>
+        <div class="section">
+          <h2>Existing Products</h2>
+          <button type="button" class="btn" id="loadProductsBtn">Load Products</button>
+          <div id="productList" class="product-list"></div>
+        </div>
       </div>
 
-      <!-- Product List Section -->
-      <div class="section">
-        <h2>Existing Products</h2>
-        <button type="button" class="btn" onclick="loadProducts()">Load Products</button>
-        <div id="productList" class="product-list"></div>
-      </div>
-      </div>
-
-      <!-- Promos Tab Content -->
       <div id="promos-tab" class="tab-content">
-        <!-- Promo Form Section -->
         <div class="section">
           <h2>Create Promo Code</h2>
           <p style="color: #666; margin-bottom: 30px;">This will create both a coupon (discount template) and a promotion code (customer-facing code) in one step.</p>
           
-          <!-- Unified Promo Form -->
           <form id="promoForm" class="promo-form">
             <div class="form-grid">
               <div class="form-group">
@@ -1348,12 +1366,12 @@
               <div class="form-group">
                 <label for="promoCode">Promotion Code</label>
                 <input type="text" id="promoCode" name="code" placeholder="e.g., SUMMER25 (leave blank for auto-generation)">
-                <button type="button" class="btn btn-secondary btn-small" onclick="generatePromoCode()" style="margin-top: 5px;">Generate Code</button>
+                <button type="button" class="btn btn-secondary btn-small" id="generatePromoCodeBtn" style="margin-top: 5px;">Generate Code</button>
               </div>
               <div class="form-group">
                 <label for="couponId">Coupon ID (Optional)</label>
                 <input type="text" id="couponId" name="id" placeholder="Leave blank for auto-generation">
-                <button type="button" class="btn btn-secondary btn-small" onclick="generateCouponId()" style="margin-top: 5px;">Generate ID</button>
+                <button type="button" class="btn btn-secondary btn-small" id="generateCouponIdBtn" style="margin-top: 5px;">Generate ID</button>
               </div>
             </div>
 
@@ -1364,11 +1382,11 @@
                   <label>Discount Type</label>
                   <div style="display: flex; gap: 20px; margin-top: 10px;">
                     <label class="checkbox-group">
-                      <input type="radio" name="discountType" value="percent" checked onchange="toggleDiscountType()">
+                      <input type="radio" name="discountType" value="percent" checked>
                       <span>Percentage Off</span>
                     </label>
                     <label class="checkbox-group">
-                      <input type="radio" name="discountType" value="amount" onchange="toggleDiscountType()">
+                      <input type="radio" name="discountType" value="amount">
                       <span>Fixed Amount Off</span>
                     </label>
                   </div>
@@ -1395,7 +1413,7 @@
               <div class="form-grid">
                 <div class="form-group">
                   <label for="duration">Duration</label>
-                  <select id="duration" name="duration" onchange="toggleDurationFields()">
+                  <select id="duration" name="duration">
                     <option value="once">Once</option>
                     <option value="repeating">Repeating</option>
                     <option value="forever">Forever</option>
@@ -1470,19 +1488,18 @@
 
             <div class="actions">
               <button type="submit" class="btn" id="createPromo">Create Promo Code</button>
-              <button type="button" class="btn btn-secondary" onclick="clearPromoForm()">Clear Form</button>
+              <button type="button" class="btn btn-secondary" id="clearPromoFormBtn">Clear Form</button>
             </div>
           </form>
 
           <div class="response-area" id="promoResponseArea"></div>
         </div>
 
-        <!-- Existing Promos Section -->
         <div class="section">
           <h2>Existing Coupons & Promotion Codes</h2>
           <div style="display: flex; gap: 15px; margin-bottom: 20px;">
-            <button type="button" class="btn" onclick="loadCoupons()">Load Coupons</button>
-            <button type="button" class="btn" onclick="loadPromotionCodes()">Load Promotion Codes</button>
+            <button type="button" class="btn" id="loadCouponsBtn">Load Coupons</button>
+            <button type="button" class="btn" id="loadPromotionCodesBtn">Load Promotion Codes</button>
           </div>
           <div id="couponsList" class="product-list"></div>
           <div id="promotionCodesList" class="product-list"></div>
