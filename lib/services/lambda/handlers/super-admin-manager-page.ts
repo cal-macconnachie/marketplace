@@ -40,12 +40,14 @@ export const superAdminManagerPage = async (event: APIGatewayProxyEvent) => {
       const templatePath = join(__dirname, '..', 'templates', 'super-admin-manager.html')
       let htmlTemplate = readFileSync(templatePath, 'utf8')
       
-      // Inject the access token into the HTML for API calls
+      // Inject the access token and environment prefix into the HTML for API calls
+      const envPrefix = process.env.NODE_ENV === 'prod' ? '/prod' : '/dev'
       htmlTemplate = htmlTemplate.replace(
         '<script>',
         `<script>
         const AUTH_TOKEN = '${accessToken}';
         const USER_EMAIL = '${email}';
+        const ENV_PREFIX = '${envPrefix}';
         `
       )
       
@@ -265,7 +267,8 @@ function getLoginPage(errorMessage?: string) {
             loadingMessage.style.display = 'block';
             
             try {
-              const response = await fetch(window.location.origin + '/auth/login', {
+              const envPrefix = '${process.env.NODE_ENV === 'prod' ? '/prod' : '/dev'}';
+              const response = await fetch(window.location.origin + envPrefix + '/auth/login', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json'

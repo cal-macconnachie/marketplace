@@ -710,7 +710,7 @@
 
   <script>
     // Get the current host and path to construct the API base URL
-    const API_BASE = window.location.origin + '/manager/api';
+    const API_BASE = window.location.origin + (typeof ENV_PREFIX !== 'undefined' ? ENV_PREFIX : '/dev') + '/manager/api';
     let currentMode = 'create'; // 'create' or 'update'
     let currentProductKey = null;
     let currentTab = 'products'; // 'products' or 'promos'
