@@ -972,6 +972,7 @@
           method: 'POST', // Always POST since we're using body-based routing
           headers: {
             'Content-Type': 'application/json',
+            ...(typeof AUTH_TOKEN !== 'undefined' ? {'Authorization': 'Bearer ' + AUTH_TOKEN} : {})
           },
           body: JSON.stringify(requestData)
         };

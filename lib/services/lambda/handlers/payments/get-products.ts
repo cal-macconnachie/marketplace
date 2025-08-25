@@ -21,8 +21,8 @@ export const getProducts = async (event: APIGatewayProxyEvent): Promise<APIGatew
         }
       }
     }
-
     const accessToken = authHeader.split(' ')[1]
+    console.log('Auth Header found, proceeding to get user from token', accessToken)
     const user = await getUserFromToken(accessToken)
     
     if (!user || !user.organization_id) {
