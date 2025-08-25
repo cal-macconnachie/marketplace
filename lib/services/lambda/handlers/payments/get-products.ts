@@ -12,8 +12,8 @@ export const getProducts = async (event: APIGatewayProxyEvent): Promise<APIGatew
     const authHeader = event.headers?.Authorization || event.headers?.authorization
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return {
-        statusCode: 401,
-        body: JSON.stringify({ message: 'Authentication required' }),
+        statusCode: 500,
+        body: JSON.stringify({ message: 'Authentication required, missing Auth Header' }),
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Credentials': true,
@@ -27,7 +27,7 @@ export const getProducts = async (event: APIGatewayProxyEvent): Promise<APIGatew
     
     if (!user || !user.organization_id) {
       return {
-        statusCode: 401,
+        statusCode: 500,
         body: JSON.stringify({ message: 'Invalid authentication or missing organization' }),
         headers: {
           'Access-Control-Allow-Origin': '*',

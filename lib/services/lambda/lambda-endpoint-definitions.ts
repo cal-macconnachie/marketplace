@@ -239,6 +239,12 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     handler: 'payments/get-payment-methods.getPaymentMethods',
     description: 'Get Payment Methods',
     environment: ['STRIPE_SECRET_KEY'],
+    iamPolicies: [
+      {
+        actions: ['cognito-idp:GetUser'],
+        resources: ['*']
+      }
+    ],
     apiGw: {
       path: 'get-payment-methods',
       method: 'POST',
