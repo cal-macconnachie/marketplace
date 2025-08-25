@@ -105,6 +105,6 @@ export const superAdminManagerPage = async (event: APIGatewayProxyEvent) => {
 }
 
 function getManagerTemplate(): string {
-  const htmlPath = path.join(__dirname, 'manager/templates/super-admin-manager.html')
+  const htmlPath = path.join(__dirname, 'super-admin-manager.html')
   return fs.readFileSync(htmlPath, 'utf-8')
 }

@@ -13,6 +13,6 @@ export const superAdminManagerLogin = async () => {
 }
 
 function getLoginPage() {
-  const htmlPath = path.join(__dirname, 'manager/templates/login.html')
+  const htmlPath = path.join(__dirname, 'login.html')
   return fs.readFileSync(htmlPath, 'utf-8')
 }
