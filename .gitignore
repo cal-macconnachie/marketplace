@@ -10,3 +10,5 @@ cdk.out
 # env
 .env.local
 .env.local.production
+
+.DS_Store
