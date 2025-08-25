@@ -920,7 +920,7 @@
         if (result.success) {
           const couponId = result.data?.coupon?.id || 'Unknown';
           const promoCode = result.data?.promotionCode?.code || result.data?.promotionCode?.id || 'Unknown';
-          showPromoResponse(`Promo code created successfully!\\n\\nCoupon: ${couponId}\\nPromotion Code: ${promoCode}\\n\\n${JSON.stringify(result.data, null, 2)}`);
+          showPromoResponse(`Promo code created successfully!\n\nCoupon: ${couponId}\nPromotion Code: ${promoCode}\n\n${JSON.stringify(result.data, null, 2)}`);
           loadCoupons(); // Refresh both lists
           loadPromotionCodes();
         } else {
