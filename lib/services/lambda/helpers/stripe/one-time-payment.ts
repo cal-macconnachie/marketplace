@@ -143,7 +143,9 @@ export const createOneTimePayment = async ({
     name: product.name,
     metadata: product.metadata,
     unique_id: confirmedPaymentIntent.id,
-    user_id: user.id
+    user_id: user.id,
+    amount: finalAmount,
+    currency: product.default_price_data.currency
   }
   // Calculate expiration time based on product metadata 'time' field or default to 1 hour
   const currentTime = Math.floor(Date.now() / 1000) // Use seconds to match Stripe format

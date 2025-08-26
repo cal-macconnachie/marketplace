@@ -224,13 +224,23 @@ export const manageSubscription = async ({
       purchasedProducts.splice(firstIndexOfProduct, 1)
     }
   }
+  const prices: { [productId: string]: { amount: number; currency: string } } = {}
   for (const productKey of productChanges.added) {
     const stripeProduct = stripeProducts.find(p => p.id === productKey.id)
+    if (stripeProduct && prices[productKey.id] == null) {
+      const price = await stripe.prices.retrieve(typeof stripeProduct.default_price === 'string' ? stripeProduct.default_price : stripeProduct.default_price?.id || '')
+      prices[productKey.id] = {
+        amount: price.unit_amount ?? 0,
+        currency: price.currency
+      }
+    }
     const purchasedProduct: PurchasedProduct = {
       id: productKey.id,
       group_id: productKey.group_id,
       name: stripeProduct?.name ?? 'Unknown',
-      unique_id: v4()
+      unique_id: v4(),
+      amount: prices[productKey.id]?.amount ?? 0,
+      currency: prices[productKey.id]?.currency ?? 'CAD',
     }
     if (stripeProduct?.metadata) {
       purchasedProduct.metadata = stripeProduct.metadata

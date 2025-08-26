@@ -37,6 +37,8 @@ export type PurchasedProduct = Pick<Product, 'id' | 'group_id' | 'name' | 'metad
   unique_id: string
   user_id?: string
   in_good_standing_until?: number
+  amount: number
+  currency: string
 }
 
 let stripe: Stripe | undefined
