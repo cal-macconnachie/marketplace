@@ -2,16 +2,16 @@ import express from 'express'
 import cors from 'cors'
 import path from 'path'
 import dotenv from 'dotenv'
-import {handler as createHandler} from './lib/services/lambda/handlers/product-manager/create'
-import {handler as updateHandler} from './lib/services/lambda/handlers/product-manager/update'
-import {handler as deleteHandler} from './lib/services/lambda/handlers/product-manager/delete'
-import {handler as listHandler} from './lib/services/lambda/handlers/product-manager/list'
-import {handler as getHandler} from './lib/services/lambda/handlers/product-manager/get'
-import {handler as createPromoHandler} from './lib/services/lambda/handlers/promo-manager/create'
-import {handler as listPromoHandler} from './lib/services/lambda/handlers/promo-manager/list'
-import {handler as updatePromoHandler} from './lib/services/lambda/handlers/promo-manager/update'
-import {handler as deletePromoHandler} from './lib/services/lambda/handlers/promo-manager/delete'
 import { Product } from './lib/services/lambda/handlers/products'
+import { listProducts } from './lib/services/lambda/handlers/product-manager/list'
+import { getProduct } from './lib/services/lambda/handlers/product-manager/get'
+import { createProduct } from './lib/services/lambda/handlers/product-manager/create'
+import { updateProduct } from './lib/services/lambda/handlers/product-manager/update'
+import { deleteProduct } from './lib/services/lambda/handlers/product-manager/delete'
+import { createPromo } from './lib/services/lambda/handlers/promo-manager/create'
+import { listPromos } from './lib/services/lambda/handlers/promo-manager/list'
+import { updatePromos } from './lib/services/lambda/handlers/promo-manager/update'
+import { deletePromo } from './lib/services/lambda/handlers/promo-manager/delete'
 
 // Load environment variables
 const envFile = process.env.ENV_FILE
@@ -39,15 +39,15 @@ app.get('/products', async (req, res) => {
       queryStringParameters: req.query as Record<string, string>
     }
 
-    const result = await listHandler(request)
+    const result = await listProducts(request)
 
     if (result.error) {
-      res.status(result.statusCode).json({
+      res.status(500).json({
         error: result.error,
         details: result.details
       })
     } else {
-      res.status(result.statusCode).json(result.data)
+      res.status(200).json(result.data)
     }
   } catch (error) {
     console.error('Error fetching products:', error)
@@ -72,15 +72,15 @@ app.get('/products/:group_id/:id', async (req, res) => {
       }
     }
 
-    const result = await getHandler(request)
+    const result = await getProduct(request)
 
     if (result.error) {
-      res.status(result.statusCode).json({
+      res.status(500).json({
         error: result.error,
         details: result.details
       })
     } else {
-      res.status(result.statusCode).json(result.data)
+      res.status(200).json(result.data)
     }
   } catch (error) {
     console.error('Error fetching product:', error)
@@ -98,15 +98,15 @@ app.post('/products', async (req, res) => {
       body: req.body
     }
 
-    const result = await createHandler(request)
+    const result = await createProduct(request)
 
     if (result.error) {
-      res.status(result.statusCode).json({
+      res.status(500).json({
         error: result.error,
         details: result.details
       })
     } else {
-      res.status(result.statusCode).json(result.data)
+      res.status(200).json(result.data)
     }
   } catch (error) {
     console.error('Error creating product:', error)
@@ -132,15 +132,15 @@ app.put('/products/:group_id/:id', async (req, res) => {
       }
     }
 
-    const result = await updateHandler(request)
+    const result = await updateProduct(request)
 
     if (result.error) {
-      res.status(result.statusCode).json({
+      res.status(500).json({
         error: result.error,
         details: result.details
       })
     } else {
-      res.status(result.statusCode).json(result.data)
+      res.status(200).json(result.data)
     }
   } catch (error) {
     console.error('Error updating product:', error)
@@ -165,15 +165,15 @@ app.delete('/products/:group_id/:id', async (req, res) => {
       }
     }
 
-    const result = await deleteHandler(request)
+    const result = await deleteProduct(request)
 
     if (result.error) {
-      res.status(result.statusCode).json({
+      res.status(500).json({
         error: result.error,
         details: result.details
       })
     } else {
-      res.status(result.statusCode).json(result.data)
+      res.status(200).json(result.data)
     }
   } catch (error) {
     console.error('Error deleting product:', error)
@@ -187,7 +187,7 @@ app.delete('/products/:group_id/:id', async (req, res) => {
 // POST /promos - Create coupon or promotion code
 app.post('/promos', async (req, res) => {
   try {
-    const result = await createPromoHandler(req.body)
+    const result = await createPromo(req.body)
     
     if (result.success) {
       res.status(200).json(result)
@@ -206,7 +206,7 @@ app.post('/promos', async (req, res) => {
 // GET /promos - List coupons or promotion codes (using POST to handle request body)
 app.post('/promos/list', async (req, res) => {
   try {
-    const result = await listPromoHandler(req.body)
+    const result = await listPromos(req.body)
     
     if (result.success) {
       res.status(200).json(result)
@@ -225,7 +225,7 @@ app.post('/promos/list', async (req, res) => {
 // PUT /promos - Update coupon or promotion code
 app.put('/promos', async (req, res) => {
   try {
-    const result = await updatePromoHandler(req.body)
+    const result = await updatePromos(req.body)
     
     if (result.success) {
       res.status(200).json(result)
@@ -244,7 +244,7 @@ app.put('/promos', async (req, res) => {
 // DELETE /promos - Delete coupon or deactivate promotion code
 app.delete('/promos', async (req, res) => {
   try {
-    const result = await deletePromoHandler(req.body)
+    const result = await deletePromo(req.body)
     
     if (result.success) {
       res.status(200).json(result)
