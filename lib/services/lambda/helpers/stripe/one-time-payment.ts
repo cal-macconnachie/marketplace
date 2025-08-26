@@ -25,7 +25,7 @@ export const createOneTimePayment = async ({
   organization: Organization
 }) => {
   const stripe = getStripeClient()
-  const customerId = user.id
+  const customerId = user.stripe_id
   // Implementation for creating a one-time payment using Stripe API
   const [stripeProduct] = await Promise.all([stripe.products.retrieve(product.id)])
   const priceId = typeof stripeProduct.default_price === 'string' ? stripeProduct.default_price : stripeProduct.default_price?.id
