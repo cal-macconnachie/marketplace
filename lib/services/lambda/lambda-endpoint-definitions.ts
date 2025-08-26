@@ -421,5 +421,16 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       auth: 'cognito',
       cors: true
     }
+  },
+  {
+    name: 'getOrganization',
+    handler: 'organizations/get-organization.getOrganization',
+    description: 'Get Organization',
+    apiGw: {
+      path: 'get-organization',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
   }
 ]
