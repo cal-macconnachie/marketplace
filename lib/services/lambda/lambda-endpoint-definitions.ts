@@ -421,17 +421,5 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       auth: 'cognito',
       cors: true
     }
-  },
-  {
-    name: 'purchases',
-    description: 'Purchases',
-    environment: ['STRIPE_SECRET_KEY'],
-    handler: 'purchases.purchaseCrud',
-    apiGw: {
-      path: 'purchases',
-      method: 'POST',
-      auth: 'cognito',
-      cors: true
-    }
   }
 ]
