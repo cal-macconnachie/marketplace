@@ -15,6 +15,7 @@ export interface Purchase {
   organization_id: string
   payment_method_id: string
   amount: number
+  currency: string
 }
 
 function validatePurchase(purchase: Partial<Purchase>): Purchase | false {

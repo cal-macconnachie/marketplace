@@ -276,7 +276,8 @@ export const manageSubscription = async ({
         purchased_at: new Date().toISOString(),
         organization_id: organization.id,
         payment_method_id: paymentMethodId || '',
-        amount: ourProduct.default_price_data?.unit_amount || 0
+        amount: ourProduct.default_price_data?.unit_amount || 0,
+        currency: ourProduct.default_price_data?.currency || 'CAD'
       }
       
       await addPurchase(purchase)

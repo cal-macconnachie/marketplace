@@ -180,7 +180,8 @@ export const createOneTimePayment = async ({
     is_subscription: false,
     payment_method_id: paymentMethodId!,
     product_name: product.name,
-    amount: finalAmount
+    amount: finalAmount,
+    currency: product.default_price_data.currency
   })
   return {
     success: true,
