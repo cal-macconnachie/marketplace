@@ -37,7 +37,8 @@ function validatePurchase(purchase: Partial<Purchase>): Purchase | false {
 export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
   const purchase: Partial<Purchase> & { type?: 'create' | 'update' | 'read' } = JSON.parse(event.body || '{}')
   try {
-    if (purchase.id == null || purchase.user_id == null) {
+    // read requests are allowed to not have the full key
+    if ((purchase.id == null || purchase.user_id == null) && purchase.type !== 'read') {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'Missing required fields' }),
