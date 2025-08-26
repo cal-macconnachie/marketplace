@@ -34,7 +34,7 @@ function validatePurchase(purchase: Partial<Purchase>): Purchase | false {
   return false
 }
 
-export const purchaseCrud = async (event: APIGatewayProxyEvent) => {
+export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
   const purchase: Partial<Purchase> & { type?: 'create' | 'update' | 'read' } = JSON.parse(event.body || '{}')
   try {
     if (purchase.id == null || purchase.user_id == null) {
