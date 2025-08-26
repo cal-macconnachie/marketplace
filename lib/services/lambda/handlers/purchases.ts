@@ -40,7 +40,12 @@ export const purchaseCrud = async (event: APIGatewayProxyEvent) => {
     if (purchase.id == null || purchase.user_id == null) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Missing required fields' })
+        body: JSON.stringify({ error: 'Missing required fields' }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
     if (purchase.type == null || ![
@@ -50,7 +55,12 @@ export const purchaseCrud = async (event: APIGatewayProxyEvent) => {
     ].includes(purchase.type)) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Invalid purchase type' })
+        body: JSON.stringify({ error: 'Invalid purchase type' }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
     const type = purchase.type
@@ -155,6 +165,11 @@ export const purchaseCrud = async (event: APIGatewayProxyEvent) => {
     return {
       statusCode: 500,
       body: (error as Error).message || 'Internal Server Error',
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
+      }
     }
   }
 }
