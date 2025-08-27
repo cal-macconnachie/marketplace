@@ -170,7 +170,8 @@ export const manageSubscription = async ({
         if (existingItem) {
           const totalPrices = (existingItem.quantity ?? 1) + priceItem.quantity
           const updateParams: Stripe.SubscriptionItemUpdateParams = {
-            quantity: totalPrices
+            quantity: totalPrices,
+            proration_behavior: 'create_prorations'
           }
           if (discounts.length > 0) {
             updateParams.discounts = discounts
@@ -181,6 +182,7 @@ export const manageSubscription = async ({
             subscription: currentOrgSubscriptionId!,
             price: priceItem.price,
             quantity: priceItem.quantity,
+            proration_behavior: 'create_prorations'
           }
           if (discounts.length > 0) {
             itemCreateParams.discounts = discounts
@@ -192,6 +194,13 @@ export const manageSubscription = async ({
             productChanges.added.push(productKey)
           }
         }
+      }
+      
+      // Update subscription to maintain billing cycle anchor when adding items
+      if (productChanges.added.length > 0) {
+        await stripe.subscriptions.update(currentOrgSubscriptionId!, {
+          billing_cycle_anchor: 'unchanged'
+        })
       }
     }
   } else {
