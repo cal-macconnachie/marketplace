@@ -77,13 +77,24 @@ export const manageSubscription = async ({
     }
   }
   const currentOrgSubscriptionId = organization.stripe_subscription_id
+  // Get unique product IDs to avoid duplicate Stripe calls
+  const uniqueProductIds = [...new Set(products.map(product => product.id))]
+  
   let [
     subscription,
     stripeProducts
   ] = await Promise.all([
     currentOrgSubscriptionId ? stripe.subscriptions.retrieve(currentOrgSubscriptionId) : Promise.resolve(undefined),
-    Promise.all(products.map(product => stripe.products.retrieve(product.id)))
+    Promise.all(uniqueProductIds.map(productId => stripe.products.retrieve(productId))),
   ])
+  
+  // Get prices with expanded product info to check for metered billing
+  const stripePrices = await Promise.all(stripeProducts.map(stripeProduct => {
+    const priceId = typeof stripeProduct.default_price === 'string'
+      ? stripeProduct.default_price
+      : stripeProduct.default_price?.id
+    return priceId ? stripe.prices.retrieve(priceId) : Promise.resolve(null)
+  }))
   const priceIds = stripeProducts.reduce((acc: { [productId: string]: string }, stripeProduct) => {
     const priceId = typeof stripeProduct.default_price === 'string'
       ? stripeProduct.default_price
@@ -105,22 +116,40 @@ export const manageSubscription = async ({
     return acc
   }, {})
 
+  // Create mapping of price IDs to determine if they are metered
+  const meteredPrices = new Set<string>()
+  stripePrices.forEach((price) => {
+    if (price && price.recurring?.usage_type === 'metered') {
+      meteredPrices.add(price.id)
+    }
+  })
+
   if (Object.values(priceIds).some(priceId => !priceId)) {
     throw new Error(`No price found for products ${products.map(product => product.id).join(', ')}`)
   }
-  const priceItems = products.reduce((acc: { price: string; quantity: number }[], product) => {
+  const priceItems = products.reduce((acc: { price: string; quantity?: number }[], product) => {
     const priceId = priceIds[product.id]
     if (!priceId) {
       throw new Error(`No price found for product ${product.id}`)
     }
-    // if acc already contains price id bump the quantity
-    const existingItem = acc.find(item => item.price === priceId)
-    if (existingItem) {
-      existingItem.quantity += 1
+    
+    const isMetered = meteredPrices.has(priceId)
+    
+    if (isMetered) {
+      // For metered products, only add once regardless of duplicates in products array
+      if (!acc.find(item => item.price === priceId)) {
+        acc.push({ price: priceId })
+      }
     } else {
-      acc.push({
-        price: priceId, quantity: 1 
-      })
+      // For non-metered products, each duplicate product increases quantity
+      const existingItem = acc.find(item => item.price === priceId)
+      if (existingItem && existingItem.quantity !== undefined) {
+        existingItem.quantity += 1
+      } else {
+        acc.push({
+          price: priceId, quantity: 1 
+        })
+      }
     }
     return acc
   }, [])
@@ -141,22 +170,39 @@ export const manageSubscription = async ({
         const existingItem = subscriptionItems.find(item => item.price.id === priceItem.price)
         const priceId = priceItem.price
         const productKey = productKeysByPrice[priceId]
+        const isMetered = meteredPrices.has(priceId)
+        
         if (existingItem) {
-          if ((existingItem.quantity ?? 1) <= priceItem.quantity) {
+          if (isMetered) {
+            // For metered products, simply remove the subscription item
             if (subscriptionItems.length === 1) {
               await stripe.subscriptions.cancel(currentOrgSubscriptionId!)
             } else {
               await stripe.subscriptionItems.del(existingItem.id)
               subscriptionItems = subscriptionItems.filter(item => item.id !== existingItem.id)
             }
-          } else {
-            await stripe.subscriptionItems.update(existingItem.id, {
-              quantity: (existingItem.quantity ?? 1) - priceItem.quantity
-            })
-          }
-          if (productKey) {
-            for (let i = 0; i < priceItem.quantity; i++) {
+            if (productKey) {
               productChanges.removed.push(productKey)
+            }
+          } else {
+            // For non-metered products, handle quantity
+            const quantityToRemove = priceItem.quantity ?? 1
+            if ((existingItem.quantity ?? 1) <= quantityToRemove) {
+              if (subscriptionItems.length === 1) {
+                await stripe.subscriptions.cancel(currentOrgSubscriptionId!)
+              } else {
+                await stripe.subscriptionItems.del(existingItem.id)
+                subscriptionItems = subscriptionItems.filter(item => item.id !== existingItem.id)
+              }
+            } else {
+              await stripe.subscriptionItems.update(existingItem.id, {
+                quantity: (existingItem.quantity ?? 1) - quantityToRemove
+              })
+            }
+            if (productKey) {
+              for (let i = 0; i < quantityToRemove; i++) {
+                productChanges.removed.push(productKey)
+              }
             }
           }
         }
@@ -167,31 +213,59 @@ export const manageSubscription = async ({
         const existingItem = subscriptionItems.find(item => item.price.id === priceItem.price)
         const priceId = priceItem.price
         const productKey = productKeysByPrice[priceId]
+        const isMetered = meteredPrices.has(priceId)
+        
         if (existingItem) {
-          const totalPrices = (existingItem.quantity ?? 1) + priceItem.quantity
-          const updateParams: Stripe.SubscriptionItemUpdateParams = {
-            quantity: totalPrices,
-            proration_behavior: 'create_prorations'
+          if (isMetered) {
+            // For metered products, item already exists, just apply discounts if needed
+            if (discounts.length > 0) {
+              const updateParams: Stripe.SubscriptionItemUpdateParams = {
+                discounts: discounts,
+                proration_behavior: 'create_prorations'
+              }
+              await stripe.subscriptionItems.update(existingItem.id, updateParams)
+            }
+          } else {
+            // For non-metered products, update quantity
+            const quantityToAdd = priceItem.quantity ?? 1
+            const totalPrices = (existingItem.quantity ?? 1) + quantityToAdd
+            const updateParams: Stripe.SubscriptionItemUpdateParams = {
+              quantity: totalPrices,
+              proration_behavior: 'create_prorations'
+            }
+            if (discounts.length > 0) {
+              updateParams.discounts = discounts
+            }
+            await stripe.subscriptionItems.update(existingItem.id, updateParams)
           }
-          if (discounts.length > 0) {
-            updateParams.discounts = discounts
-          }
-          await stripe.subscriptionItems.update(existingItem.id, updateParams)
         } else {
           const itemCreateParams: Stripe.SubscriptionItemCreateParams = {
             subscription: currentOrgSubscriptionId!,
             price: priceItem.price,
-            quantity: priceItem.quantity,
             proration_behavior: 'create_prorations'
           }
+          
+          // Only set quantity for non-metered products
+          if (!isMetered) {
+            itemCreateParams.quantity = priceItem.quantity
+          }
+          
           if (discounts.length > 0) {
             itemCreateParams.discounts = discounts
           }
           await stripe.subscriptionItems.create(itemCreateParams)
         }
+        
         if (productKey) {
-          for (let i = 0; i < priceItem.quantity; i++) {
+          if (isMetered) {
+            // For metered products, only add once
             productChanges.added.push(productKey)
+          } else {
+            // For non-metered products, add based on quantity
+            const quantityToAdd = priceItem.quantity ?? 1
+            for (let i = 0; i < quantityToAdd; i++) {
+              productChanges.added.push(productKey)
+            }
           }
         }
       }
@@ -205,8 +279,19 @@ export const manageSubscription = async ({
     }
   } else {
     if (remove) throw new Error(`Cannot remove products from a subscription that does not exist for organization ${organization.id}`)
+    const subscriptionItems = priceItems.map(item => {
+      const subscriptionItem: Stripe.SubscriptionCreateParams.Item = {
+        price: item.price
+      }
+      // Only set quantity for non-metered products
+      if (item.quantity !== undefined) {
+        subscriptionItem.quantity = item.quantity
+      }
+      return subscriptionItem
+    })
+    
     const startSubscriptionParams: Stripe.SubscriptionCreateParams = {
-      items: priceItems,
+      items: subscriptionItems,
       default_payment_method: paymentMethodId,
       expand: ['latest_invoice.payment_intent'],
       customer: user.stripe_id,
@@ -218,9 +303,18 @@ export const manageSubscription = async ({
     for (const priceItem of priceItems) {
       const priceId = priceItem.price
       const productKey = productKeysByPrice[priceId]
+      const isMetered = meteredPrices.has(priceId)
+      
       if (productKey) {
-        for (let i = 0; i < priceItem.quantity; i++) {
+        if (isMetered) {
+          // For metered products, only add once
           productChanges.added.push(productKey)
+        } else {
+          // For non-metered products, add based on quantity
+          const quantity = priceItem.quantity ?? 1
+          for (let i = 0; i < quantity; i++) {
+            productChanges.added.push(productKey)
+          }
         }
       }
     }
@@ -235,7 +329,7 @@ export const manageSubscription = async ({
   }
   const prices: { [productId: string]: { amount: number; currency: string } } = {}
   for (const productKey of productChanges.added) {
-    const stripeProduct = stripeProducts.find(p => p.id === productKey.id)
+    const stripeProduct = stripeProducts.find((p: Stripe.Product) => p.id === productKey.id)
     if (stripeProduct && prices[productKey.id] == null) {
       const price = await stripe.prices.retrieve(typeof stripeProduct.default_price === 'string' ? stripeProduct.default_price : stripeProduct.default_price?.id || '')
       prices[productKey.id] = {
@@ -281,7 +375,7 @@ export const manageSubscription = async ({
   
   // Create purchase records for each added product
   for (const productKey of productChanges.added) {
-    const stripeProduct = stripeProducts.find(p => p.id === productKey.id)
+    const stripeProduct = stripeProducts.find((p: Stripe.Product) => p.id === productKey.id)
     const ourProduct = products.find(p => p.id === productKey.id)
     
     if (stripeProduct && ourProduct) {
