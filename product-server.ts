@@ -12,6 +12,9 @@ import { createPromo } from './lib/services/lambda/handlers/promo-manager/create
 import { listPromos } from './lib/services/lambda/handlers/promo-manager/list'
 import { updatePromos } from './lib/services/lambda/handlers/promo-manager/update'
 import { deletePromo } from './lib/services/lambda/handlers/promo-manager/delete'
+import { createMeter } from './lib/services/lambda/handlers/meter-manager/create'
+import { listMeters } from './lib/services/lambda/handlers/meter-manager/list'
+import { deactivateMeter } from './lib/services/lambda/handlers/meter-manager/deactivate'
 
 // Load environment variables
 const envFile = process.env.ENV_FILE
@@ -184,6 +187,88 @@ app.delete('/products/:group_id/:id', async (req, res) => {
   }
 })
 
+// POST /meters - Create new billing meter
+app.post('/meters', async (req, res) => {
+  try {
+    const request = {
+      body: req.body
+    }
+
+    const result = await createMeter(request)
+
+    if (result.error) {
+      res.status(500).json({
+        error: result.error,
+        details: result.details
+      })
+    } else {
+      res.status(200).json(result.data)
+    }
+  } catch (error) {
+    console.error('Error creating meter:', error)
+    res.status(400).json({
+      error: 'Failed to create meter',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// GET /meters - List all billing meters
+app.get('/meters', async (req, res) => {
+  try {
+    const request = {
+      queryStringParameters: req.query as Record<string, string>
+    }
+
+    const result = await listMeters(request)
+
+    if (result.error) {
+      res.status(500).json({
+        error: result.error,
+        details: result.details
+      })
+    } else {
+      res.status(200).json(result.data)
+    }
+  } catch (error) {
+    console.error('Error fetching meters:', error)
+    res.status(500).json({
+      error: 'Failed to fetch meters',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+// POST /meters/:id/deactivate - Deactivate billing meter
+app.post('/meters/:id/deactivate', async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const request = {
+      pathParameters: {
+        id
+      }
+    }
+
+    const result = await deactivateMeter(request)
+
+    if (result.error) {
+      res.status(500).json({
+        error: result.error,
+        details: result.details
+      })
+    } else {
+      res.status(200).json(result.data)
+    }
+  } catch (error) {
+    console.error('Error deactivating meter:', error)
+    res.status(500).json({
+      error: 'Failed to deactivate meter',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
 // POST /promos - Create coupon or promotion code
 app.post('/promos', async (req, res) => {
   try {
@@ -296,6 +381,9 @@ const server = app.listen(PORT, () => {
   console.log(`  GET    /products/:group_id/:id`)
   console.log(`  PUT    /products/:group_id/:id`)
   console.log(`  DELETE /products/:group_id/:id`)
+  console.log(`  GET    /meters`)
+  console.log(`  POST   /meters`)
+  console.log(`  POST   /meters/:id/deactivate`)
   console.log(`  POST   /promos`)
   console.log(`  POST   /promos/list`)
   console.log(`  PUT    /promos`)

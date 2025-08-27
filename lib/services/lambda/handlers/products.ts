@@ -19,7 +19,9 @@ export interface Product {
     recurring?: {
       interval: 'day' | 'week' | 'month' | 'year'
       interval_count?: number
+      usage_type?: 'licensed' | 'metered'
     }
+    meter?: string // Billing meter ID for usage-based pricing
     tax_behavior?: 'exclusive' | 'inclusive' | 'unspecified'
   }
   marketing_features?: {
@@ -104,6 +106,16 @@ const createStripePrice = async (
     priceParams.recurring = {
       interval: priceData.recurring.interval,
       interval_count: priceData.recurring.interval_count,
+    }
+    
+    // Handle usage-based (metered) pricing
+    if (priceData.recurring.usage_type === 'metered') {
+      priceParams.recurring.usage_type = 'metered'
+      
+      // If a meter is specified, link it to the price
+      if (priceData.meter) {
+        priceParams.recurring.meter = priceData.meter
+      }
     }
   }
   

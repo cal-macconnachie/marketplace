@@ -375,11 +375,12 @@
   <div class="container">
     <div class="header">
       <h1>Stripe Manager</h1>
-      <p>Manage Products and Promotion Codes</p>
+      <p>Manage Products, Billing Meters, and Promotion Codes</p>
     </div>
 
     <div class="tabs">
       <button class="tab active" onclick="switchTab('products')">Products</button>
+      <button class="tab" onclick="switchTab('meters')">Billing Meters</button>
       <button class="tab" onclick="switchTab('promos')">Promo Codes</button>
     </div>
 
@@ -438,7 +439,7 @@
               <div class="form-group">
                 <label for="unitAmount">Unit Amount (cents)</label>
                 <input type="number" id="unitAmount" name="unitAmount" required min="0" placeholder="999" value="999">
-                <small style="color: #666;">$9.99 = 999 cents</small>
+                <small id="unitAmountHelp" style="color: #666;">$9.99 = 999 cents</small>
               </div>
               <div class="form-group">
                 <label for="taxBehavior">Tax Behavior</label>
@@ -449,24 +450,33 @@
                 </select>
               </div>
               <div class="form-group">
-                <label for="isRecurring">Recurring</label>
-                <div class="checkbox-group">
-                  <input type="checkbox" id="isRecurring" name="isRecurring">
-                  <label for="isRecurring">This is a recurring product</label>
-                </div>
+                <label for="pricingType">Pricing Type</label>
+                <select id="pricingType" name="pricingType" onchange="togglePricingType()">
+                  <option value="one_time">One-time payment</option>
+                  <option value="recurring">Recurring subscription</option>
+                  <option value="metered">Usage-based (metered)</option>
+                </select>
+              </div>
+              <div class="form-group" id="meterGroup" style="display: none;">
+                <label for="meterId">Billing Meter</label>
+                <select id="meterId" name="meterId">
+                  <option value="">Select a billing meter</option>
+                </select>
+                <button type="button" class="btn btn-secondary btn-small" onclick="loadMeters()" style="margin-top: 5px;">Refresh Meters</button>
               </div>
             </div>
             
             <div class="recurring-fields" id="recurringFields">
               <div class="form-grid">
                 <div class="form-group">
-                  <label for="interval">Interval</label>
+                  <label for="interval" id="intervalLabel">Billing Interval</label>
                   <select id="interval" name="interval">
                     <option value="month">Month</option>
                     <option value="year">Year</option>
                     <option value="week">Week</option>
                     <option value="day">Day</option>
                   </select>
+                  <small id="intervalHelp" style="color: #666;">How often to bill for accumulated usage</small>
                 </div>
                 <div class="form-group">
                   <label for="intervalCount">Interval Count</label>
@@ -529,6 +539,51 @@
         <button type="button" class="btn" onclick="loadProducts()">Load Products</button>
         <div id="productList" class="product-list"></div>
       </div>
+      </div>
+
+      <!-- Billing Meters Tab Content -->
+      <div id="meters-tab" class="tab-content">
+        <!-- Meter Form Section -->
+        <div class="section">
+          <h2>Create Billing Meter</h2>
+          <p style="color: #666; margin-bottom: 30px;">Billing meters track usage events that can be billed with metered pricing. Create a meter to define how usage is aggregated.</p>
+          
+          <form id="meterForm">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="meterDisplayName">Display Name</label>
+                <input type="text" id="meterDisplayName" name="display_name" required placeholder="e.g., API Requests">
+              </div>
+              <div class="form-group">
+                <label for="meterEventName">Event Name</label>
+                <input type="text" id="meterEventName" name="event_name" required placeholder="e.g., api_request">
+                <small style="color: #666;">Used when reporting usage events</small>
+              </div>
+              <div class="form-group">
+                <label for="aggregationFormula">Aggregation Method</label>
+                <select id="aggregationFormula" name="aggregation_formula" required>
+                  <option value="sum">Sum - Add up all reported values</option>
+                  <option value="count">Count - Count number of events</option>
+                  <option value="last">Last - Use the last reported value</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button type="submit" class="btn">Create Meter</button>
+              <button type="button" class="btn btn-secondary" onclick="clearMeterForm()">Clear Form</button>
+            </div>
+          </form>
+
+          <div class="response-area" id="meterResponseArea"></div>
+        </div>
+
+        <!-- Existing Meters Section -->
+        <div class="section">
+          <h2>Existing Billing Meters</h2>
+          <button type="button" class="btn" onclick="loadMeters()">Load Meters</button>
+          <div id="meterList" class="product-list"></div>
+        </div>
       </div>
 
       <!-- Promos Tab Content -->
@@ -751,22 +806,53 @@
       productIdInput.addEventListener('input', checkAutoLoad);
     }
 
-    // Toggle recurring fields and time feature note
-    document.getElementById('isRecurring').addEventListener('change', function() {
+    // Toggle pricing type fields
+    function togglePricingType() {
+      const pricingType = document.getElementById('pricingType').value;
       const recurringFields = document.getElementById('recurringFields');
+      const meterGroup = document.getElementById('meterGroup');
       const timeFeatureNote = document.getElementById('timeFeatureNote');
       const addTimeBtn = document.getElementById('addTimeBtn');
+      const unitAmountGroup = document.getElementById('unitAmount').parentElement;
+      const unitAmountLabel = unitAmountGroup.querySelector('label');
+      const unitAmountHelp = document.getElementById('unitAmountHelp');
+      const intervalLabel = document.getElementById('intervalLabel');
+      const intervalHelp = document.getElementById('intervalHelp');
       
-      if (this.checked) {
-        recurringFields.classList.add('show');
-        timeFeatureNote.style.display = 'none';
-        addTimeBtn.style.display = 'none';
-      } else {
-        recurringFields.classList.remove('show');
-        timeFeatureNote.style.display = 'block';
-        addTimeBtn.style.display = 'inline-block';
+      // Reset all fields
+      recurringFields.classList.remove('show');
+      meterGroup.style.display = 'none';
+      timeFeatureNote.style.display = 'none';
+      addTimeBtn.style.display = 'none';
+      unitAmountGroup.style.display = 'block';
+      
+      switch (pricingType) {
+        case 'one_time':
+          unitAmountLabel.textContent = 'Unit Amount (cents)';
+          unitAmountHelp.textContent = '$9.99 = 999 cents';
+          timeFeatureNote.style.display = 'block';
+          addTimeBtn.style.display = 'inline-block';
+          break;
+        case 'recurring':
+          unitAmountLabel.textContent = 'Subscription Price (cents)';
+          unitAmountHelp.textContent = '$9.99/month = 999 cents';
+          intervalLabel.textContent = 'Billing Interval';
+          intervalHelp.textContent = 'How often to charge the subscription fee';
+          recurringFields.classList.add('show');
+          break;
+        case 'metered':
+          unitAmountLabel.textContent = 'Price Per Usage Unit (cents)';
+          unitAmountHelp.textContent = '$0.10 per API call = 10 cents (recommended for usage-based pricing)';
+          intervalLabel.textContent = 'Usage Billing Cycle';
+          intervalHelp.textContent = 'How often to bill for accumulated usage (usage tracked continuously)';
+          unitAmountGroup.style.display = 'block';
+          meterGroup.style.display = 'block';
+          recurringFields.classList.add('show'); // Show billing interval options
+          setPricingDefaults('metered'); // Set realistic default for metered pricing
+          loadMeters(); // Auto-load available meters
+          break;
       }
-    });
+    }
 
     // Metadata management
     function addMetadata() {
@@ -843,6 +929,7 @@
       data.active = document.getElementById('active').checked;
       data.persistUpdate = document.getElementById('persistUpdate').checked;
       data.sort = document.getElementById('sort').value;
+      data.pricingType = document.getElementById('pricingType').value;
       
       // Build the product object
       const product = {
@@ -863,11 +950,25 @@
         }
       };
 
-      if (document.getElementById('isRecurring').checked) {
-        product.default_price_data.recurring = {
-          interval: data.interval,
-          interval_count: parseInt(data.intervalCount) || 1
-        };
+      // Handle different pricing types
+      switch (data.pricingType) {
+        case 'recurring':
+          product.default_price_data.recurring = {
+            interval: data.interval,
+            interval_count: parseInt(data.intervalCount) || 1
+          };
+          break;
+        case 'metered':
+          const meterId = document.getElementById('meterId').value;
+          if (meterId) {
+            product.default_price_data.recurring = {
+              interval: 'month', // Metered billing is typically monthly
+              usage_type: 'metered'
+            };
+            product.default_price_data.meter = meterId;
+          }
+          break;
+        // one_time is default, no additional fields needed
       }
 
       return product;
@@ -891,12 +992,7 @@
       document.getElementById('productForm').reset();
       document.getElementById('active').checked = true;
       document.getElementById('persistUpdate').checked = true;
-      document.getElementById('isRecurring').checked = false;
-      document.getElementById('recurringFields').classList.remove('show');
-      
-      // Show time feature note for non-recurring products
-      document.getElementById('timeFeatureNote').style.display = 'block';
-      document.getElementById('addTimeBtn').style.display = 'inline-block';
+      document.getElementById('pricingType').value = 'one_time';
       
       // Reset to defaults
       document.getElementById('unitAmount').value = '999';
@@ -906,8 +1002,31 @@
       document.getElementById('interval').value = 'month';
       document.getElementById('sort').value = '0';
       
+      // Reset pricing type display
+      togglePricingType();
+      
       populateMetadata({});
       showResponse('Form cleared with defaults.');
+    }
+    
+    // Helper function to set appropriate default values based on pricing type
+    function setPricingDefaults(pricingType) {
+      const unitAmountField = document.getElementById('unitAmount');
+      
+      switch (pricingType) {
+        case 'one_time':
+          unitAmountField.value = '999';
+          unitAmountField.placeholder = '999';
+          break;
+        case 'recurring':
+          unitAmountField.value = '999';
+          unitAmountField.placeholder = '999';
+          break;
+        case 'metered':
+          unitAmountField.value = '10';  // $0.10 - more realistic for usage-based
+          unitAmountField.placeholder = '10';
+          break;
+      }
     }
 
     function populateForm(product) {
@@ -924,19 +1043,24 @@
         document.getElementById('unitAmount').value = product.default_price_data.unit_amount || 0;
         document.getElementById('taxBehavior').value = product.default_price_data.tax_behavior || 'unspecified';
         
+        // Determine pricing type
         if (product.default_price_data.recurring) {
-          document.getElementById('isRecurring').checked = true;
-          document.getElementById('recurringFields').classList.add('show');
-          document.getElementById('timeFeatureNote').style.display = 'none';
-          document.getElementById('addTimeBtn').style.display = 'none';
-          document.getElementById('interval').value = product.default_price_data.recurring.interval || 'month';
-          document.getElementById('intervalCount').value = product.default_price_data.recurring.interval_count || 1;
+          if (product.default_price_data.recurring.usage_type === 'metered' || product.default_price_data.meter) {
+            document.getElementById('pricingType').value = 'metered';
+            if (product.default_price_data.meter) {
+              document.getElementById('meterId').value = product.default_price_data.meter;
+            }
+          } else {
+            document.getElementById('pricingType').value = 'recurring';
+            document.getElementById('interval').value = product.default_price_data.recurring.interval || 'month';
+            document.getElementById('intervalCount').value = product.default_price_data.recurring.interval_count || 1;
+          }
         } else {
-          document.getElementById('isRecurring').checked = false;
-          document.getElementById('recurringFields').classList.remove('show');
-          document.getElementById('timeFeatureNote').style.display = 'block';
-          document.getElementById('addTimeBtn').style.display = 'inline-block';
+          document.getElementById('pricingType').value = 'one_time';
         }
+        
+        // Update UI based on pricing type
+        togglePricingType();
       }
       
       populateMetadata(product.metadata);
@@ -1061,12 +1185,7 @@
             <p><strong>Group:</strong> ${product.group_id}</p>
             <p><strong>Sort:</strong> ${(product.metadata && product.metadata.sort) || '0'}</p>
             <p>${product.description}</p>
-            <div class="price">
-              ${product.default_price_data ? 
-                `${(product.default_price_data.unit_amount / 100).toFixed(2)} ${product.default_price_data.currency.toUpperCase()}` +
-                (product.default_price_data.recurring ? ` / ${product.default_price_data.recurring.interval}` : '')
-                : 'No price data'}
-            </div>
+            ${formatProductPrice(product)}
             <span class="status ${product.active ? 'active' : 'inactive'}">
               ${product.active ? 'Active' : 'Inactive'}
             </span>
@@ -1078,6 +1197,46 @@
         `).join('');
       } else {
         productList.innerHTML = `<div class="loading">Error loading products: ${result.data}</div>`;
+      }
+    }
+
+    function formatProductPrice(product) {
+      if (!product.default_price_data) {
+        return '<div class="price">No price data</div>';
+      }
+      
+      const price = product.default_price_data;
+      const amount = (price.unit_amount / 100).toFixed(2);
+      const currency = price.currency.toUpperCase();
+      
+      // Determine pricing type and format accordingly
+      if (price.recurring) {
+        const interval = price.recurring.interval_count > 1 ? 
+          `${price.recurring.interval_count} ${price.recurring.interval}s` : 
+          price.recurring.interval;
+          
+        if (price.recurring.usage_type === 'metered' || price.meter) {
+          return `
+            <div class="price">$${amount} ${currency} per usage unit</div>
+            <p style="font-size: 0.9rem; color: #666; font-style: italic;">
+              📊 Usage-based billing • Billed ${interval}ly
+            </p>
+          `;
+        } else {
+          return `
+            <div class="price">$${amount} ${currency} / ${interval}</div>
+            <p style="font-size: 0.9rem; color: #666; font-style: italic;">
+              🔄 Recurring subscription
+            </p>
+          `;
+        }
+      } else {
+        return `
+          <div class="price">$${amount} ${currency} one-time</div>
+          <p style="font-size: 0.9rem; color: #666; font-style: italic;">
+            💳 One-time payment
+          </p>
+        `;
       }
     }
 
@@ -1132,6 +1291,15 @@
         errors.push('Sort order must be a non-negative number');
       }
       
+      // Validate metered pricing requirements
+      const pricingType = document.getElementById('pricingType').value;
+      if (pricingType === 'metered') {
+        const meterId = document.getElementById('meterId').value;
+        if (!meterId) {
+          errors.push('A billing meter must be selected for metered pricing');
+        }
+      }
+      
       if (errors.length > 0) {
         showResponse(`Validation errors:\n${errors.join('\n')}`, true);
         return false;
@@ -1158,6 +1326,107 @@
           this.style.borderColor = '#e1e5e9';
         });
       });
+    }
+
+    // Billing Meter Management Functions
+    async function createMeter(meterData) {
+      showMeterResponse('Creating billing meter...');
+      const result = await makeRequest('/meters', 'POST', meterData);
+      
+      if (result.success) {
+        showMeterResponse(`Meter created successfully!\n\n${JSON.stringify(result.data, null, 2)}`);
+        loadMeters(); // Refresh meter list and dropdown
+      } else {
+        showMeterResponse(`Error creating meter: ${JSON.stringify(result.data, null, 2)}`, true);
+      }
+    }
+
+    async function loadMeters() {
+      const meterList = document.getElementById('meterList');
+      const meterDropdown = document.getElementById('meterId');
+      
+      if (meterList) {
+        meterList.innerHTML = '<div class="loading">Loading meters...</div>';
+      }
+      
+      const result = await makeRequest('/meters');
+      
+      if (result.success) {
+        const meters = Array.isArray(result.data) ? result.data : [];
+        
+        // Update meter dropdown
+        if (meterDropdown) {
+          const currentValue = meterDropdown.value;
+          meterDropdown.innerHTML = '<option value="">Select a billing meter</option>';
+          meters.forEach(meter => {
+            const option = document.createElement('option');
+            option.value = meter.id;
+            option.textContent = `${meter.display_name} (${meter.event_name})`;
+            meterDropdown.appendChild(option);
+          });
+          // Restore previous selection if it still exists
+          if (currentValue && meters.some(m => m.id === currentValue)) {
+            meterDropdown.value = currentValue;
+          }
+        }
+        
+        // Update meter list display
+        if (meterList) {
+          if (meters.length === 0) {
+            meterList.innerHTML = '<div class="loading">No meters found.</div>';
+          } else {
+            meterList.innerHTML = meters.map(meter => `
+              <div class="product-card">
+                <h3>${meter.display_name}</h3>
+                <p><strong>ID:</strong> ${meter.id}</p>
+                <p><strong>Event Name:</strong> ${meter.event_name}</p>
+                <p><strong>Aggregation:</strong> ${meter.default_aggregation?.formula || 'Not specified'}</p>
+                <span class="status ${meter.status === 'active' ? 'active' : 'inactive'}">
+                  ${meter.status || 'Unknown'}
+                </span>
+                <div class="card-actions">
+                  <button class="btn btn-small" onclick="editMeter('${meter.id}')">View</button>
+                  <button class="btn btn-danger btn-small" onclick="deactivateMeter('${meter.id}')">Deactivate</button>
+                </div>
+              </div>
+            `).join('');
+          }
+        }
+      } else {
+        if (meterList) {
+          meterList.innerHTML = `<div class="loading">Error loading meters: ${result.data}</div>`;
+        }
+      }
+    }
+
+    function clearMeterForm() {
+      document.getElementById('meterForm').reset();
+      showMeterResponse('Form cleared.');
+    }
+
+    function showMeterResponse(message, isError = false) {
+      const responseArea = document.getElementById('meterResponseArea');
+      responseArea.textContent = message;
+      responseArea.style.color = isError ? '#dc3545' : '#333';
+    }
+
+    async function editMeter(meterId) {
+      showMeterResponse('Meter editing not yet implemented. Use Stripe Dashboard for advanced editing.');
+    }
+
+    async function deactivateMeter(meterId) {
+      if (!confirm('Are you sure you want to deactivate this meter? This cannot be undone.')) {
+        return;
+      }
+      
+      const result = await makeRequest(`/meters/${meterId}/deactivate`, 'POST');
+      
+      if (result.success) {
+        showMeterResponse(`Meter deactivated successfully!`);
+        loadMeters(); // Refresh the list
+      } else {
+        showMeterResponse(`Error deactivating meter: ${JSON.stringify(result.data, null, 2)}`, true);
+      }
     }
 
     // Tab Management
@@ -1374,6 +1643,22 @@
 
     // Form submission handlers
     document.addEventListener('DOMContentLoaded', function() {
+      // Meter form submission
+      document.getElementById('meterForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const meterData = {
+          display_name: formData.get('display_name'),
+          event_name: formData.get('event_name'),
+          default_aggregation: {
+            formula: formData.get('aggregation_formula')
+          }
+        };
+        
+        await createMeter(meterData);
+      });
+
       // Unified promo form submission
       document.getElementById('promoForm').addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -1448,6 +1733,9 @@
       
       // Load products on page load
       loadProducts();
+      
+      // Load meters for dropdown
+      loadMeters();
     }
 
     // Initialize when DOM is ready
