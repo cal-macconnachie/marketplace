@@ -36,6 +36,7 @@ export class LambdaStack extends cdk.Stack {
   public readonly apiKey: apiGW.IApiKey
   public readonly usagePlan: apiGW.UsagePlan
   public readonly cognitoAuthorizer: apiGW.CognitoUserPoolsAuthorizer
+  private readonly corsEnabledResources = new Set<string>()
 
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props)
@@ -276,13 +277,17 @@ export class LambdaStack extends cdk.Stack {
         }
         
         const integration = new apiGW.LambdaIntegration(fn)
-        // Enable CORS if specified
+        // Enable CORS if specified (only once per resource path)
         if (def.apiGw.cors) {
-          resource.addCorsPreflight({
-            allowOrigins: apiGW.Cors.ALL_ORIGINS,
-            allowMethods: [def.apiGw.method],
-            allowHeaders: apiGW.Cors.DEFAULT_HEADERS
-          })
+          const resourcePath = def.apiGw.path
+          if (!this.corsEnabledResources.has(resourcePath)) {
+            resource.addCorsPreflight({
+              allowOrigins: apiGW.Cors.ALL_ORIGINS,
+              allowMethods: apiGW.Cors.ALL_METHODS,
+              allowHeaders: apiGW.Cors.DEFAULT_HEADERS
+            })
+            this.corsEnabledResources.add(resourcePath)
+          }
         }
         if (def.apiGw.auth === 'apiKey') {
           addApiResourceWithApiKey(resource, integration, def.apiGw.method)

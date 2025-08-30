@@ -36,7 +36,10 @@ export interface User {
   // purchases
   products?: PurchasedProduct[]
   in_good_standing_until?: number // Timestamp until which the user is in good standing
-  product_groups?: string[]
+  product_groups?: string[],
+
+  // ADMIN
+  is_internal_admin?: boolean
 }
 
 export const users = async (event: DynamoDBStreamEvent) => {
