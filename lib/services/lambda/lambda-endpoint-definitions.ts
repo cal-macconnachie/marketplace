@@ -53,6 +53,7 @@ export interface LambdaEndpointDefinition {
   bundleHtml?: string[] // List of HTML files to bundle with this specific Lambda
 }
 export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
+  // Authentication & Authorization
   {
     name: 'register',
     handler: 'auth/register.register',
@@ -161,72 +162,8 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       }
     ]
   },
-  {
-    name: 'products',
-    handler: 'products.handler',
-    description: 'Handle Stripe product updates via DynamoDB stream',
-    environment: ['STRIPE_SECRET_KEY'],
-    dynamoStreamEvent: {
-      tableName: 'products',
-      enabled: true,
-      batchSize: 1 // Adjust based on expected throughput
-    }
-  },
-  {
-    name: 'promos',
-    handler: 'promos.promos',
-    description: 'Handle Stripe coupon and promotion code updates via DynamoDB stream',
-    environment: ['STRIPE_SECRET_KEY'],
-    dynamoStreamEvent: {
-      tableName: 'promos',
-      enabled: true,
-      batchSize: 1
-    }
-  },
-  {
-    name: 'users',
-    handler: 'users.users',
-    description: 'Handle user updates via DynamoDB stream',
-    environment: ['STRIPE_SECRET_KEY'],
-    dynamoStreamEvent: {
-      tableName: 'users',
-      enabled: true,
-      batchSize: 1
-    }
-  },
-  {
-    name: 'organizations',
-    handler: 'organizations.organizations',
-    description: 'Handle organization updates via DynamoDB stream',
-    environment: ['STRIPE_SECRET_KEY'],
-    dynamoStreamEvent: {
-      tableName: 'organizations',
-      enabled: true,
-      batchSize: 1
-    }
-  },
-  {
-    name: 'eventHandler',
-    handler: 'stripe-event-handler.stripeEventHandler',
-    description: 'Handle Stripe events via EventBridge',
-    environment: [
-      'STRIPE_SECRET_KEY',
-      'STRIPE_EVENT_DESTINATION'
-    ],
-    eventBridgeEvent: {
-      detailType: 'Stripe Event',
-      enabled: true,
-      pattern: {
-        // source starts with aws.partner/stripe.com
-        source: [{ prefix: 'aws.partner/stripe.com' }],
-        // "detail-type":"customer.created",
-        'detail-type': [
-          'invoice.paid',
-          'invoice.payment_failed'
-        ]
-      }
-    }
-  },
+
+  // Payment Methods & Processing
   {
     name: 'createPaymentMethod',
     handler: 'payments/create-payment-method.createPaymentMethod',
@@ -269,14 +206,64 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       cors: true
     }
   },
+
+  // Products & Purchases
   {
-    name: 'purchases',
-    handler: 'purchases.purchasesCrud',
-    description: 'operations for purchases',
-    environment: ['STRIPE_SECRET_KEY'],
+    name: 'createProduct',
+    handler: 'product-manager/create.createProduct',
+    description: 'Create Product',
+    environment: ['TABLE_PRODUCTS'],
     apiGw: {
-      path: 'purchases',
+      path: 'products',
       method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'getProduct',
+    handler: 'product-manager/get.getProduct',
+    description: 'Get Product by ID',
+    environment: ['TABLE_PRODUCTS'],
+    apiGw: {
+      path: 'products/{group_id}/{id}',
+      method: 'GET',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'listProducts',
+    handler: 'product-manager/list.listProducts',
+    description: 'List Products',
+    environment: ['TABLE_PRODUCTS'],
+    apiGw: {
+      path: 'products',
+      method: 'GET',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'updateProduct',
+    handler: 'product-manager/update.updateProduct',
+    description: 'Update Product',
+    environment: ['TABLE_PRODUCTS'],
+    apiGw: {
+      path: 'products/{group_id}/{id}',
+      method: 'PUT',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'deleteProduct',
+    handler: 'product-manager/delete.deleteProduct',
+    description: 'Delete Product',
+    environment: ['TABLE_PRODUCTS'],
+    apiGw: {
+      path: 'products/{group_id}/{id}',
+      method: 'DELETE',
       auth: 'cognito',
       cors: true
     }
@@ -315,6 +302,18 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     }
   },
   {
+    name: 'purchases',
+    handler: 'purchases.purchasesCrud',
+    description: 'operations for purchases',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'purchases',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
     name: 'cancelSubscription',
     handler: 'payments/cancel-subscription.cancelSubscription',
     description: 'Cancel Subscription',
@@ -326,6 +325,96 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       cors: true
     }
   },
+
+  // Promotions & Coupons Management
+  {
+    name: 'createPromo',
+    handler: 'promo-manager/create.createPromo',
+    description: 'Create Coupon or Promotion Code',
+    environment: ['TABLE_PROMOS'],
+    apiGw: {
+      path: 'promos',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'listPromos',
+    handler: 'promo-manager/list.listPromos',
+    description: 'List Coupons or Promotion Codes',
+    environment: ['TABLE_PROMOS'],
+    apiGw: {
+      path: 'promos',
+      method: 'GET',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'updatePromos',
+    handler: 'promo-manager/update.updatePromos',
+    description: 'Update Coupon or Promotion Code',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'promos/{type}/{id}',
+      method: 'PUT',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'deletePromo',
+    handler: 'promo-manager/delete.deletePromo',
+    description: 'Delete Coupon or Promotion Code',
+    environment: ['TABLE_PROMOS'],
+    apiGw: {
+      path: 'promos/{type}/{id}',
+      method: 'DELETE',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+
+  // Billing Meters Management
+  {
+    name: 'createMeter',
+    handler: 'meter-manager/create.createMeter',
+    description: 'Create Billing Meter',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'meters',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'listMeters',
+    handler: 'meter-manager/list.listMeters',
+    description: 'List Billing Meters',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'meters',
+      method: 'GET',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'deactivateMeter',
+    handler: 'meter-manager/deactivate.deactivateMeter',
+    description: 'Deactivate Billing Meter',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'meters/{id}',
+      method: 'DELETE',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+
+  // Organization Management
   {
     name: 'addUserToOrganization',
     handler: 'organizations/add-user-to-organization.add',
@@ -399,30 +488,6 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     }
   },
   {
-    name: 'productManager',
-    description: 'Product Management',
-    environment: ['STRIPE_SECRET_KEY'],
-    handler: 'product-manager/index.productManager',
-    apiGw: {
-      path: 'product-manager',
-      method: 'POST',
-      auth: 'cognito',
-      cors: true
-    }
-  },
-  {
-    name: 'promoManager',
-    description: 'Promo Management',
-    environment: ['STRIPE_SECRET_KEY'],
-    handler: 'promo-manager/index.promoManager',
-    apiGw: {
-      path: 'promo-manager',
-      method: 'POST',
-      auth: 'cognito',
-      cors: true
-    }
-  },
-  {
     name: 'getOrganization',
     handler: 'organizations/get-organization.getOrganization',
     description: 'Get Organization',
@@ -431,6 +496,76 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       method: 'POST',
       auth: 'cognito',
       cors: true
+    }
+  },
+
+  // Event-Driven Processing
+  {
+    name: 'eventHandler',
+    handler: 'stripe-event-handler.stripeEventHandler',
+    description: 'Handle Stripe events via EventBridge',
+    environment: [
+      'STRIPE_SECRET_KEY',
+      'STRIPE_EVENT_DESTINATION'
+    ],
+    eventBridgeEvent: {
+      detailType: 'Stripe Event',
+      enabled: true,
+      pattern: {
+        // source starts with aws.partner/stripe.com
+        source: [{ prefix: 'aws.partner/stripe.com' }],
+        // "detail-type":"customer.created",
+        'detail-type': [
+          'invoice.paid',
+          'invoice.payment_failed'
+        ]
+      }
+    }
+  },
+
+  // DynamoDB Stream Handlers
+  {
+    name: 'products',
+    handler: 'products.handler',
+    description: 'Handle Stripe product updates via DynamoDB stream',
+    environment: ['STRIPE_SECRET_KEY'],
+    dynamoStreamEvent: {
+      tableName: 'products',
+      enabled: true,
+      batchSize: 1 // Adjust based on expected throughput
+    }
+  },
+  {
+    name: 'promos',
+    handler: 'promos.promos',
+    description: 'Handle Stripe coupon and promotion code updates via DynamoDB stream',
+    environment: ['STRIPE_SECRET_KEY'],
+    dynamoStreamEvent: {
+      tableName: 'promos',
+      enabled: true,
+      batchSize: 1
+    }
+  },
+  {
+    name: 'users',
+    handler: 'users.users',
+    description: 'Handle user updates via DynamoDB stream',
+    environment: ['STRIPE_SECRET_KEY'],
+    dynamoStreamEvent: {
+      tableName: 'users',
+      enabled: true,
+      batchSize: 1
+    }
+  },
+  {
+    name: 'organizations',
+    handler: 'organizations.organizations',
+    description: 'Handle organization updates via DynamoDB stream',
+    environment: ['STRIPE_SECRET_KEY'],
+    dynamoStreamEvent: {
+      tableName: 'organizations',
+      enabled: true,
+      batchSize: 1
     }
   }
 ]
