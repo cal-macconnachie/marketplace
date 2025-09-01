@@ -177,6 +177,18 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     }
   },
   {
+    name: 'createConnectedAccount',
+    handler: 'stripe/create-connected-account.createConnectedAccountHandler',
+    description: 'Create Stripe Connected Account for marketplace sellers',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'stripe/create-connected-account',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
     name: 'getPaymentMethods',
     handler: 'payments/get-payment-methods.getPaymentMethods',
     description: 'Get Payment Methods',

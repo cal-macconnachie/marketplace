@@ -1,22 +1,19 @@
 import Stripe from 'stripe'
+import { getStripeClient } from '../../helpers/stripe/stripe-client'
 import { BillingMeter, DeactivateMeterRequest } from './types'
-
-let stripe: Stripe | undefined
 
 export const deactivateMeter = async (
   request: DeactivateMeterRequest
 ) => {
   try {
-    const { pathParameters } = request
+    const { pathParameters, queryStringParameters } = request
 
-    // Initialize Stripe if not already done
-    if (!stripe) {
-      if (!process.env.STRIPE_SECRET_KEY) {
-        return {
-          error: 'STRIPE_SECRET_KEY environment variable not set'
-        }
+    // Get the Stripe client (supports connected accounts)
+    const stripe = getStripeClient()
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return {
+        error: 'STRIPE_SECRET_KEY environment variable not set'
       }
-      stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
     }
 
     if (!pathParameters?.id) {
@@ -26,9 +23,19 @@ export const deactivateMeter = async (
     }
 
     const meterId = pathParameters.id
+    const account_id = queryStringParameters?.account_id
 
-    // Deactivate the billing meter in Stripe
-    const stripeMeter = await stripe.billing.meters.deactivate(meterId)
+    // Validate account_id for connected account operations
+    if (!account_id) {
+      return {
+        error: 'account_id is required for meter deactivation'
+      }
+    }
+
+    // Deactivate the billing meter in Stripe using connected account
+    const stripeMeter = await stripe.billing.meters.deactivate(meterId, {}, {
+      stripeAccount: account_id
+    })
 
     // Convert Stripe response to our format
     const deactivatedMeter: BillingMeter = {
@@ -40,7 +47,8 @@ export const deactivateMeter = async (
       },
       status: stripeMeter.status as 'active' | 'inactive',
       created: stripeMeter.created,
-      updated: stripeMeter.updated
+      updated: stripeMeter.updated,
+      account_id: account_id
     }
 
     return {

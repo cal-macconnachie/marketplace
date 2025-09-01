@@ -1,9 +1,8 @@
 import Stripe from 'stripe'
+import { getStripeClient } from '../../helpers/stripe/stripe-client'
 import {
   BillingMeter, CreateMeterRequest 
 } from './types'
-
-let stripe: Stripe | undefined
 
 export const createMeter = async (
   request: CreateMeterRequest
@@ -11,14 +10,12 @@ export const createMeter = async (
   try {
     const { body } = request
 
-    // Initialize Stripe if not already done
-    if (!stripe) {
-      if (!process.env.STRIPE_SECRET_KEY) {
-        return {
-          error: 'STRIPE_SECRET_KEY environment variable not set'
-        }
+    // Get the Stripe client (supports connected accounts)
+    const stripe = getStripeClient()
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return {
+        error: 'STRIPE_SECRET_KEY environment variable not set'
       }
-      stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
     }
 
     // Validate required fields
@@ -28,7 +25,14 @@ export const createMeter = async (
       }
     }
 
-    // Create the billing meter in Stripe
+    // Validate account_id for connected account operations
+    if (!body.account_id) {
+      return {
+        error: 'account_id is required for meter creation'
+      }
+    }
+
+    // Create the billing meter in Stripe using connected account
     const meterParams: Stripe.Billing.MeterCreateParams = {
       display_name: body.display_name,
       event_name: body.event_name,
@@ -37,7 +41,9 @@ export const createMeter = async (
       }
     }
 
-    const stripeMeter = await stripe.billing.meters.create(meterParams)
+    const stripeMeter = await stripe.billing.meters.create(meterParams, {
+      stripeAccount: body.account_id
+    })
 
     // Convert Stripe response to our format
     const createdMeter: BillingMeter = {
@@ -49,7 +55,8 @@ export const createMeter = async (
       },
       status: stripeMeter.status as 'active' | 'inactive',
       created: stripeMeter.created,
-      updated: stripeMeter.updated
+      updated: stripeMeter.updated,
+      account_id: body.account_id
     }
 
     return {

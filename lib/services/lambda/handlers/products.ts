@@ -33,6 +33,7 @@ export interface Product {
   error?: string // Error message from Stripe operations
   last_processed_at?: string // ISO timestamp of last processing
   price_version?: number // Version number for price changes
+  account_id: string // ID of the Stripe account associated with the product
 }
 
 export type PurchasedProduct = Pick<Product, 'id' | 'group_id' | 'name' | 'metadata'> & {
@@ -93,7 +94,8 @@ const isPriceDataChanged = (oldRecord: Product | undefined, newRecord: Product):
 const createStripePrice = async (
   stripe: Stripe,
   productId: string,
-  priceData: Product['default_price_data']
+  priceData: Product['default_price_data'],
+  accountId: string
 ): Promise<Stripe.Price> => {
   const priceParams: Stripe.PriceCreateParams = {
     product: productId,
@@ -118,14 +120,18 @@ const createStripePrice = async (
       }
     }
   }
-  
-  return await stripe.prices.create(priceParams)
+
+  return await stripe.prices.create(priceParams, {
+    stripeAccount: accountId
+  })
 }
 
 // Helper function to archive a price
-const archiveStripePrice = async (stripe: Stripe, priceId: string): Promise<void> => {
+const archiveStripePrice = async (stripe: Stripe, priceId: string, accountId: string): Promise<void> => {
   try {
-    await stripe.prices.update(priceId, { active: false })
+    await stripe.prices.update(priceId, { active: false }, {
+      stripeAccount: accountId
+    })
   } catch (error) {
     console.warn(`Failed to archive price ${priceId}:`, error)
     // Don't throw - archiving old price is not critical
@@ -286,6 +292,8 @@ export const handler = async (event: DynamoDBStreamEvent) => {
                   stripeProduct = await stripe.products.update(productId, {
                     ...productUpdateData,
                     active: true // Ensure it's unarchived
+                  }, {
+                    stripeAccount: newRec.account_id
                   })
                 } catch (error: unknown) {
                   if (error && typeof error === 'object' && 'code' in error && error.code === 'resource_missing') {
@@ -293,6 +301,8 @@ export const handler = async (event: DynamoDBStreamEvent) => {
                     stripeProduct = await stripe.products.create({
                       ...productCreateData,
                       id: productId
+                    }, {
+                      stripeAccount: newRec.account_id
                     })
                   } else {
                     throw error
@@ -301,12 +311,14 @@ export const handler = async (event: DynamoDBStreamEvent) => {
                 
                 // Handle price creation
                 if (stripeProduct && newRec.default_price_data) {
-                  const newPrice = await createStripePrice(stripe, stripeProduct.id, newRec.default_price_data)
+                  const newPrice = await createStripePrice(stripe, stripeProduct.id, newRec.default_price_data, newRec.account_id)
                   newPriceId = newPrice.id
                   
                   // Update product with new default price
                   stripeProduct = await stripe.products.update(stripeProduct.id, {
                     default_price: newPrice.id
+                  }, {
+                    stripeAccount: newRec.account_id
                   })
                 }
                 
@@ -341,24 +353,28 @@ export const handler = async (event: DynamoDBStreamEvent) => {
                 
                 if (priceChanged) {
                   // Create new price
-                  const newPrice = await createStripePrice(stripe, productId, newRec.default_price_data)
+                  const newPrice = await createStripePrice(stripe, productId, newRec.default_price_data, newRec.account_id)
                   newPriceId = newPrice.id
                   currentPriceVersion += 1
                   
                   // Archive old price if it exists
                   if (old.price_id) {
-                    await archiveStripePrice(stripe, old.price_id)
+                    await archiveStripePrice(stripe, old.price_id, old.account_id)
                   }
                   
                   // Update product with new default price
                   await stripe.products.update(productId, {
                     default_price: newPrice.id
+                  }, {
+                    stripeAccount: newRec.account_id
                   })
                 }
                 
                 // Update product with non-price fields
                 const productUpdateData = prepareProductDataForUpdate(newRec)
-                stripeProduct = await stripe.products.update(productId, productUpdateData)
+                stripeProduct = await stripe.products.update(productId, productUpdateData, {
+                  stripeAccount: newRec.account_id
+                })
                 
                 // Update price version if price changed
                 if (priceChanged) {
@@ -388,11 +404,13 @@ export const handler = async (event: DynamoDBStreamEvent) => {
                 // Archive the product instead of deleting it
                 await stripe.products.update(productId, {
                   active: false
+                }, {
+                  stripeAccount: old.account_id
                 })
                 
                 // Archive the associated price if it exists
                 if (old.price_id) {
-                  await archiveStripePrice(stripe, old.price_id)
+                  await archiveStripePrice(stripe, old.price_id, old.account_id)
                 }
                 
               } catch (error) {

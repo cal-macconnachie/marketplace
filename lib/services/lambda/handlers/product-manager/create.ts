@@ -16,12 +16,20 @@ export const createProduct = async (
         error: 'TABLE_PRODUCTS environment variable not set'
       }
     }
+    
+    // Ensure account_id is set on the product
+    if (!body.account_id) {
+      return {
+        error: 'account_id is required for product creation'
+      }
+    }
+    
     const key = {
       group_id: body.group_id,
       id: body.id
     }
 
-    // Create the product in DynamoDB
+    // Create the product in DynamoDB with account_id
     const createdProduct = await create<Product>({
       tableName,
       key,

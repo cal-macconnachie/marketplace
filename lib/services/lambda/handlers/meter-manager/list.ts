@@ -1,30 +1,35 @@
 import Stripe from 'stripe'
+import { getStripeClient } from '../../helpers/stripe/stripe-client'
 import {
   BillingMeter, ListMetersRequest 
 } from './types'
-
-let stripe: Stripe | undefined
 
 export const listMeters = async (
   request: ListMetersRequest
 ) => {
   try {
-    // Initialize Stripe if not already done
-    if (!stripe) {
-      if (!process.env.STRIPE_SECRET_KEY) {
-        return {
-          error: 'STRIPE_SECRET_KEY environment variable not set'
-        }
+    // Get the Stripe client (supports connected accounts)
+    const stripe = getStripeClient()
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return {
+        error: 'STRIPE_SECRET_KEY environment variable not set'
       }
-      stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
     }
 
     // Parse query parameters
     const status = request.queryStringParameters?.status
+    const account_id = request.queryStringParameters?.account_id
     const limit = request.queryStringParameters?.limit ? 
       parseInt(request.queryStringParameters.limit, 10) : 100
 
-    // List billing meters from Stripe
+    // Validate account_id for connected account operations
+    if (!account_id) {
+      return {
+        error: 'account_id is required for listing meters'
+      }
+    }
+
+    // List billing meters from Stripe using connected account
     const listParams: Stripe.Billing.MeterListParams = {
       limit: Math.min(limit, 100) // Stripe API limit
     }
@@ -33,7 +38,9 @@ export const listMeters = async (
       listParams.status = status
     }
 
-    const stripeMeters = await stripe.billing.meters.list(listParams)
+    const stripeMeters = await stripe.billing.meters.list(listParams, {
+      stripeAccount: account_id
+    })
 
     // Convert Stripe response to our format
     const meters: BillingMeter[] = stripeMeters.data.map(meter => ({
@@ -45,7 +52,8 @@ export const listMeters = async (
       },
       status: meter.status as 'active' | 'inactive',
       created: meter.created,
-      updated: meter.updated
+      updated: meter.updated,
+      account_id: account_id
     }))
 
     return {

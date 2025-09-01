@@ -17,30 +17,52 @@ export const listProducts = async (
     }
 
     const { queryStringParameters } = request
-    const { group_id } = queryStringParameters || {}
+    const {
+      group_id, account_id 
+    } = queryStringParameters || {}
 
+    let result
     if (group_id) {
       // Query products for a specific group
-      const result = await query<Product>({
+      if (account_id) {
+        // Filter by both group_id and account_id
+        result = await query<Product>({
+          tableName,
+          keyConditionExpression: 'group_id = :group_id',
+          filterExpression: 'account_id = :account_id',
+          expressionAttributeValues: {
+            ':group_id': group_id,
+            ':account_id': account_id
+          }
+        })
+      } else {
+        // Filter by group_id only
+        result = await query<Product>({
+          tableName,
+          keyConditionExpression: 'group_id = :group_id',
+          expressionAttributeValues: {
+            ':group_id': group_id
+          }
+        })
+      }
+    } else if (account_id) {
+      // Scan with account_id filter when no group_id is provided
+      result = await scan<Product>({
         tableName,
-        keyConditionExpression: 'group_id = :group_id',
+        filterExpression: 'account_id = :account_id',
         expressionAttributeValues: {
-          ':group_id': group_id
+          ':account_id': account_id
         }
       })
-
-      return {
-        data: result.items
-      }
     } else {
-      // Scan all products when no group_id is provided
-      const result = await scan<Product>({
+      // Scan all products when no filters are provided
+      result = await scan<Product>({
         tableName
       })
+    }
 
-      return {
-        data: result.items
-      }
+    return {
+      data: result.items
     }
   } catch (error) {
     console.error('Error listing products:', error)

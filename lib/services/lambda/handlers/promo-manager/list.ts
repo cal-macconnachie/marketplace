@@ -6,6 +6,7 @@ export interface ListCouponsRequest {
   starting_after?: string
   ending_before?: string
   created?: number | { gt?: number; gte?: number; lt?: number; lte?: number }
+  account_id?: string
 }
 
 export interface ListPromotionCodesRequest {
@@ -17,6 +18,7 @@ export interface ListPromotionCodesRequest {
   ending_before?: string
   created?: number | { gt?: number; gte?: number; lt?: number; lte?: number }
   active?: boolean
+  account_id?: string
 }
 
 export const listPromos = async (request: { type: 'coupons' } & ListCouponsRequest | { type: 'promotion_codes' } & ListPromotionCodesRequest) => {
@@ -29,7 +31,7 @@ export const listPromos = async (request: { type: 'coupons' } & ListCouponsReque
       const promoRequest = request as ListPromotionCodesRequest & { type: 'promotion_codes' }
       
       // Query DynamoDB for promotion codes
-      const result = await query<Promo>({
+      const queryParams: any = {
         tableName: process.env.TABLE_PROMOS,
         keyConditionExpression: '#type = :type',
         expressionAttributeNames: {
@@ -39,7 +41,15 @@ export const listPromos = async (request: { type: 'coupons' } & ListCouponsReque
           ':type': 'promotion_code'
         },
         limit: promoRequest.limit
-      })
+      }
+
+      // Add account_id filter if provided
+      if (promoRequest.account_id) {
+        queryParams.filterExpression = 'account_id = :account_id'
+        queryParams.expressionAttributeValues[':account_id'] = promoRequest.account_id
+      }
+
+      const result = await query<Promo>(queryParams)
 
       // Apply additional filters if provided
       let filteredItems = result.items
@@ -76,7 +86,7 @@ export const listPromos = async (request: { type: 'coupons' } & ListCouponsReque
       const couponRequest = request as ListCouponsRequest & { type: 'coupons' }
       
       // Query DynamoDB for coupons
-      const result = await query<Promo>({
+      const queryParams: any = {
         tableName: process.env.TABLE_PROMOS,
         keyConditionExpression: '#type = :type',
         expressionAttributeNames: {
@@ -86,7 +96,15 @@ export const listPromos = async (request: { type: 'coupons' } & ListCouponsReque
           ':type': 'coupon'
         },
         limit: couponRequest.limit
-      })
+      }
+
+      // Add account_id filter if provided
+      if (couponRequest.account_id) {
+        queryParams.filterExpression = 'account_id = :account_id'
+        queryParams.expressionAttributeValues[':account_id'] = couponRequest.account_id
+      }
+
+      const result = await query<Promo>(queryParams)
 
       return {
         success: true,

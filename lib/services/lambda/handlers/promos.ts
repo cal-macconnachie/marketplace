@@ -45,6 +45,7 @@ export interface Promo {
   // System fields
   error?: string
   last_processed_at?: string
+  account_id?: string
 }
 
 const getChangedAttributes = (
@@ -145,7 +146,8 @@ const prepareCouponDataForCreate = (record: Promo): Stripe.CouponCreateParams =>
     'times_redeemed',
     'valid',
     'created',
-    'livemode'
+    'livemode',
+    'account_id'
   ] as const
   
   const couponData = { ...record } as Record<string, unknown>
@@ -175,7 +177,8 @@ const prepareCouponDataForUpdate = (record: Promo): Stripe.CouponUpdateParams =>
     'duration_in_months',
     'max_redemptions',
     'redeem_by',
-    'applies_to'
+    'applies_to',
+    'account_id'
   ] as const
   
   const couponData = { ...record } as Record<string, unknown>
@@ -195,7 +198,8 @@ const preparePromotionCodeDataForCreate = (record: Promo): Stripe.PromotionCodeC
     'error',
     'last_processed_at',
     'created',
-    'livemode'
+    'livemode',
+    'account_id'
   ] as const
   
   const promoData = { ...record } as Record<string, unknown>
@@ -219,7 +223,8 @@ const preparePromotionCodeDataForUpdate = (record: Promo): Stripe.PromotionCodeU
     'code',
     'coupon',
     'customer',
-    'expires_at'
+    'expires_at',
+    'account_id'
   ] as const
   
   const promoData = { ...record } as Record<string, unknown>
@@ -282,18 +287,29 @@ export const promos = async (event: DynamoDBStreamEvent) => {
         switch (eventName) {
           case 'INSERT':
             if (promoId && newRec) {
+              // Validate account_id is present
+              if (!newRec.account_id) {
+                throw new Error('account_id is required for Stripe promo operations')
+              }
+              
               try {
                 if (newRec.type === 'coupon') {
                   try {
-                    await stripe.coupons.retrieve(promoId)
+                    await stripe.coupons.retrieve(promoId, {
+                      stripeAccount: newRec.account_id
+                    })
                     const couponUpdateData = prepareCouponDataForUpdate(newRec)
-                    stripePromo = await stripe.coupons.update(promoId, couponUpdateData)
+                    stripePromo = await stripe.coupons.update(promoId, couponUpdateData, {
+                      stripeAccount: newRec.account_id
+                    })
                   } catch (error: unknown) {
                     if (error && typeof error === 'object' && 'code' in error && error.code === 'resource_missing') {
                       const couponCreateData = prepareCouponDataForCreate(newRec)
                       stripePromo = await stripe.coupons.create({
                         ...couponCreateData,
                         id: promoId
+                      }, {
+                        stripeAccount: newRec.account_id
                       })
                     } else {
                       throw error
@@ -301,13 +317,19 @@ export const promos = async (event: DynamoDBStreamEvent) => {
                   }
                 } else if (newRec.type === 'promotion_code') {
                   try {
-                    stripePromo = await stripe.promotionCodes.retrieve(promoId)
+                    stripePromo = await stripe.promotionCodes.retrieve(promoId, {
+                      stripeAccount: newRec.account_id
+                    })
                     const promoCodeUpdateData = preparePromotionCodeDataForUpdate(newRec)
-                    stripePromo = await stripe.promotionCodes.update(promoId, promoCodeUpdateData)
+                    stripePromo = await stripe.promotionCodes.update(promoId, promoCodeUpdateData, {
+                      stripeAccount: newRec.account_id
+                    })
                   } catch (error: unknown) {
                     if (error && typeof error === 'object' && 'code' in error && error.code === 'resource_missing') {
                       const promoCodeCreateData = preparePromotionCodeDataForCreate(newRec)
-                      stripePromo = await stripe.promotionCodes.create(promoCodeCreateData)
+                      stripePromo = await stripe.promotionCodes.create(promoCodeCreateData, {
+                        stripeAccount: newRec.account_id
+                      })
                     } else {
                       throw error
                     }
@@ -335,6 +357,11 @@ export const promos = async (event: DynamoDBStreamEvent) => {
             
           case 'MODIFY':
             if (promoId && newRec && old) {
+              // Validate account_id is present
+              if (!newRec.account_id) {
+                throw new Error('account_id is required for Stripe promo operations')
+              }
+              
               try {
                 if (old.type !== newRec.type || old.id !== newRec.id) {
                   throw new Error('type and id cannot be changed for Stripe promos')
@@ -342,10 +369,14 @@ export const promos = async (event: DynamoDBStreamEvent) => {
                 
                 if (newRec.type === 'coupon') {
                   const couponUpdateData = prepareCouponDataForUpdate(newRec)
-                  stripePromo = await stripe.coupons.update(promoId, couponUpdateData)
+                  stripePromo = await stripe.coupons.update(promoId, couponUpdateData, {
+                    stripeAccount: newRec.account_id
+                  })
                 } else if (newRec.type === 'promotion_code') {
                   const promoCodeUpdateData = preparePromotionCodeDataForUpdate(newRec)
-                  stripePromo = await stripe.promotionCodes.update(promoId, promoCodeUpdateData)
+                  stripePromo = await stripe.promotionCodes.update(promoId, promoCodeUpdateData, {
+                    stripeAccount: newRec.account_id
+                  })
                 }
                 
               } catch (error) {
@@ -369,11 +400,20 @@ export const promos = async (event: DynamoDBStreamEvent) => {
             
           case 'REMOVE':
             if (promoId && old) {
+              // Validate account_id is present
+              if (!old.account_id) {
+                throw new Error('account_id is required for Stripe promo operations')
+              }
+              
               try {
                 if (old.type === 'coupon') {
-                  await stripe.coupons.del(promoId)
+                  await stripe.coupons.del(promoId, {
+                    stripeAccount: old.account_id
+                  })
                 } else if (old.type === 'promotion_code') {
-                  await stripe.promotionCodes.update(promoId, { active: false })
+                  await stripe.promotionCodes.update(promoId, { active: false }, {
+                    stripeAccount: old.account_id
+                  })
                 }
                 
               } catch (error) {

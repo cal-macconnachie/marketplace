@@ -14,6 +14,7 @@ export interface CreateCouponRequest {
   applies_to?: {
     products?: string[]
   }
+  account_id: string
 }
 
 export interface CreatePromotionCodeRequest {
@@ -27,6 +28,7 @@ export interface CreatePromotionCodeRequest {
     minimum_amount?: number
     minimum_amount_currency?: string
   }
+  account_id: string
 }
 
 export interface CreatePromoRequest extends CreateCouponRequest {
@@ -50,6 +52,11 @@ export const createPromo = async (request: CreatePromoRequest | { type: 'promoti
     if ('type' in request && request.type === 'promotion_code') {
       const promoCodeRequest = request as CreatePromotionCodeRequest & { type: 'promotion_code' }
       
+      // Validate account_id is provided
+      if (!('account_id' in promoCodeRequest) || !promoCodeRequest.account_id) {
+        throw new Error('account_id is required for promotion code creation')
+      }
+
       // Create DynamoDB record for promotion code that will trigger Stripe creation
       const promoRecord: Promo = {
         type: 'promotion_code',
@@ -64,7 +71,8 @@ export const createPromo = async (request: CreatePromoRequest | { type: 'promoti
         metadata: {},
         created: Math.floor(Date.now() / 1000),
         livemode: false,
-        active: true
+        active: true,
+        account_id: (promoCodeRequest as { account_id: string }).account_id
       }
 
       await create({
@@ -102,6 +110,11 @@ export const createPromo = async (request: CreatePromoRequest | { type: 'promoti
         throw new Error('duration_in_months is required when duration is repeating')
       }
 
+      // Validate account_id is provided
+      if (!('account_id' in promoRequest) || !promoRequest.account_id) {
+        throw new Error('account_id is required for coupon creation')
+      }
+
       // Create DynamoDB record for coupon that will trigger Stripe creation
       const couponId = promoRequest.id || `coupon_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
       const couponRecord: Promo = {
@@ -121,7 +134,8 @@ export const createPromo = async (request: CreatePromoRequest | { type: 'promoti
         created: Math.floor(Date.now() / 1000),
         livemode: false,
         times_redeemed: 0,
-        valid: true
+        valid: true,
+        account_id: (promoRequest as { account_id: string }).account_id
       }
 
       await create({
@@ -148,7 +162,8 @@ export const createPromo = async (request: CreatePromoRequest | { type: 'promoti
           metadata: {},
           created: Math.floor(Date.now() / 1000),
           livemode: false,
-          active: true
+          active: true,
+          account_id: (promoRequest as { account_id: string }).account_id
         }
 
         await create({

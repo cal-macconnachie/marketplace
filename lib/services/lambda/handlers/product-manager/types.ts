@@ -40,6 +40,7 @@ export interface GetProductRequest {
 export interface ListProductsRequest {
   queryStringParameters?: {
     group_id?: string
+    account_id?: string
   }
 }
 

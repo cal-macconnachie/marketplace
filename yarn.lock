@@ -2406,6 +2406,11 @@ cors@^2.8.5:
     object-assign "^4"
     vary "^1"
 
+country-to-currency@^2.0.2:
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/country-to-currency/-/country-to-currency-2.0.2.tgz#3a46efc6dccb5904341821b4e727db0926bd4339"
+  integrity sha512-vM4pJUmhw1EEvfqx12ZpbXqCAHMPp/P6dxtz+V0mT5NKiJaC73cbKk7OPxpGZhno+CthOkIyl+a4VAlToFvX7Q==
+
 create-jest@^29.7.0:
   version "29.7.0"
   resolved "https://registry.yarnpkg.com/create-jest/-/create-jest-29.7.0.tgz#a355c5b3cb1e1af02ba177fe7afd7feee49a5320"

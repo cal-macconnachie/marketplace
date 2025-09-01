@@ -19,6 +19,7 @@ export interface BillingMeter {
   status?: 'active' | 'inactive'
   created?: number
   updated?: number
+  account_id?: string
 }
 
 export interface CreateMeterRequest {
@@ -29,12 +30,16 @@ export interface ListMetersRequest {
   queryStringParameters?: {
     status?: 'active' | 'inactive'
     limit?: string
+    account_id?: string
   }
 }
 
 export interface DeactivateMeterRequest {
   pathParameters: {
     id: string
+  }
+  queryStringParameters?: {
+    account_id?: string
   }
 }
 

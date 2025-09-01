@@ -32,6 +32,8 @@ export interface User {
   // stripe fields
   stripe_id?: string
   stripe_customer_error?: string
+  stripe_account_id?: string // Connected account ID
+  stripe_bank_account_id?: string // Bank account ID
 
   // purchases
   products?: PurchasedProduct[]

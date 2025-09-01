@@ -28,6 +28,13 @@ export const updateProduct = async (
       }
     }
 
+    // Ensure account_id is set on the product
+    if (!body.account_id) {
+      return {
+        error: 'account_id is required for product updates'
+      }
+    }
+
     const tableName = process.env.TABLE_PRODUCTS
     if (!tableName) {
       return {
