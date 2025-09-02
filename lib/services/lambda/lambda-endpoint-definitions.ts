@@ -528,6 +528,17 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       cors: true
     }
   },
+  {
+    name: 'updateOrganization',
+    handler: 'organizations/update-organization.updateOrganization',
+    description: 'Update Organization',
+    apiGw: {
+      path: 'update-organization',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
 
   // Event-Driven Processing
   {
