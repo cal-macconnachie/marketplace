@@ -67,7 +67,6 @@ export const createConnectedAccount = async ({
   companyDetails,
   bankDetails,
   businessProfile,
-  controllerSettings,
   refreshUrl,
   returnUrl
 }: {
@@ -98,10 +97,6 @@ export const createConnectedAccount = async ({
     mcc?: string
     url?: string
     product_description?: string
-  }
-  controllerSettings?: {
-    fees_payer?: 'account' | 'application'
-    losses_payer?: 'account' | 'application'
   }
   refreshUrl: string
   returnUrl: string
@@ -166,8 +161,6 @@ export const createConnectedAccount = async ({
         card_payments: { requested: true }
       },
       controller: {
-        fees: { payer: controllerSettings?.fees_payer || 'account' },
-        losses: { payments: 'application' },
         stripe_dashboard: { type: 'express' },
         requirement_collection: 'stripe'
       },
