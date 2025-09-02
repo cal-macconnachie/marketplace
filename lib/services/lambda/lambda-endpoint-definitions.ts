@@ -530,7 +530,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
   },
   {
     name: 'updateOrganization',
-    handler: 'organizations/update-organization.updateOrganization',
+    handler: 'organizations/update.updateOrganizationHandler',
     description: 'Update Organization',
     apiGw: {
       path: 'update-organization',
