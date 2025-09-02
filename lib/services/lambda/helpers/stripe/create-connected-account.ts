@@ -68,7 +68,6 @@ export const createConnectedAccount = async ({
   individual,
   bankDetails,
   businessProfile,
-  tosAcceptance,
   refreshUrl,
   returnUrl
 }: {
@@ -110,12 +109,6 @@ export const createConnectedAccount = async ({
     mcc?: string
     url?: string
     product_description?: string
-  }
-  tosAcceptance?: {
-    date?: number
-    ip?: string
-    user_agent?: string
-    service_agreement?: 'full' | 'recipient'
   }
   refreshUrl: string
   returnUrl: string
@@ -174,21 +167,20 @@ export const createConnectedAccount = async ({
     const businessType = account_holder_type === 'individual' ? 'individual' : 'company'
     
     const params: Stripe.AccountCreateParams = {
-      type: 'custom',
       business_type: businessType,
       capabilities: {
         transfers: { requested: true },
         card_payments: { requested: true }
       },
       controller: {
-        stripe_dashboard: { type: 'none' },
+        stripe_dashboard: { type: 'express' },
         fees: {
           payer: 'application'
         },
         losses: {
           payments: 'application',
         },
-        requirement_collection: 'application'
+        requirement_collection: 'stripe'
       },
       country: address.country,
       email: user.email,
@@ -197,16 +189,6 @@ export const createConnectedAccount = async ({
         account_type: businessType,
         creation_timestamp: new Date().toISOString(),
         platform_version: '1.0'
-      }
-    }
-    
-    // Add TOS acceptance if provided
-    if (tosAcceptance && tosAcceptance.date && tosAcceptance.ip && tosAcceptance.user_agent) {
-      params.tos_acceptance = {
-        date: tosAcceptance.date,
-        ip: tosAcceptance.ip,
-        user_agent: tosAcceptance.user_agent,
-        service_agreement: tosAcceptance.service_agreement || 'full'
       }
     }
     
