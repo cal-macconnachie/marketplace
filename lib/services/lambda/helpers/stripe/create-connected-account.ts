@@ -167,6 +167,7 @@ export const createConnectedAccount = async ({
     const businessType = account_holder_type === 'individual' ? 'individual' : 'company'
     
     const params: Stripe.AccountCreateParams = {
+      type: 'express',
       business_type: businessType,
       capabilities: {
         transfers: { requested: true },
