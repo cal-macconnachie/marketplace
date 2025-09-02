@@ -160,7 +160,6 @@ export const createConnectedAccount = async ({
       },
       country: address.country,
       email: user.email,
-      type: 'express',
       metadata: {
         user_id: userId,
         account_type: businessType,
@@ -193,14 +192,23 @@ export const createConnectedAccount = async ({
         name,
         address: {
           line1: address.line1,
-          line2: address.line2,
           city: address.city,
-          state: address.state,
           postal_code: address.postal_code,
           country: address.country
-        },
-        phone: phone,
-        tax_id: tax_id
+        }
+      }
+      // Only add optional fields if they have values
+      if (address.line2 && params.company.address) {
+        params.company.address.line2 = address.line2
+      }
+      if (address.state && params.company.address) {
+        params.company.address.state = address.state
+      }
+      if (phone) {
+        params.company.phone = phone
+      }
+      if (tax_id) {
+        params.company.tax_id = tax_id
       }
     }
 
@@ -208,15 +216,26 @@ export const createConnectedAccount = async ({
       params.individual = {
         first_name: user.given_name,
         last_name: user.family_name,
-        email: user.email,
-        phone: user.phone_number,
-        address: {
-          line1: user.address?.line_1,
-          line2: user.address?.line_2,
-          city: user.address?.city,
-          state: user.address?.state,
-          postal_code: user.address?.postal_code,
-          country: user.address?.country
+        email: user.email
+      }
+      // Only add phone if it exists
+      if (user.phone_number) {
+        params.individual.phone = user.phone_number
+      }
+      // Only add address if we have the required fields
+      if (user.address?.line_1 && user.address?.city && user.address?.postal_code && user.address?.country) {
+        params.individual.address = {
+          line1: user.address.line_1,
+          city: user.address.city,
+          postal_code: user.address.postal_code,
+          country: user.address.country
+        }
+        // Add optional address fields
+        if (user.address.line_2) {
+          params.individual.address.line2 = user.address.line_2
+        }
+        if (user.address.state) {
+          params.individual.address.state = user.address.state
         }
       }
     }
@@ -227,18 +246,21 @@ export const createConnectedAccount = async ({
       throw new Error('Country is required for bank account')
     }
     
-    const bankAccount = await stripe.accounts.createExternalAccount(account.id, {
+    // Create external account with proper typing
+    const externalAccountParams: Stripe.AccountCreateExternalAccountParams = {
       external_account: {
         object,
         account_number,
         country,
         currency,
-        routing_number,
         account_holder_name: account_holder_name || (businessType === 'individual' ? `${user.given_name} ${user.family_name}` : name),
-        account_holder_type
+        account_holder_type,
+        ...(routing_number ? { routing_number } : {})
       }
-    })
-    
+    }
+
+    const bankAccount = await stripe.accounts.createExternalAccount(account.id, externalAccountParams)
+
     // Check account requirements and status
     const accountWithRequirements = await stripe.accounts.retrieve(account.id)
     const requiresOnboarding = !accountWithRequirements.charges_enabled || 
