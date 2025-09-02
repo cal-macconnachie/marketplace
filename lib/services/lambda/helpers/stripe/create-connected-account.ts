@@ -236,19 +236,19 @@ export const createConnectedAccount = async ({
         params.individual.phone = user.phone_number
       }
       // Only add address if we have the required fields
-      if (user.address?.line_1 && user.address?.city && user.address?.postal_code && user.address?.country) {
+      if (address?.line1 && address?.city && address?.postal_code && country) {
         params.individual.address = {
-          line1: user.address.line_1,
-          city: user.address.city,
-          postal_code: user.address.postal_code,
-          country: user.address.country
+          line1: address.line1,
+          city: address.city,
+          postal_code: address.postal_code,
+          country
         }
         // Add optional address fields
-        if (user.address.line_2) {
-          params.individual.address.line2 = user.address.line_2
+        if (address.line2) {
+          params.individual.address.line2 = address.line2
         }
-        if (user.address.state) {
-          params.individual.address.state = user.address.state
+        if (address.state) {
+          params.individual.address.state = address.state
         }
       }
     }
