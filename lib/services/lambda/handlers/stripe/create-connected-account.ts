@@ -41,6 +41,12 @@ interface CreateConnectedAccountRequest {
     url?: string
     product_description?: string
   }
+  tosAcceptance?: {
+    date?: number
+    ip?: string
+    user_agent?: string
+    service_agreement?: 'full' | 'recipient'
+  }
   refreshUrl: string
   returnUrl: string
 }
@@ -68,6 +74,7 @@ export const createConnectedAccountHandler = async (event: APIGatewayProxyEvent)
       individual,
       bankDetails,
       businessProfile,
+      tosAcceptance,
       refreshUrl,
       returnUrl
     } = requestBody
@@ -161,6 +168,14 @@ export const createConnectedAccountHandler = async (event: APIGatewayProxyEvent)
       }
     }
 
+    // Extract IP and User-Agent from the request if not provided
+    const tosAcceptanceData = tosAcceptance ? {
+      date: tosAcceptance.date,
+      ip: tosAcceptance.ip || event.requestContext.identity.sourceIp || '127.0.0.1',
+      user_agent: tosAcceptance.user_agent || event.headers['User-Agent'] || event.headers['user-agent'],
+      service_agreement: tosAcceptance.service_agreement
+    } : undefined
+
     // Create the connected account
     const result = await createConnectedAccount({
       userId: user.id,
@@ -168,6 +183,7 @@ export const createConnectedAccountHandler = async (event: APIGatewayProxyEvent)
       individual,
       bankDetails,
       businessProfile,
+      tosAcceptance: tosAcceptanceData,
       refreshUrl,
       returnUrl
     })
