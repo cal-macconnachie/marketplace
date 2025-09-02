@@ -145,7 +145,10 @@ export const createConnectedAccount = async ({
 
     // Default country and currency if not provided
     if (!country) {
-      country = user?.address?.country || address.country
+      country = address.country
+    }
+    if (country == null) {
+      throw new Error('Country is required either in bank details or company address')
     }
     if (!currency) {
       currency = getCurrencyByCountry[country.toUpperCase() as keyof typeof getCurrencyByCountry]?.toLowerCase() || 'usd'

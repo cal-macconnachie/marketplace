@@ -73,6 +73,11 @@ export const createPaymentMethod = async (event: APIGatewayProxyEvent) => {
     await stripe.paymentMethods.attach(id, {
       customer: user.stripe_id
     })
+    await stripe.customers.update(user.stripe_id, {
+      invoice_settings: {
+        default_payment_method: id
+      }
+    })
 
     const paymentMethod = await create<PaymentMethod>({
       tableName: process.env.PAYMENT_METHODS_TABLE!,
