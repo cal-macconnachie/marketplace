@@ -162,6 +162,9 @@ export const createConnectedAccount = async ({
       },
       controller: {
         stripe_dashboard: { type: 'express' },
+        fees: {
+          payer: 'application'
+        },
         losses: {
           payments: 'application',
         },

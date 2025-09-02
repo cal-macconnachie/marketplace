@@ -30,10 +30,6 @@ interface CreateConnectedAccountRequest {
     url?: string
     product_description?: string
   }
-  controllerSettings?: {
-    fees_payer?: 'account' | 'application'
-    losses_payer?: 'account' | 'application'
-  }
   refreshUrl: string
   returnUrl: string
 }
@@ -60,7 +56,6 @@ export const createConnectedAccountHandler = async (event: APIGatewayProxyEvent)
       companyDetails,
       bankDetails,
       businessProfile,
-      controllerSettings,
       refreshUrl,
       returnUrl
     } = requestBody
@@ -160,7 +155,6 @@ export const createConnectedAccountHandler = async (event: APIGatewayProxyEvent)
       companyDetails,
       bankDetails,
       businessProfile,
-      controllerSettings,
       refreshUrl,
       returnUrl
     })
