@@ -65,6 +65,7 @@ interface CreateConnectedAccountResult {
 export const createConnectedAccount = async ({
   userId,
   companyDetails,
+  individual,
   bankDetails,
   businessProfile,
   refreshUrl,
@@ -83,6 +84,17 @@ export const createConnectedAccount = async ({
     }
     phone: string
     tax_id: string
+  }
+  individual?: {
+    phone?: string
+    dob?: {
+      day: string
+      month: string
+      year: string
+    }
+    relationship?: {
+      title?: string
+    }
   }
   bankDetails: {
     account_number: string
@@ -230,10 +242,30 @@ export const createConnectedAccount = async ({
         last_name: user.family_name,
         email: user.email
       }
-      // Only add phone if it exists
-      if (user.phone_number) {
+      
+      // Add phone from individual object if provided, otherwise fall back to user.phone_number
+      if (individual?.phone) {
+        params.individual.phone = individual.phone
+      } else if (user.phone_number) {
         params.individual.phone = user.phone_number
       }
+      
+      // Add date of birth if provided
+      if (individual?.dob?.day && individual?.dob?.month && individual?.dob?.year) {
+        params.individual.dob = {
+          day: parseInt(individual.dob.day),
+          month: parseInt(individual.dob.month),
+          year: parseInt(individual.dob.year)
+        }
+      }
+      
+      // Add relationship title if provided
+      if (individual?.relationship?.title) {
+        params.individual.relationship = {
+          title: individual.relationship.title
+        }
+      }
+      
       // Only add address if we have the required fields
       if (address?.line1 && address?.city && address?.postal_code && country) {
         params.individual.address = {

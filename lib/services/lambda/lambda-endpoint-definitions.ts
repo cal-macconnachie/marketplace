@@ -201,6 +201,12 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     }
   },
   {
+    name: 'deleteConnectedAccounts',
+    handler: 'stripe/delete-connected-accounts.deleteConnectedAccounts',
+    description: 'Delete Stripe Connected Accounts',
+    environment: ['STRIPE_SECRET_KEY']
+  },
+  {
     name: 'getPaymentMethods',
     handler: 'payments/get-payment-methods.getPaymentMethods',
     description: 'Get Payment Methods',
