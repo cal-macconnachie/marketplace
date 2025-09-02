@@ -17,6 +17,17 @@ interface CreateConnectedAccountRequest {
     phone: string
     tax_id: string
   }
+  individual?: {
+    phone?: string
+    dob?: {
+      day: string
+      month: string
+      year: string
+    }
+    relationship?: {
+      title?: string
+    }
+  }
   bankDetails: {
     account_number: string
     country?: string
@@ -54,6 +65,7 @@ export const createConnectedAccountHandler = async (event: APIGatewayProxyEvent)
     // Validate required fields
     const {
       companyDetails,
+      individual,
       bankDetails,
       businessProfile,
       refreshUrl,
@@ -153,6 +165,7 @@ export const createConnectedAccountHandler = async (event: APIGatewayProxyEvent)
     const result = await createConnectedAccount({
       userId: user.id,
       companyDetails,
+      individual,
       bankDetails,
       businessProfile,
       refreshUrl,
