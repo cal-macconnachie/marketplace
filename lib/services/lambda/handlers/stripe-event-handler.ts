@@ -44,16 +44,18 @@ export const stripeEventHandler = async (event: EventBridgeEvent<'Stripe Event',
         updates: {
           charges_enabled: account.charges_enabled,
           payouts_enabled: account.payouts_enabled,
-          onboarding_status: isFullyOnboarded ? 'completed' : 
-            ((account.requirements?.currently_due?.length ?? 0) > 0 ? 'requires_action' : 'in_progress'),
           missing_requirements: [
             ...(account.requirements?.currently_due || []),
             ...(account.requirements?.eventually_due || [])
           ],
-          onboarding_completed_at: isFullyOnboarded && !org.onboarding_completed_at ? 
-            new Date().toISOString() : org.onboarding_completed_at,
           // Clear onboarding URL once fully onboarded
-          onboarding_url: isFullyOnboarded ? undefined : org.onboarding_url
+          ...(isFullyOnboarded ? {
+            onboarding_url: '',
+            onboarding_completed_at: new Date().toISOString(),
+            onboarding_status: 'completed'
+          } : {
+            onboarding_status: (account.requirements?.currently_due?.length ?? 0) > 0 ? 'requires_action' : 'in_progress'
+          })
         }
       })
 
