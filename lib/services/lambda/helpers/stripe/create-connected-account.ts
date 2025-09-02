@@ -171,10 +171,19 @@ export const createConnectedAccount = async ({
     
     // Add business profile if provided
     if (businessProfile) {
-      params.business_profile = {
-        mcc: businessProfile.mcc,
-        url: businessProfile.url,
-        product_description: businessProfile.product_description
+      const profile: Stripe.AccountCreateParams.BusinessProfile = {}
+      if (businessProfile.mcc && businessProfile.mcc.trim() !== '') {
+        profile.mcc = businessProfile.mcc
+      }
+      if (businessProfile.url && businessProfile.url.trim() !== '') {
+        profile.url = businessProfile.url
+      }
+      if (businessProfile.product_description && businessProfile.product_description.trim() !== '') {
+        profile.product_description = businessProfile.product_description
+      }
+      // Only add business_profile if it has at least one property
+      if (Object.keys(profile).length > 0) {
+        params.business_profile = profile
       }
     }
     
