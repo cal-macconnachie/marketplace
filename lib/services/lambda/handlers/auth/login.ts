@@ -3,7 +3,6 @@ import {
   InitiateAuthCommand
 } from '@aws-sdk/client-cognito-identity-provider'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { query } from '../../helpers/dynamo-helpers/query'
 import { User } from '../users'
 import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 
@@ -35,6 +34,7 @@ export const login = async (event: APIGatewayProxyEvent) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let response: any
     let userEmail: string | undefined
+    let user: User | undefined
     if (accessToken) {
       // Social authentication - decode the access token to get user info
       // In practice, you might validate this token with Cognito
@@ -51,23 +51,13 @@ export const login = async (event: APIGatewayProxyEvent) => {
       }
     } else {
       // Traditional email/password authentication
-      const { items } = await query<User>({
-        tableName: process.env.USERS_TABLE! || 'users-dev',
-        indexName: 'email-index',
-        keyConditionExpression: '#email = :email',
-        expressionAttributeNames: {
-          '#email': 'email'
-        },
-        expressionAttributeValues: {
-          ':email': email
-        }
-      })
-      
-      if (!(items.length > 0)) {
+      user = await getUserByEmail(email)
+
+      if (user == null) {
         throw new Error('[404] User not found')
       }
-      
-      userEmail = items[0].email
+
+      userEmail = user.email
       if (userEmail == null) {
         throw new Error('[404] User not found')
       }
@@ -86,7 +76,7 @@ export const login = async (event: APIGatewayProxyEvent) => {
     if (userEmail == null) throw new Error('[404] User not found')
 
     // Get user from DynamoDB
-    const user = await getUserByEmail(userEmail)
+    if (user == null) user = await getUserByEmail(userEmail)
 
     return {
       statusCode: 200,
