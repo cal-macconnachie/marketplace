@@ -70,14 +70,6 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
           type: 'S'
         },
         projectionType: 'ALL'
-      },
-      {
-        indexName: 'stripe_account_id-index',
-        partitionKey: {
-          name: 'stripe_account_id',
-          type: 'S'
-        },
-        projectionType: 'ALL'
       }
     ],
     stream: 'NEW_AND_OLD_IMAGES'
@@ -162,6 +154,16 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
       name: 'id',
       type: 'S'
     },
+    globalSecondaryIndexes: [
+      {
+        indexName: 'stripe_account_id-index',
+        partitionKey: {
+          name: 'stripe_account_id',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      }
+    ],
     billingMode: 'PAY_PER_REQUEST',
     stream: 'NEW_AND_OLD_IMAGES'
   },

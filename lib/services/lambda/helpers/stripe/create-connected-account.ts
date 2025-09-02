@@ -4,6 +4,7 @@ import { get } from '../dynamo-helpers/get'
 import { getStripeClient } from './stripe-client'
 import { update } from '../dynamo-helpers/update'
 import getCurrencyByCountry from 'country-to-currency'
+import { Organization } from '../../handlers/organizations'
 
 // Validation functions
 const validateBankAccount = (bankDetails: {
@@ -131,6 +132,15 @@ export const createConnectedAccount = async ({
     })
     if (user == null) {
       throw new Error('User not found')
+    }
+    const organization = await get<Organization>({
+      tableName: process.env.ORGANIZATIONS_TABLE!,
+      key: {
+        id: user.organization_id
+      }
+    })
+    if (organization == null) {
+      throw new Error('Organization not found')
     }
 
     // Default country and currency if not provided
@@ -277,11 +287,11 @@ export const createConnectedAccount = async ({
       })
       onboardingUrl = accountLink.url
     }
-    
-    await update<User>({
-      tableName: process.env.USERS_TABLE!,
+
+    await update<Organization>({
+      tableName: process.env.ORGANIZATIONS_TABLE!,
       key: {
-        id: userId
+        id: organization.id
       },
       updates: {
         stripe_account_id: account.id,

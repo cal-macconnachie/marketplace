@@ -1,6 +1,7 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { createConnectedAccount } from '../../helpers/stripe/create-connected-account'
 import { getUserByEmail } from '../../helpers/users/get-user-by-email'
+import { getOrganizationById } from '../../helpers/organizations/get-organization-by-id'
 
 interface CreateConnectedAccountRequest {
   companyDetails: {
@@ -123,13 +124,27 @@ export const createConnectedAccountHandler = async (event: APIGatewayProxyEvent)
       }
     }
 
+    const organizationId = user.organization_id
+    const organization = await getOrganizationById(organizationId)
+    if (!organization) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: 'Organization not found' }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
+      }
+    }
+
     // Check if user already has a connected account
-    if (user.stripe_account_id) {
+    if (organization.stripe_account_id) {
       return {
         statusCode: 409,
         body: JSON.stringify({ 
           error: 'User already has a connected Stripe account',
-          account_id: user.stripe_account_id
+          account_id: organization.stripe_account_id
         }),
         headers: {
           'Access-Control-Allow-Origin': '*',

@@ -18,8 +18,8 @@ export const stripeEventHandler = async (event: EventBridgeEvent<'Stripe Event',
       const account = event.detail.data.object as Stripe.Account
       
       // Find user by stripe_account_id using scan (until GSI is deployed)
-      const scanResult = await query<User>({
-        tableName: process.env.USERS_TABLE!,
+      const scanResult = await query<Organization>({
+        tableName: process.env.ORGANIZATIONS_TABLE!,
         indexName: 'stripe_account_id-index',
         keyConditionExpression: 'stripe_account_id = :accountId',
         expressionAttributeValues: {
@@ -32,15 +32,15 @@ export const stripeEventHandler = async (event: EventBridgeEvent<'Stripe Event',
         return
       }
       
-      const user = scanResult.items[0]
+      const org = scanResult.items[0]
       const isFullyOnboarded = account.charges_enabled && 
                                account.payouts_enabled && 
                                (!account.requirements?.currently_due || account.requirements.currently_due.length === 0)
       
       // Update user with latest account status
-      await update<User>({
-        tableName: process.env.USERS_TABLE!,
-        key: { id: user.id },
+      await update<Organization>({
+        tableName: process.env.ORGANIZATIONS_TABLE!,
+        key: { id: org.id },
         updates: {
           charges_enabled: account.charges_enabled,
           payouts_enabled: account.payouts_enabled,
@@ -50,14 +50,14 @@ export const stripeEventHandler = async (event: EventBridgeEvent<'Stripe Event',
             ...(account.requirements?.currently_due || []),
             ...(account.requirements?.eventually_due || [])
           ],
-          onboarding_completed_at: isFullyOnboarded && !user.onboarding_completed_at ? 
-            new Date().toISOString() : user.onboarding_completed_at,
+          onboarding_completed_at: isFullyOnboarded && !org.onboarding_completed_at ? 
+            new Date().toISOString() : org.onboarding_completed_at,
           // Clear onboarding URL once fully onboarded
-          onboarding_url: isFullyOnboarded ? undefined : user.onboarding_url
+          onboarding_url: isFullyOnboarded ? undefined : org.onboarding_url
         }
       })
-      
-      console.log(`Updated user ${user.id} onboarding status: ${isFullyOnboarded ? 'completed' : 'in_progress'}`)
+
+      console.log(`Updated organization ${org.id} onboarding status: ${isFullyOnboarded ? 'completed' : 'in_progress'}`)
       break
     }
     case 'invoice.paid': {
