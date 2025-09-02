@@ -189,6 +189,18 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     }
   },
   {
+    name: 'refreshConnectUrl',
+    handler: 'stripe/refresh-connect-url.refreshConnectUrl',
+    description: 'Refresh Stripe Connect URL',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'stripe/refresh-connect-url',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
     name: 'getPaymentMethods',
     handler: 'payments/get-payment-methods.getPaymentMethods',
     description: 'Get Payment Methods',
