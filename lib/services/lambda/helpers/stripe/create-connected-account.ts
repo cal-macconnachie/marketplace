@@ -254,7 +254,16 @@ export const createConnectedAccount = async ({
       },
       updates: {
         stripe_account_id: account.id,
-        stripe_bank_account_id: bankAccount.id
+        stripe_bank_account_id: bankAccount.id,
+        onboarding_url: onboardingUrl,
+        onboarding_status: requiresOnboarding ? 'in_progress' : 'completed',
+        missing_requirements: [
+          ...(accountWithRequirements.requirements?.currently_due || []),
+          ...(accountWithRequirements.requirements?.eventually_due || [])
+        ],
+        charges_enabled: accountWithRequirements.charges_enabled,
+        payouts_enabled: accountWithRequirements.payouts_enabled,
+        onboarding_completed_at: !requiresOnboarding ? new Date().toISOString() : undefined
       }
     })
     

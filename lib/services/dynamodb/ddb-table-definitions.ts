@@ -70,6 +70,14 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
           type: 'S'
         },
         projectionType: 'ALL'
+      },
+      {
+        indexName: 'stripe_account_id-index',
+        partitionKey: {
+          name: 'stripe_account_id',
+          type: 'S'
+        },
+        projectionType: 'ALL'
       }
     ],
     stream: 'NEW_AND_OLD_IMAGES'

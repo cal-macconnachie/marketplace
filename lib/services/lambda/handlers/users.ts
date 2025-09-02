@@ -34,6 +34,14 @@ export interface User {
   stripe_customer_error?: string
   stripe_account_id?: string // Connected account ID
   stripe_bank_account_id?: string // Bank account ID
+  
+  // seller onboarding state
+  onboarding_url?: string // URL for onboarding
+  onboarding_status?: 'not_started' | 'in_progress' | 'completed' | 'requires_action'
+  onboarding_completed_at?: string // ISO timestamp when onboarding was completed
+  missing_requirements?: string[]
+  charges_enabled?: boolean // Whether the account can accept charges
+  payouts_enabled?: boolean // Whether the account can receive payouts
 
   // purchases
   products?: PurchasedProduct[]

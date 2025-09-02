@@ -529,7 +529,8 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
         // "detail-type":"customer.created",
         'detail-type': [
           'invoice.paid',
-          'invoice.payment_failed'
+          'invoice.payment_failed',
+          'account.updated'
         ]
       }
     }

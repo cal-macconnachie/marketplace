@@ -8,11 +8,58 @@ import { addPurchase } from '../helpers/add-purchase'
 import { Purchase } from './purchases'
 import { v4 } from 'uuid'
 import { getStripeClient } from '../helpers/stripe/stripe-client'
+import { query } from '../helpers/dynamo-helpers/query'
 
 export const stripeEventHandler = async (event: EventBridgeEvent<'Stripe Event', Stripe.Event>) => {
   const type = event.detail.type
   // if subscription invoice payment succeeded we should update the user record `inGoodStandingUntil` field
   switch (type) {
+    case 'account.updated': {
+      const account = event.detail.data.object as Stripe.Account
+      
+      // Find user by stripe_account_id using scan (until GSI is deployed)
+      const scanResult = await query<User>({
+        tableName: process.env.USERS_TABLE!,
+        indexName: 'stripe_account_id-index',
+        keyConditionExpression: 'stripe_account_id = :accountId',
+        expressionAttributeValues: {
+          ':accountId': account.id
+        }
+      })
+      
+      if (!scanResult.items || scanResult.items.length === 0) {
+        console.error('No user found for stripe_account_id:', account.id)
+        return
+      }
+      
+      const user = scanResult.items[0]
+      const isFullyOnboarded = account.charges_enabled && 
+                               account.payouts_enabled && 
+                               (!account.requirements?.currently_due || account.requirements.currently_due.length === 0)
+      
+      // Update user with latest account status
+      await update<User>({
+        tableName: process.env.USERS_TABLE!,
+        key: { id: user.id },
+        updates: {
+          charges_enabled: account.charges_enabled,
+          payouts_enabled: account.payouts_enabled,
+          onboarding_status: isFullyOnboarded ? 'completed' : 
+            ((account.requirements?.currently_due?.length ?? 0) > 0 ? 'requires_action' : 'in_progress'),
+          missing_requirements: [
+            ...(account.requirements?.currently_due || []),
+            ...(account.requirements?.eventually_due || [])
+          ],
+          onboarding_completed_at: isFullyOnboarded && !user.onboarding_completed_at ? 
+            new Date().toISOString() : user.onboarding_completed_at,
+          // Clear onboarding URL once fully onboarded
+          onboarding_url: isFullyOnboarded ? undefined : user.onboarding_url
+        }
+      })
+      
+      console.log(`Updated user ${user.id} onboarding status: ${isFullyOnboarded ? 'completed' : 'in_progress'}`)
+      break
+    }
     case 'invoice.paid': {
       const invoice = event.detail.data.object
       const stripeUserId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id
@@ -107,7 +154,8 @@ export const stripeEventHandler = async (event: EventBridgeEvent<'Stripe Event',
                     purchased_at: new Date().toISOString(),
                     organization_id: organization.id,
                     payment_method_id: typeof invoice.default_payment_method === 'string' ? invoice.default_payment_method : invoice.default_payment_method?.id || '',
-                    amount: amount
+                    amount: amount,
+                    currency: lineItem.currency,
                   }
                   
                   await addPurchase(purchase)
