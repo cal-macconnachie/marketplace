@@ -45,8 +45,8 @@ export interface CreatePromoRequest extends CreateCouponRequest {
 
 export const createPromo = async (request: CreatePromoRequest | { type: 'promotion_code' } & CreatePromotionCodeRequest) => {
   try {
-    if (!process.env.TABLE_PROMOS) {
-      throw new Error('TABLE_PROMOS environment variable is not set')
+    if (!process.env.PROMOS_TABLE) {
+      throw new Error('PROMOS_TABLE environment variable is not set')
     }
 
     if ('type' in request && request.type === 'promotion_code') {
@@ -76,7 +76,7 @@ export const createPromo = async (request: CreatePromoRequest | { type: 'promoti
       }
 
       await create({
-        tableName: process.env.TABLE_PROMOS,
+        tableName: process.env.PROMOS_TABLE,
         key: {
           type: promoRecord.type,
           id: promoRecord.id
@@ -144,7 +144,7 @@ export const createPromo = async (request: CreatePromoRequest | { type: 'promoti
       }
 
       await create({
-        tableName: process.env.TABLE_PROMOS,
+        tableName: process.env.PROMOS_TABLE,
         key: {
           type: couponRecord.type,
           id: couponRecord.id
@@ -172,7 +172,7 @@ export const createPromo = async (request: CreatePromoRequest | { type: 'promoti
         }
 
         await create({
-          tableName: process.env.TABLE_PROMOS,
+          tableName: process.env.PROMOS_TABLE,
           key: {
             type: promoCodeRecord.type,
             id: promoCodeRecord.id

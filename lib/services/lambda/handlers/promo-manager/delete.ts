@@ -10,8 +10,8 @@ export interface DeletePromotionCodeRequest {
 
 export const deletePromo = async (request: { type: 'coupon' } & DeleteCouponRequest | { type: 'promotion_code' } & DeletePromotionCodeRequest) => {
   try {
-    if (!process.env.TABLE_PROMOS) {
-      throw new Error('TABLE_PROMOS environment variable is not set')
+    if (!process.env.PROMOS_TABLE) {
+      throw new Error('PROMOS_TABLE environment variable is not set')
     }
 
     if (request.type === 'promotion_code') {
@@ -23,7 +23,7 @@ export const deletePromo = async (request: { type: 'coupon' } & DeleteCouponRequ
 
       // Delete DynamoDB record which will trigger Stripe deletion
       await deleteItem({
-        tableName: process.env.TABLE_PROMOS,
+        tableName: process.env.PROMOS_TABLE,
         key: {
           type: 'promotion_code',
           id: promoRequest.id
@@ -51,7 +51,7 @@ export const deletePromo = async (request: { type: 'coupon' } & DeleteCouponRequ
 
       // Delete DynamoDB record which will trigger Stripe deletion
       await deleteItem({
-        tableName: process.env.TABLE_PROMOS,
+        tableName: process.env.PROMOS_TABLE,
         key: {
           type: 'coupon',
           id: couponRequest.id

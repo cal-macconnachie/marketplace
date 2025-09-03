@@ -23,8 +23,8 @@ export interface ListPromotionCodesRequest {
 
 export const listPromos = async (request: { type: 'coupons' } & ListCouponsRequest | { type: 'promotion_codes' } & ListPromotionCodesRequest) => {
   try {
-    if (!process.env.TABLE_PROMOS) {
-      throw new Error('TABLE_PROMOS environment variable is not set')
+    if (!process.env.PROMOS_TABLE) {
+      throw new Error('PROMOS_TABLE environment variable is not set')
     }
 
     if (request.type === 'promotion_codes') {
@@ -34,7 +34,7 @@ export const listPromos = async (request: { type: 'coupons' } & ListCouponsReque
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const queryParams: any = {
-        tableName: process.env.TABLE_PROMOS,
+        tableName: process.env.PROMOS_TABLE,
         keyConditionExpression: '#type = :type',
         expressionAttributeNames: {
           '#type': 'type'
@@ -98,7 +98,7 @@ export const listPromos = async (request: { type: 'coupons' } & ListCouponsReque
       // Query DynamoDB for coupons
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const queryParams: any = {
-        tableName: process.env.TABLE_PROMOS,
+        tableName: process.env.PROMOS_TABLE,
         keyConditionExpression: '#type = :type',
         expressionAttributeNames: {
           '#type': 'type'

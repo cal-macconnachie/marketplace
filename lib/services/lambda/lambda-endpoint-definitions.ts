@@ -242,7 +242,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     name: 'createProduct',
     handler: 'product-manager/create.createProduct',
     description: 'Create Product',
-    environment: ['TABLE_PRODUCTS'],
+    environment: ['PRODUCTS_TABLE'],
     apiGw: {
       path: 'products',
       method: 'POST',
@@ -254,7 +254,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     name: 'getProduct',
     handler: 'product-manager/get.getProduct',
     description: 'Get Product by ID',
-    environment: ['TABLE_PRODUCTS'],
+    environment: ['PRODUCTS_TABLE'],
     apiGw: {
       path: 'products/{group_id}/{id}',
       method: 'GET',
@@ -266,7 +266,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     name: 'listProducts',
     handler: 'product-manager/list.listProducts',
     description: 'List Products',
-    environment: ['TABLE_PRODUCTS'],
+    environment: ['PRODUCTS_TABLE'],
     apiGw: {
       path: 'products',
       method: 'GET',
@@ -278,7 +278,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     name: 'updateProduct',
     handler: 'product-manager/update.updateProduct',
     description: 'Update Product',
-    environment: ['TABLE_PRODUCTS'],
+    environment: ['PRODUCTS_TABLE'],
     apiGw: {
       path: 'products/{group_id}/{id}',
       method: 'PUT',
@@ -290,7 +290,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     name: 'deleteProduct',
     handler: 'product-manager/delete.deleteProduct',
     description: 'Delete Product',
-    environment: ['TABLE_PRODUCTS'],
+    environment: ['PRODUCTS_TABLE'],
     apiGw: {
       path: 'products/{group_id}/{id}',
       method: 'DELETE',
@@ -361,7 +361,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     name: 'createPromo',
     handler: 'promo-manager/create.createPromo',
     description: 'Create Coupon or Promotion Code',
-    environment: ['TABLE_PROMOS'],
+    environment: ['PROMOS_TABLE'],
     apiGw: {
       path: 'promos',
       method: 'POST',
@@ -373,7 +373,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     name: 'listPromos',
     handler: 'promo-manager/list.listPromos',
     description: 'List Coupons or Promotion Codes',
-    environment: ['TABLE_PROMOS'],
+    environment: ['PROMOS_TABLE'],
     apiGw: {
       path: 'promos',
       method: 'GET',
@@ -397,7 +397,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     name: 'deletePromo',
     handler: 'promo-manager/delete.deletePromo',
     description: 'Delete Coupon or Promotion Code',
-    environment: ['TABLE_PROMOS'],
+    environment: ['PROMOS_TABLE'],
     apiGw: {
       path: 'promos/{type}/{id}',
       method: 'DELETE',

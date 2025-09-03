@@ -9,12 +9,12 @@ export const listProducts = async (
   request: ListProductsRequest
 ) => {
   try {
-    const tableName = process.env.TABLE_PRODUCTS
+    const tableName = process.env.PRODUCTS_TABLE
     if (!tableName) {
       return {
         statusCode: 500,
         body: JSON.stringify({
-          error: 'TABLE_PRODUCTS environment variable not set'
+          error: 'PRODUCTS_TABLE environment variable not set'
         }),
         headers: {
           'Access-Control-Allow-Origin': '*',
