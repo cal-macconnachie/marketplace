@@ -51,11 +51,9 @@ export const checkStatusCode = async (event: APIGatewayProxyEvent) => {
     // Handle NO_CONTENT
     return {
       statusCode: STATUS_CODES.NO_CONTENT,
-      body: JSON.stringify({ message: 'No Content' }),
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true,
-        'Content-Type': 'application/json'
+        'Access-Control-Allow-Credentials': true
       }
     }
   } else if (statusCode === STATUS_CODES.BAD_REQUEST) {
@@ -126,7 +124,7 @@ export const checkStatusCode = async (event: APIGatewayProxyEvent) => {
     }
   }
   return {
-    statusCode: 404,
+    statusCode: STATUS_CODES.NOT_FOUND,
     body: JSON.stringify({ message: 'Not Found' }),
     headers: {
       'Access-Control-Allow-Origin': '*',

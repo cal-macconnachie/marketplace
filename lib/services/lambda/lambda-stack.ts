@@ -284,7 +284,11 @@ export class LambdaStack extends cdk.Stack {
             resource.addCorsPreflight({
               allowOrigins: apiGW.Cors.ALL_ORIGINS,
               allowMethods: apiGW.Cors.ALL_METHODS,
-              allowHeaders: apiGW.Cors.DEFAULT_HEADERS
+              allowHeaders: [
+                ...apiGW.Cors.DEFAULT_HEADERS,
+                'Authorization',
+                'X-Requested-With'
+              ]
             })
             this.corsEnabledResources.add(resourcePath)
           }
