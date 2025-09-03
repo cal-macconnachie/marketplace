@@ -87,11 +87,11 @@ export const createConnectedAccountHandler = async (event: APIGatewayProxyEvent)
     }
 
     // Validate company details
-    if (!companyDetails.name || !companyDetails.address || !companyDetails.phone || !companyDetails.tax_id) {
+    if (!companyDetails.name || !companyDetails.address || !companyDetails.phone) {
       return {
         statusCode: 400,
         body: JSON.stringify({ 
-          error: 'Missing required company details: name, address, phone, tax_id' 
+          error: 'Missing required company details: name, address, phone' 
         }),
         headers: {
           'Access-Control-Allow-Origin': '*',
