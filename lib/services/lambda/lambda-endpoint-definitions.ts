@@ -614,7 +614,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
   // Test Endpoint Definitions
   {
     name: 'testStatusCodes',
-    handler: 'test/status-codes.testStatusCodes',
+    handler: 'test/status-codes.checkStatusCode',
     description: 'Test Status Codes',
     apiGw: {
       path: 'test-status-codes/{status_code}',
