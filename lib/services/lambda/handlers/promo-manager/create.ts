@@ -85,10 +85,15 @@ export const createPromo = async (request: CreatePromoRequest | { type: 'promoti
       })
 
       return {
-        success: true,
-        data: {
+        statusCode: 201,
+        body: JSON.stringify({
           id: promoRecord.id,
           message: 'Promotion code creation initiated'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
         }
       }
     } else {
@@ -176,28 +181,46 @@ export const createPromo = async (request: CreatePromoRequest | { type: 'promoti
         })
 
         return {
-          success: true,
-          data: {
+          statusCode: 201,
+          body: JSON.stringify({
             coupon: { id: couponRecord.id },
             promotionCode: { id: promoCodeRecord.id },
             message: 'Coupon and promotion code creation initiated'
+          }),
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': true,
+            'Content-Type': 'application/json'
           }
         }
       }
 
       return {
-        success: true,
-        data: {
+        statusCode: 201,
+        body: JSON.stringify({
           coupon: { id: couponRecord.id },
           message: 'Coupon creation initiated'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
         }
       }
     }
   } catch (error) {
     console.error('Error creating coupon/promotion code:', error)
     return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
+      statusCode: 500,
+      body: JSON.stringify({
+        error: 'Failed to create coupon/promotion code',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
+      }
     }
   }
 }

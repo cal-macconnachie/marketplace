@@ -15,14 +15,30 @@ export const getProduct = async (
 
     if (!group_id || !id) {
       return {
-        error: 'group_id and id are required path parameters'
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'group_id and id are required path parameters'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
 
     const tableName = process.env.TABLE_PRODUCTS
     if (!tableName) {
       return {
-        error: 'TABLE_PRODUCTS environment variable not set'
+        statusCode: 500,
+        body: JSON.stringify({
+          error: 'TABLE_PRODUCTS environment variable not set'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
 
@@ -39,18 +55,42 @@ export const getProduct = async (
 
     if (!product) {
       return {
-        error: 'Product not found'
+        statusCode: 404,
+        body: JSON.stringify({
+          error: 'Product not found'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
 
     return {
-      data: product
+      statusCode: 200,
+      body: JSON.stringify({
+        data: product
+      }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
+      }
     }
   } catch (error) {
     console.error('Error getting product:', error)
     return {
-      error: 'Failed to get product',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      statusCode: 500,
+      body: JSON.stringify({
+        error: 'Failed to get product',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
+      }
     }
   }
 }

@@ -12,7 +12,15 @@ export const listProducts = async (
     const tableName = process.env.TABLE_PRODUCTS
     if (!tableName) {
       return {
-        error: 'TABLE_PRODUCTS environment variable not set'
+        statusCode: 500,
+        body: JSON.stringify({
+          error: 'TABLE_PRODUCTS environment variable not set'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
 
@@ -62,13 +70,27 @@ export const listProducts = async (
     }
 
     return {
-      data: result.items
+      statusCode: 200,
+      body: JSON.stringify(result.items),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
+      }
     }
   } catch (error) {
     console.error('Error listing products:', error)
     return {
-      error: 'Failed to list products',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      statusCode: 500,
+      body: JSON.stringify({
+        error: 'Failed to list products',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
+      }
     }
   }
 }

@@ -17,28 +17,60 @@ export const updateProduct = async (
 
     if (!group_id || !id) {
       return {
-        error: 'group_id and id are required path parameters'
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'group_id and id are required path parameters'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
 
     // Ensure the IDs match
     if (body.group_id !== group_id || body.id !== id) {
       return {
-        error: 'Product IDs in URL and body do not match'
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'Product IDs in URL and body do not match'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
 
     // Ensure account_id is set on the product
     if (!body.account_id) {
       return {
-        error: 'account_id is required for product updates'
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'account_id is required for product updates'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
 
     const tableName = process.env.TABLE_PRODUCTS
     if (!tableName) {
       return {
-        error: 'TABLE_PRODUCTS environment variable not set'
+        statusCode: 500,
+        body: JSON.stringify({
+          error: 'TABLE_PRODUCTS environment variable not set'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
 
@@ -56,16 +88,27 @@ export const updateProduct = async (
     })
 
     return {
-      data: {
-        message: 'Product updated successfully',
-        product: updatedProduct
+      statusCode: 200,
+      body: JSON.stringify(updatedProduct),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
       }
     }
   } catch (error) {
     console.error('Error updating product:', error)
     return {
-      error: 'Failed to update product',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      statusCode: 500,
+      body: JSON.stringify({
+        error: 'Failed to update product',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
+      }
     }
   }
 }

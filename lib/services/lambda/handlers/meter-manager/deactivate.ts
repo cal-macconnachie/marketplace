@@ -1,24 +1,44 @@
 import Stripe from 'stripe'
 import { getStripeClient } from '../../helpers/stripe/stripe-client'
-import { BillingMeter, DeactivateMeterRequest } from './types'
+import {
+  BillingMeter, DeactivateMeterRequest 
+} from './types'
 
 export const deactivateMeter = async (
   request: DeactivateMeterRequest
 ) => {
   try {
-    const { pathParameters, queryStringParameters } = request
+    const {
+      pathParameters, queryStringParameters 
+    } = request
 
     // Get the Stripe client (supports connected accounts)
     const stripe = getStripeClient()
     if (!process.env.STRIPE_SECRET_KEY) {
       return {
-        error: 'STRIPE_SECRET_KEY environment variable not set'
+        statusCode: 500,
+        body: JSON.stringify({
+          error: 'STRIPE_SECRET_KEY environment variable not set'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
 
     if (!pathParameters?.id) {
       return {
-        error: 'Meter ID is required'
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'Meter ID is required'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
 
@@ -28,7 +48,15 @@ export const deactivateMeter = async (
     // Validate account_id for connected account operations
     if (!account_id) {
       return {
-        error: 'account_id is required for meter deactivation'
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'account_id is required for meter deactivation'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
 
@@ -52,9 +80,15 @@ export const deactivateMeter = async (
     }
 
     return {
-      data: {
+      statusCode: 200,
+      body: JSON.stringify({
         message: 'Billing meter deactivated successfully',
         meter: deactivatedMeter
+      }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
       }
     }
   } catch (error) {
@@ -62,16 +96,32 @@ export const deactivateMeter = async (
     
     // Handle Stripe-specific errors
     if (error instanceof Error && 'type' in error) {
-      const stripeError = error as Stripe.StripeError
+      const stripeError = error as Stripe.StripeRawError
       return {
-        error: `Stripe error: ${stripeError.message}`,
-        details: stripeError.code || 'unknown_stripe_error'
+        statusCode: 400,
+        body: JSON.stringify({
+          error: `Stripe error: ${stripeError.message}`,
+          details: stripeError.code || 'unknown_stripe_error'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
     
     return {
-      error: 'Failed to deactivate billing meter',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      statusCode: 500,
+      body: JSON.stringify({
+        error: 'Failed to deactivate billing meter',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
+      }
     }
   }
 }

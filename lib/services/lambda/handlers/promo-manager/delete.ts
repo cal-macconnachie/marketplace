@@ -31,9 +31,16 @@ export const deletePromo = async (request: { type: 'coupon' } & DeleteCouponRequ
       })
 
       return {
-        success: true,
-        data: { id: promoRequest.id },
-        message: 'Promotion code deletion initiated'
+        statusCode: 204,
+        body: JSON.stringify({
+          id: promoRequest.id,
+          message: 'Promotion code deletion initiated'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     } else {
       const couponRequest = request as DeleteCouponRequest & { type: 'coupon' }
@@ -52,16 +59,31 @@ export const deletePromo = async (request: { type: 'coupon' } & DeleteCouponRequ
       })
 
       return {
-        success: true,
-        data: { id: couponRequest.id },
-        message: 'Coupon deletion initiated'
+        statusCode: 204,
+        body: JSON.stringify({
+          id: couponRequest.id,
+          message: 'Coupon deletion initiated'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
   } catch (error) {
     console.error('Error deleting coupon/promotion code:', error)
     return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
+      statusCode: 500,
+      body: JSON.stringify({
+        error: 'Failed to delete coupon/promotion code',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
+      }
     }
   }
 }

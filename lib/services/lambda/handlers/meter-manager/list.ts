@@ -12,7 +12,15 @@ export const listMeters = async (
     const stripe = getStripeClient()
     if (!process.env.STRIPE_SECRET_KEY) {
       return {
-        error: 'STRIPE_SECRET_KEY environment variable not set'
+        statusCode: 500,
+        body: JSON.stringify({
+          error: 'STRIPE_SECRET_KEY environment variable not set'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
 
@@ -25,7 +33,15 @@ export const listMeters = async (
     // Validate account_id for connected account operations
     if (!account_id) {
       return {
-        error: 'account_id is required for listing meters'
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'account_id is required for listing meters'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
 
@@ -57,7 +73,13 @@ export const listMeters = async (
     }))
 
     return {
-      data: meters
+      statusCode: 200,
+      body: JSON.stringify(meters),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
+      }
     }
   } catch (error) {
     console.error('Error listing billing meters:', error)
@@ -66,14 +88,30 @@ export const listMeters = async (
     if (error instanceof Error && 'type' in error) {
       const stripeError = error as Stripe.StripeRawError
       return {
-        error: `Stripe error: ${stripeError.message}`,
-        details: stripeError.code || 'unknown_stripe_error'
+        statusCode: 400,
+        body: JSON.stringify({
+          error: `Stripe error: ${stripeError.message}`,
+          details: stripeError.code || 'unknown_stripe_error'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
     
     return {
-      error: 'Failed to list billing meters',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      statusCode: 500,
+      body: JSON.stringify({
+        error: 'Failed to list billing meters',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
+      }
     }
   }
 }

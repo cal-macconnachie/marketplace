@@ -14,21 +14,45 @@ export const createMeter = async (
     const stripe = getStripeClient()
     if (!process.env.STRIPE_SECRET_KEY) {
       return {
-        error: 'STRIPE_SECRET_KEY environment variable not set'
+        statusCode: 500,
+        body: JSON.stringify({
+          error: 'STRIPE_SECRET_KEY environment variable not set'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
 
     // Validate required fields
     if (!body.display_name || !body.event_name || !body.default_aggregation?.formula) {
       return {
-        error: 'Missing required fields: display_name, event_name, and default_aggregation.formula are required'
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'Missing required fields: display_name, event_name, and default_aggregation.formula are required'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
 
     // Validate account_id for connected account operations
     if (!body.account_id) {
       return {
-        error: 'account_id is required for meter creation'
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'account_id is required for meter creation'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
 
@@ -60,9 +84,15 @@ export const createMeter = async (
     }
 
     return {
-      data: {
+      statusCode: 201,
+      body: JSON.stringify({
         message: 'Billing meter created successfully',
         meter: createdMeter
+      }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
       }
     }
   } catch (error) {
@@ -72,14 +102,30 @@ export const createMeter = async (
     if (error instanceof Error && 'type' in error) {
       const stripeError = error as Stripe.StripeRawError
       return {
-        error: `Stripe error: ${stripeError.message}`,
-        details: stripeError.code || 'unknown_stripe_error'
+        statusCode: 400,
+        body: JSON.stringify({
+          error: `Stripe error: ${stripeError.message}`,
+          details: stripeError.code || 'unknown_stripe_error'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
     
     return {
-      error: 'Failed to create billing meter',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      statusCode: 500,
+      body: JSON.stringify({
+        error: 'Failed to create billing meter',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
+      }
     }
   }
 }

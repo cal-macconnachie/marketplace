@@ -31,6 +31,8 @@ export const listPromos = async (request: { type: 'coupons' } & ListCouponsReque
       const promoRequest = request as ListPromotionCodesRequest & { type: 'promotion_codes' }
       
       // Query DynamoDB for promotion codes
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const queryParams: any = {
         tableName: process.env.TABLE_PROMOS,
         keyConditionExpression: '#type = :type',
@@ -73,19 +75,28 @@ export const listPromos = async (request: { type: 'coupons' } & ListCouponsReque
       }
 
       return {
-        success: true,
-        data: {
-          object: 'list',
-          data: filteredItems,
-          has_more: false,
-          total_count: filteredItems.length,
-          url: '/v1/promotion_codes'
+        statusCode: 200,
+        body: JSON.stringify({
+          success: true,
+          data: {
+            object: 'list',
+            data: filteredItems,
+            has_more: false,
+            total_count: filteredItems.length,
+            url: '/v1/promotion_codes'
+          }
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
         }
       }
     } else {
       const couponRequest = request as ListCouponsRequest & { type: 'coupons' }
       
       // Query DynamoDB for coupons
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const queryParams: any = {
         tableName: process.env.TABLE_PROMOS,
         keyConditionExpression: '#type = :type',
@@ -107,21 +118,37 @@ export const listPromos = async (request: { type: 'coupons' } & ListCouponsReque
       const result = await query<Promo>(queryParams)
 
       return {
-        success: true,
-        data: {
-          object: 'list',
-          data: result.items,
-          has_more: false,
-          total_count: result.items.length,
-          url: '/v1/coupons'
+        statusCode: 200,
+        body: JSON.stringify({
+          success: true,
+          data: {
+            object: 'list',
+            data: result.items,
+            has_more: false,
+            total_count: result.items.length,
+            url: '/v1/coupons'
+          }
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
         }
       }
     }
   } catch (error) {
     console.error('Error listing coupons/promotion codes:', error)
     return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
+      statusCode: 500,
+      body: JSON.stringify({
+        error: 'Failed to list coupons/promotion codes',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
+      }
     }
   }
 }

@@ -20,7 +20,13 @@ export const createProduct = async (
     // Ensure account_id is set on the product
     if (!body.account_id) {
       return {
-        error: 'account_id is required for product creation'
+        status: 400,
+        body: JSON.stringify({ error: 'account_id is required in product' }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
     
@@ -38,16 +44,27 @@ export const createProduct = async (
     })
 
     return {
-      data: {
-        message: 'Product created successfully',
-        product: createdProduct
+      statusCode: 200,
+      body: JSON.stringify({ createdProduct }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
       }
     }
   } catch (error) {
     console.error('Error creating product:', error)
     return {
-      error: 'Failed to create product',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      statusCode: 500,
+      body: JSON.stringify({
+        error: 'Failed to create product',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
+      }
     }
   }
 }
