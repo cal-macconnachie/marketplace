@@ -321,6 +321,7 @@ export const createConnectedAccount = async ({
       })
       onboardingUrl = accountLink.url
     }
+    if (currency == null) currency = account.default_currency
 
     await update<Organization>({
       tableName: process.env.ORGANIZATIONS_TABLE!,
@@ -338,7 +339,8 @@ export const createConnectedAccount = async ({
         ],
         charges_enabled: accountWithRequirements.charges_enabled,
         payouts_enabled: accountWithRequirements.payouts_enabled,
-        onboarding_completed_at: !requiresOnboarding ? new Date().toISOString() : undefined
+        onboarding_completed_at: !requiresOnboarding ? new Date().toISOString() : undefined,
+        ...(currency ? { currency } : {})
       }
     })
     

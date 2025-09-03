@@ -11,6 +11,7 @@ export interface Organization {
   name?: string
   phone?: string
   email?: string
+  currency?: string
   address?: {
     line_1: string
     line_2?: string
