@@ -1,5 +1,7 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { query } from '../../helpers/dynamo-helpers/query'
+import {
+  query, queryAll 
+} from '../../helpers/dynamo-helpers/query'
 import { scan } from '../../helpers/dynamo-helpers/scan'
 import { Product } from '../products'
 
@@ -24,10 +26,30 @@ export const listProducts = async (
 
     const { queryStringParameters } = request
     const {
-      group_id, account_id
+      group_id, account_id, organization_id
     } = queryStringParameters ?? {}
 
     let result
+    if (organization_id && !group_id && !account_id) {
+      // Query products for a specific organization
+      result = await queryAll<Product>({
+        tableName,
+        indexName: 'organization_id-index',
+        keyConditionExpression: 'organization_id = :organization_id',
+        expressionAttributeValues: {
+          ':organization_id': organization_id
+        },
+      })
+      return {
+        statusCode: 200,
+        body: JSON.stringify(result),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
+      }
+    }
     if (group_id) {
       // Query products for a specific group
       if (account_id) {
