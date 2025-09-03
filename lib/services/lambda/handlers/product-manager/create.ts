@@ -26,7 +26,7 @@ export const createProduct = async (
     // Ensure account_id is set on the product
     if (!body.account_id) {
       return {
-        status: 400,
+        statusCode: 400,
         body: JSON.stringify({ error: 'account_id is required in product' }),
         headers: {
           'Access-Control-Allow-Origin': '*',
