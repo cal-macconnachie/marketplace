@@ -13,7 +13,13 @@ export const createProduct = async (
     const tableName = process.env.TABLE_PRODUCTS
     if (!tableName) {
       return {
-        error: 'TABLE_PRODUCTS environment variable not set'
+        statusCode: 500,
+        body: JSON.stringify({ error: 'TABLE_PRODUCTS environment variable not set' }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
       }
     }
     
