@@ -22,7 +22,7 @@ export const refreshConnectUrl = async (event: APIGatewayProxyEvent) => {
         }
       }
     }
-    if (org.onboarding_status !== 'in_progress') {
+    if (org.onboarding_status !== 'in_progress' && org.onboarding_status !== 'requires_action') {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'Onboarding not in progress' }),
