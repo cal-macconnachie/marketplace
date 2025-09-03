@@ -1,14 +1,15 @@
 import Stripe from 'stripe'
 import { getStripeClient } from '../../helpers/stripe/stripe-client'
 import {
-  BillingMeter, CreateMeterRequest 
+  BillingMeter 
 } from './types'
+import { APIGatewayProxyEvent } from 'aws-lambda'
 
 export const createMeter = async (
-  request: CreateMeterRequest
+  request: APIGatewayProxyEvent
 ) => {
   try {
-    const { body } = request
+    const body = JSON.parse(request.body ?? '{}')
 
     // Get the Stripe client (supports connected accounts)
     const stripe = getStripeClient()

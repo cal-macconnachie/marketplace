@@ -1,11 +1,12 @@
 import Stripe from 'stripe'
 import { getStripeClient } from '../../helpers/stripe/stripe-client'
 import {
-  BillingMeter, ListMetersRequest 
+  BillingMeter 
 } from './types'
+import { APIGatewayProxyEvent } from 'aws-lambda'
 
 export const listMeters = async (
-  request: ListMetersRequest
+  request: APIGatewayProxyEvent
 ) => {
   try {
     // Get the Stripe client (supports connected accounts)
@@ -51,7 +52,7 @@ export const listMeters = async (
     }
 
     if (status) {
-      listParams.status = status
+      listParams.status = status as 'active' | 'inactive'
     }
 
     const stripeMeters = await stripe.billing.meters.list(listParams, {

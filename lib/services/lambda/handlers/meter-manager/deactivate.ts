@@ -1,11 +1,12 @@
 import Stripe from 'stripe'
 import { getStripeClient } from '../../helpers/stripe/stripe-client'
 import {
-  BillingMeter, DeactivateMeterRequest 
+  BillingMeter 
 } from './types'
+import { APIGatewayProxyEvent } from 'aws-lambda'
 
 export const deactivateMeter = async (
-  request: DeactivateMeterRequest
+  request: APIGatewayProxyEvent
 ) => {
   try {
     const {

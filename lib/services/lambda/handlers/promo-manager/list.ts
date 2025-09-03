@@ -1,3 +1,4 @@
+import { APIGatewayProxyEvent } from 'aws-lambda'
 import { query } from '../../helpers/dynamo-helpers/query'
 import { Promo } from '../promos'
 
@@ -21,16 +22,16 @@ export interface ListPromotionCodesRequest {
   account_id?: string
 }
 
-export const listPromos = async (request: { type: 'coupons' } & ListCouponsRequest | { type: 'promotion_codes' } & ListPromotionCodesRequest) => {
+export const listPromos = async (request: APIGatewayProxyEvent) => {
   try {
     if (!process.env.PROMOS_TABLE) {
       throw new Error('PROMOS_TABLE environment variable is not set')
     }
 
-    if (request.type === 'promotion_codes') {
-      const promoRequest = request as ListPromotionCodesRequest & { type: 'promotion_codes' }
-      
-      // Query DynamoDB for promotion codes
+    const body = JSON.parse(request.body ?? '{}')
+
+    if (body.type === 'promotion_codes') {
+      const promoRequest = body as ListPromotionCodesRequest & { type: 'promotion_codes' }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const queryParams: any = {
@@ -93,8 +94,8 @@ export const listPromos = async (request: { type: 'coupons' } & ListCouponsReque
         }
       }
     } else {
-      const couponRequest = request as ListCouponsRequest & { type: 'coupons' }
-      
+      const couponRequest = body as ListCouponsRequest
+
       // Query DynamoDB for coupons
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const queryParams: any = {

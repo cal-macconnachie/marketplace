@@ -1,17 +1,15 @@
+import { APIGatewayProxyEvent } from 'aws-lambda'
 import { get } from '../../helpers/dynamo-helpers/get'
 import { Product } from '../products'
-import {
-  GetProductRequest 
-} from './types'
 
 export const getProduct = async (
-  request: GetProductRequest
+  request: APIGatewayProxyEvent
 ) => {
   try {
     const { pathParameters } = request
     const {
-      group_id, id 
-    } = pathParameters
+      group_id, id
+    } = pathParameters ?? {}
 
     if (!group_id || !id) {
       return {

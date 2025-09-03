@@ -1,5 +1,6 @@
 import Stripe from 'stripe'
 import { getStripeClient } from '../../helpers/stripe/stripe-client'
+import { APIGatewayProxyEvent } from 'aws-lambda'
 
 export interface UpdateCouponRequest {
   id: string
@@ -13,12 +14,14 @@ export interface UpdatePromotionCodeRequest {
   metadata?: Record<string, string>
 }
 
-export const updatePromos = async (request: { type: 'coupon' } & UpdateCouponRequest | { type: 'promotion_code' } & UpdatePromotionCodeRequest) => {
+export const updatePromos = async (request: APIGatewayProxyEvent) => {
   try {
     const stripe = getStripeClient()
 
-    if (request.type === 'promotion_code') {
-      const promoRequest = request as UpdatePromotionCodeRequest & { type: 'promotion_code' }
+    const body = JSON.parse(request.body ?? '{}')
+
+    if (body.type === 'promotion_code') {
+      const promoRequest = body as UpdatePromotionCodeRequest & { type: 'promotion_code' }
       
       if (!promoRequest.id) {
         throw new Error('Promotion code ID is required')
@@ -41,8 +44,8 @@ export const updatePromos = async (request: { type: 'coupon' } & UpdateCouponReq
         data: promotionCode
       }
     } else {
-      const couponRequest = request as UpdateCouponRequest & { type: 'coupon' }
-      
+      const couponRequest = body as UpdateCouponRequest & { type: 'coupon' }
+
       if (!couponRequest.id) {
         throw new Error('Coupon ID is required')
       }

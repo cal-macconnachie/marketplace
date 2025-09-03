@@ -1,3 +1,4 @@
+import { APIGatewayProxyEvent } from 'aws-lambda'
 import { deleteItem } from '../../helpers/dynamo-helpers/delete'
 
 export interface DeleteCouponRequest {
@@ -8,15 +9,17 @@ export interface DeletePromotionCodeRequest {
   id: string
 }
 
-export const deletePromo = async (request: { type: 'coupon' } & DeleteCouponRequest | { type: 'promotion_code' } & DeletePromotionCodeRequest) => {
+export const deletePromo = async (request: APIGatewayProxyEvent) => {
   try {
     if (!process.env.PROMOS_TABLE) {
       throw new Error('PROMOS_TABLE environment variable is not set')
     }
 
-    if (request.type === 'promotion_code') {
-      const promoRequest = request as DeletePromotionCodeRequest & { type: 'promotion_code' }
-      
+    const body = JSON.parse(request.body ?? '{}')
+
+    if (body.type === 'promotion_code') {
+      const promoRequest = body as DeletePromotionCodeRequest & { type: 'promotion_code' }
+
       if (!promoRequest.id) {
         throw new Error('Promotion code ID is required')
       }
@@ -43,8 +46,8 @@ export const deletePromo = async (request: { type: 'coupon' } & DeleteCouponRequ
         }
       }
     } else {
-      const couponRequest = request as DeleteCouponRequest & { type: 'coupon' }
-      
+      const couponRequest = body as DeleteCouponRequest
+
       if (!couponRequest.id) {
         throw new Error('Coupon ID is required')
       }

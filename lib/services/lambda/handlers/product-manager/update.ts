@@ -1,19 +1,16 @@
+import { APIGatewayProxyEvent } from 'aws-lambda'
 import { update } from '../../helpers/dynamo-helpers/update'
 import { Product } from '../products'
-import {
-  UpdateProductRequest
-} from './types'
 
 export const updateProduct = async (
-  request: UpdateProductRequest
+  request: APIGatewayProxyEvent
 ) => {
   try {
+    let { pathParameters } = request
+    let body = JSON.parse(request.body ?? '{}')
     const {
-      body, pathParameters 
-    } = request
-    const {
-      group_id, id 
-    } = pathParameters
+      group_id, id
+    } = pathParameters ?? {}
 
     if (!group_id || !id) {
       return {

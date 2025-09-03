@@ -1,3 +1,4 @@
+import { APIGatewayProxyEvent } from 'aws-lambda'
 import { create } from '../../helpers/dynamo-helpers/create'
 import { Promo } from '../promos'
 
@@ -43,15 +44,16 @@ export interface CreatePromoRequest extends CreateCouponRequest {
   }
 }
 
-export const createPromo = async (request: CreatePromoRequest | { type: 'promotion_code' } & CreatePromotionCodeRequest) => {
+export const createPromo = async (request: APIGatewayProxyEvent) => {
   try {
     if (!process.env.PROMOS_TABLE) {
       throw new Error('PROMOS_TABLE environment variable is not set')
     }
+    const body = JSON.parse(request.body ?? '{}')
 
-    if ('type' in request && request.type === 'promotion_code') {
-      const promoCodeRequest = request as CreatePromotionCodeRequest & { type: 'promotion_code' }
-      
+    if ('type' in body && body.type === 'promotion_code') {
+      const promoCodeRequest = body as CreatePromotionCodeRequest & { type: 'promotion_code' }
+
       // Validate account_id is provided
       if (!('account_id' in promoCodeRequest) || !promoCodeRequest.account_id) {
         throw new Error('account_id is required for promotion code creation')
@@ -97,8 +99,8 @@ export const createPromo = async (request: CreatePromoRequest | { type: 'promoti
         }
       }
     } else {
-      const promoRequest = request as CreatePromoRequest
-      
+      const promoRequest = body as CreatePromoRequest
+
       if (!promoRequest.percent_off && !promoRequest.amount_off) {
         throw new Error('Either percent_off or amount_off must be specified')
       }

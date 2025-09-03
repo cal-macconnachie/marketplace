@@ -1,12 +1,10 @@
+import { APIGatewayProxyEvent } from 'aws-lambda'
 import { query } from '../../helpers/dynamo-helpers/query'
 import { scan } from '../../helpers/dynamo-helpers/scan'
 import { Product } from '../products'
-import {
-  ListProductsRequest 
-} from './types'
 
 export const listProducts = async (
-  request: ListProductsRequest
+  request: APIGatewayProxyEvent
 ) => {
   try {
     const tableName = process.env.PRODUCTS_TABLE
@@ -26,8 +24,8 @@ export const listProducts = async (
 
     const { queryStringParameters } = request
     const {
-      group_id, account_id 
-    } = queryStringParameters || {}
+      group_id, account_id
+    } = queryStringParameters ?? {}
 
     let result
     if (group_id) {

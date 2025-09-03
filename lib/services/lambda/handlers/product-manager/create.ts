@@ -1,14 +1,12 @@
+import { APIGatewayProxyEvent } from 'aws-lambda'
 import { create } from '../../helpers/dynamo-helpers/create'
 import { Product } from '../products'
-import {
-  CreateProductRequest
-} from './types'
 
 export const createProduct = async (
-  request: CreateProductRequest
+  request: APIGatewayProxyEvent
 ) => {
   try {
-    const { body } = request
+    const body = JSON.parse(request.body ?? '{}')
 
     const tableName = process.env.PRODUCTS_TABLE
     if (!tableName) {
