@@ -147,7 +147,9 @@ const prepareProductDataForCreate = (record: Product): Stripe.ProductCreateParam
     'price_id',
     'error',
     'last_processed_at',
-    'price_version'
+    'price_version',
+    'account_id',
+    'organization_id'
   ] as const
   const productData = { ...record } satisfies Stripe.ProductCreateParams
   
@@ -171,7 +173,9 @@ const prepareProductDataForUpdate = (record: Product): Stripe.ProductUpdateParam
     'price_id',
     'error',
     'last_processed_at',
-    'price_version'
+    'price_version',
+    'account_id',
+    'organization_id'
   ] as const
   const productData = { ...record } as Record<string, unknown>
   
@@ -246,10 +250,10 @@ export const handler = async (event: DynamoDBStreamEvent) => {
         : undefined
       
       // ensure tax_code is always set
-      if (newRec) {
+      if (newRec && !newRec.tax_code) {
         newRec.tax_code = 'txcd_10103001'
       }
-      if (old) {
+      if (old && !old.tax_code) {
         old.tax_code = 'txcd_10103001'
       }
       
