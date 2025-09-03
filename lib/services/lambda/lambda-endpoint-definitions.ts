@@ -263,6 +263,18 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     }
   },
   {
+    name: 'publicGetProduct',
+    handler: 'product-manager/get.publicGetProduct',
+    description: 'Get Product by ID (Public)',
+    environment: ['PRODUCTS_TABLE'],
+    apiGw: {
+      path: 'public/products/{group_id}/{id}',
+      method: 'GET',
+      auth: 'none',
+      cors: true
+    }
+  },
+  {
     name: 'listProducts',
     handler: 'product-manager/list.listProducts',
     description: 'List Products',
