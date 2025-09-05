@@ -541,6 +541,17 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     }
   },
   {
+    name: 'publicGetOrganization',
+    handler: 'organizations/get-organization.publicGetOrganization',
+    description: 'Get Organization',
+    apiGw: {
+      path: 'public/organizations/{id}',
+      method: 'GET',
+      auth: 'none',
+      cors: true
+    }
+  },
+  {
     name: 'updateOrganization',
     handler: 'organizations/update.updateOrganizationHandler',
     description: 'Update Organization',
