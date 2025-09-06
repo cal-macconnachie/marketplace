@@ -5,6 +5,7 @@ import { CognitoStack } from './services/cognito/cognito-stack'
 import { createDefaultNodejsFunction } from './services/lambda/lambda-defaults'
 import path from 'path'
 import { LambdaStack } from './services/lambda/lambda-stack'
+import { S3Stack } from './services/s3/s3-stack'
 
 export class PaymentAuthBackendStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps & { envName?: string }) {
@@ -29,11 +30,16 @@ export class PaymentAuthBackendStack extends cdk.Stack {
       envName, postAuthTriggerFunction 
     })
 
+    const s3Stack = new S3Stack(this, `S3Stack-${envName}`, {
+      envName
+    })
+
     const envVars = {
       'USER_POOL_CLIENT_ID': cognitoStack.userPoolClient.userPoolClientId,
       'USER_POOL_ID': cognitoStack.userPool.userPoolId,
       'STRIPE_SECRET_KEY': `${envName === 'dev' ? process.env.STRIPE_SECRET_KEY_DEV : process.env.STRIPE_SECRET_KEY_PROD}`,
-      'STRIPE_EVENT_DESTINATION': `${envName === 'dev' ? process.env.STRIPE_EVENT_DESTINATION_DEV : process.env.STRIPE_EVENT_DESTINATION_PROD}`
+      'STRIPE_EVENT_DESTINATION': `${envName === 'dev' ? process.env.STRIPE_EVENT_DESTINATION_DEV : process.env.STRIPE_EVENT_DESTINATION_PROD}`,
+      'IMAGES_BUCKET_NAME': s3Stack.buckets['dot-images-product-store'].bucketName,
     }
     new LambdaStack(this, `LambdaStack-${envName}`, {
       envName,

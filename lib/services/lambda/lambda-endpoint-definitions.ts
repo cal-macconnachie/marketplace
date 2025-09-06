@@ -634,6 +634,48 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     }
   },
 
+  // Image Processing
+  {
+    name: 'processImage',
+    handler: 'images/image-processor.processImage',
+    description: 'Process and resize images from S3',
+    timeout: 30,
+    memorySize: 1024,
+    buckets: ['dot-images-product-store'],
+    environment: ['IMAGES_BUCKET_NAME'],
+    iamPolicies: [
+      {
+        actions: ['s3:GetObject'],
+        resources: ['*']
+      }
+    ],
+    apiGw: {
+      path: 'images/{proxy+}',
+      method: 'GET',
+      auth: 'none',
+      cors: true
+    }
+  },
+  {
+    name: 'createPresignedUploadUrl',
+    handler: 'images/presigned-upload.createPresignedUploadUrl',
+    description: 'Create presigned URLs for direct S3 image uploads',
+    buckets: ['dot-images-product-store'],
+    environment: ['IMAGES_BUCKET_NAME'],
+    iamPolicies: [
+      {
+        actions: ['s3:PutObject'],
+        resources: ['*']
+      }
+    ],
+    apiGw: {
+      path: 'images/presigned-upload',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+
   // Test Endpoint Definitions
   {
     name: 'testStatusCodes',
