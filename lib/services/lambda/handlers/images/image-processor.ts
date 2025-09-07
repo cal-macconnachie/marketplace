@@ -66,15 +66,9 @@ export const processImage = async (
 
     // Convert the readable stream to buffer
     const chunks: Uint8Array[] = []
-    const reader = response.Body as ReadableStream
-    const readerInstance = reader.getReader()
     
-    while (true) {
-      const {
-        done, value 
-      } = await readerInstance.read()
-      if (done) break
-      chunks.push(value)
+    for await (const chunk of response.Body as any) {
+      chunks.push(chunk)
     }
     
     const imageBuffer = Buffer.concat(chunks)
