@@ -142,35 +142,6 @@ export class LambdaStack extends cdk.Stack {
         }
       } : undefined
 
-      // Special bundling configuration for Sharp (image processing)
-      const needsSharpBundling = def.handler.includes('image-processor')
-      
-      let finalBundlingOptions = bundlingOptions
-      if (needsSharpBundling) {
-        finalBundlingOptions = {
-          ...bundlingOptions,
-          nodeModules: ['sharp'],
-          commandHooks: {
-            beforeBundling: () => [],
-            beforeInstall: (): string[] => [
-              // @ts-expect-error dumb
-              'rm -rf /tmp/npm-cache',
-              // @ts-expect-error dumb
-              'mkdir -p /tmp/npm-cache'
-            ],
-            afterBundling: (inputDir: string, outputDir: string): string[] => {
-              const existingCommands = bundlingOptions?.commandHooks?.afterBundling?.(inputDir, outputDir) ?? []
-              return [
-                ...existingCommands,
-                // Install Sharp with platform-specific binaries for Linux x64 (Lambda runtime)
-                'cd ' + outputDir,
-                'npm install --platform=linux --arch=x64 sharp --no-cache --cache /tmp/npm-cache'
-              ]
-            }
-          }
-        }
-      }
-
       // Now create the Lambda function
       const fn = createDefaultNodejsFunction(this, `${def.name}-${envName}`, {
         entry: path.join(__dirname, 'handlers', `${def.handler.split('.')[0]}.ts`),
@@ -181,7 +152,7 @@ export class LambdaStack extends cdk.Stack {
         timeout: def.timeout ? Duration.seconds(def.timeout) : Duration.seconds(30),
         memorySize: def.memorySize || 128,
         ...(def.streaming ? { invokeMode: 'RESPONSE_STREAM' } : {}),
-        ...(finalBundlingOptions ? { bundling: finalBundlingOptions } : {})
+        ...(bundlingOptions ? { bundling: bundlingOptions } : {})
       })
       this.lambdas[def.name] = fn
       // Attach IAM policies if specified
