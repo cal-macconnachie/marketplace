@@ -443,8 +443,6 @@ export const handler = async (event: DynamoDBStreamEvent) => {
             description: stripeProduct.description ?? '',
             active: stripeProduct.active,
             metadata: stripeProduct.metadata,
-            tax_code: 'txcd_10103001' as const,
-            images: stripeProduct.images,
             statement_descriptor: stripeProduct.statement_descriptor ?? '',
           }
           
