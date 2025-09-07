@@ -30,7 +30,7 @@ export class PaymentAuthBackendStack extends cdk.Stack {
       envName, postAuthTriggerFunction 
     })
 
-    const s3Stack = new S3Stack(this, `S3Stack-${envName}`, {
+    const s3Stack = new S3Stack(this, `S3Stack-${envName}-1`, {
       envName
     })
 
