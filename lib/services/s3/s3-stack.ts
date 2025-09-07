@@ -16,18 +16,17 @@ import {
 } from './s3-bucket-definitions'
 interface s3StackProps extends StackProps {
   envName?: string
-  appName?: string
 }
 export class S3Stack extends Stack {
   public readonly buckets: { [bucketName: string]: IBucket } = {}
   constructor(scope: Construct, id: string, props?: s3StackProps) {
     super(scope, id, props)
     const {
-      envName, appName 
+      envName 
     } = props || {}
 
     s3Definitions.forEach((def: S3BucketDefinition) => {
-      const bucketName = `${envName}-${appName}-${def.bucketName}`
+      const bucketName = `${envName}-${def.bucketName}`
       let bucket: Bucket | IBucket
       
       const bucketProps: BucketProps = {
