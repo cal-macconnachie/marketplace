@@ -641,7 +641,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     description: 'Process and resize images from S3',
     timeout: 30,
     memorySize: 1024,
-    buckets: ['dot-images-product-store'],
+    buckets: ['dot-images-product-store-direct'],
     environment: ['IMAGES_BUCKET_NAME'],
     iamPolicies: [
       {
@@ -660,7 +660,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     name: 'createPresignedUploadUrl',
     handler: 'images/presigned-upload.createPresignedUploadUrl',
     description: 'Create presigned URLs for direct S3 image uploads',
-    buckets: ['dot-images-product-store'],
+    buckets: ['dot-images-product-store-direct'],
     environment: ['IMAGES_BUCKET_NAME'],
     iamPolicies: [
       {

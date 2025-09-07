@@ -46,7 +46,7 @@ export interface S3BucketDefinition {
 }
 export const s3Definitions: S3BucketDefinition[] = [
   {
-    bucketName: 'dot-images-product-store',
+    bucketName: 'dot-images-product-store-direct',
     description: 'Image Store',
     corsRules: [
       {
