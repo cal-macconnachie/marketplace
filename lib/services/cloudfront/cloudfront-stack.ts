@@ -44,7 +44,8 @@ export class CloudFrontStack extends Stack {
         
         // Use provided Lambda URL for image processor
         if (origin.originId === 'image-processor-origin' && imageLambdaUrl) {
-          domainName = new URL(imageLambdaUrl).hostname
+          // Extract hostname from Lambda Function URL (remove https:// prefix and trailing path)
+          domainName = imageLambdaUrl.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
         }
 
         return new HttpOrigin(domainName, {
