@@ -38,6 +38,7 @@ export class LambdaStack extends cdk.Stack {
   public readonly apiKey: apiGW.IApiKey
   public readonly usagePlan: apiGW.UsagePlan
   public readonly cognitoAuthorizer: apiGW.CognitoUserPoolsAuthorizer
+  public readonly imageLambdaUrl?: string
   private readonly corsEnabledResources = new Set<string>()
 
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
@@ -177,6 +178,19 @@ export class LambdaStack extends cdk.Stack {
         })
       }
       this.lambdas[def.name] = fn
+
+      // Create function URL for image processor for CloudFront integration
+      if (def.name === 'processImage') {
+        const functionUrl = fn.addFunctionUrl({
+          authType: cdk.aws_lambda.FunctionUrlAuthType.NONE,
+          cors: {
+            allowedOrigins: ['*'],
+            allowedMethods: [cdk.aws_lambda.HttpMethod.GET],
+            allowedHeaders: ['*']
+          }
+        })
+        this.imageLambdaUrl = functionUrl.url
+      }
       // Attach IAM policies if specified
       if (def.iamPolicies) {
         for (const policy of def.iamPolicies) {

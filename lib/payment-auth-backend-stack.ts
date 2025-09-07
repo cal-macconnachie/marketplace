@@ -6,6 +6,7 @@ import { createDefaultNodejsFunction } from './services/lambda/lambda-defaults'
 import path from 'path'
 import { LambdaStack } from './services/lambda/lambda-stack'
 import { S3Stack } from './services/s3/s3-stack'
+import { CloudFrontStack } from './services/cloudfront/cloudfront-stack'
 
 export class PaymentAuthBackendStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps & { envName?: string }) {
@@ -41,12 +42,18 @@ export class PaymentAuthBackendStack extends cdk.Stack {
       'STRIPE_EVENT_DESTINATION': `${envName === 'dev' ? process.env.STRIPE_EVENT_DESTINATION_DEV : process.env.STRIPE_EVENT_DESTINATION_PROD}`,
       'IMAGES_BUCKET_NAME': s3Stack.buckets['dot-images-product-store-direct'].bucketName,
     }
-    new LambdaStack(this, `LambdaStack-${envName}`, {
+    const lambdaStack = new LambdaStack(this, `LambdaStack-${envName}`, {
       envName,
       envVars,
       userPool: cognitoStack.userPool,
       userPoolClient: cognitoStack.userPoolClient,
       tables: ddbTables.tables,
+    })
+
+    // Create CloudFront distribution for image processing
+    new CloudFrontStack(this, `CloudFrontStack-${envName}`, {
+      envName,
+      imageLambdaUrl: lambdaStack.imageLambdaUrl
     })
 
   }
