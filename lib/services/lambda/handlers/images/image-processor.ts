@@ -67,6 +67,7 @@ export const processImage = async (
     // Convert the readable stream to buffer
     const chunks: Uint8Array[] = []
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for await (const chunk of response.Body as any) {
       chunks.push(chunk)
     }
@@ -86,37 +87,49 @@ export const processImage = async (
       })
     }
 
-    // Start with provided quality or default to 85
-    let currentQuality = quality ? parseInt(quality) : 85
+    // Only recompress if quality is explicitly requested or if size exceeds limits
     let processedBuffer: Buffer
-
-    // Lambda response payload limit is 6MB, target 5.5MB to be safe
+    let isJpegOutput = false
     const MAX_SIZE_BYTES = 5.5 * 1024 * 1024 // 5.5MB
-    
-    do {
-      // Apply current quality setting
-      processedImage = processedImage.jpeg({ quality: currentQuality })
+
+    if (quality) {
+      // Explicit quality requested - recompress as JPEG
+      processedImage = processedImage.jpeg({ quality: parseInt(quality) })
+      processedBuffer = await processedImage.toBuffer()
+      isJpegOutput = true
+    } else {
+      // No quality specified - try to preserve original format/quality
       processedBuffer = await processedImage.toBuffer()
       
-      // If the buffer is too large, reduce quality and try again
-      if (processedBuffer.length > MAX_SIZE_BYTES && currentQuality > 10) {
-        currentQuality -= 5
-        // Reset the Sharp instance to avoid cumulative effects
-        processedImage = sharp(imageBuffer)
+      // Only recompress if the result is too large for Lambda
+      if (processedBuffer.length > MAX_SIZE_BYTES) {
+        let currentQuality = 85
         
-        // Reapply resizing if it was originally requested
-        if (width || height) {
-          processedImage = processedImage.resize({
-            width: width ? parseInt(width) : undefined,
-            height: height ? parseInt(height) : undefined,
-            fit: 'inside',
-            withoutEnlargement: true
-          })
-        }
-      } else {
-        break
+        do {
+          // Reset and reapply transformations with JPEG compression
+          processedImage = sharp(imageBuffer)
+          
+          if (width || height) {
+            processedImage = processedImage.resize({
+              width: width ? parseInt(width) : undefined,
+              height: height ? parseInt(height) : undefined,
+              fit: 'inside',
+              withoutEnlargement: true
+            })
+          }
+          
+          processedImage = processedImage.jpeg({ quality: currentQuality })
+          processedBuffer = await processedImage.toBuffer()
+          isJpegOutput = true
+          
+          if (processedBuffer.length > MAX_SIZE_BYTES && currentQuality > 10) {
+            currentQuality -= 5
+          } else {
+            break
+          }
+        } while (processedBuffer.length > MAX_SIZE_BYTES && currentQuality > 10)
       }
-    } while (processedBuffer.length > MAX_SIZE_BYTES && currentQuality > 10)
+    }
 
     // If still too large even at minimum quality, return error
     if (processedBuffer.length > MAX_SIZE_BYTES) {
@@ -137,7 +150,7 @@ export const processImage = async (
     return {
       statusCode: 200,
       headers: {
-        'Content-Type': 'image/jpeg',
+        'Content-Type': isJpegOutput ? 'image/jpeg' : response.ContentType || 'image/jpeg',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,
         'Cache-Control': 'public, max-age=31536000'
