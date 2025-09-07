@@ -51,6 +51,11 @@ export interface LambdaEndpointDefinition {
    * Paths should be relative to the handlers directory.
    */
   bundleHtml?: string[] // List of HTML files to bundle with this specific Lambda
+  /**
+   * If set to true, uses native dependency bundling (required for packages like Sharp, Canvas, etc.)
+   * This enables proper Linux binary compilation for Lambda runtime.
+   */
+  requiresNativeDeps?: boolean
 }
 export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
   // Authentication & Authorization
@@ -643,6 +648,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     memorySize: 1024,
     buckets: ['dot-images-product-store-direct'],
     environment: ['IMAGES_BUCKET_NAME'],
+    requiresNativeDeps: true,
     iamPolicies: [
       {
         actions: ['s3:GetObject'],

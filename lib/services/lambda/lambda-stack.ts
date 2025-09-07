@@ -10,10 +10,12 @@ import {
 } from 'aws-cdk-lib'
 import { 
   createDefaultNodejsFunction, 
+  createNodejsFunctionWithNativeDeps,
   addApiResourceWithApiKey,
   addApiResourceWithCognito,
   addApiResourcePublic
 } from './lambda-defaults'
+import { createNativeBundlingConfig } from './bundling-configs'
 import * as path from 'node:path'
 import {
   LambdaEndpointDefinition, lambdaEndpointDefinitions 
@@ -143,17 +145,37 @@ export class LambdaStack extends cdk.Stack {
       } : undefined
 
       // Now create the Lambda function
-      const fn = createDefaultNodejsFunction(this, `${def.name}-${envName}`, {
-        entry: path.join(__dirname, 'handlers', `${def.handler.split('.')[0]}.ts`),
-        handler: def.handler.split('.')[1],
-        functionName: `${def.name}-${envName}`,
-        description: def.description,
-        environment: lambdaEnv,
-        timeout: def.timeout ? Duration.seconds(def.timeout) : Duration.seconds(30),
-        memorySize: def.memorySize || 128,
-        ...(def.streaming ? { invokeMode: 'RESPONSE_STREAM' } : {}),
-        ...(bundlingOptions ? { bundling: bundlingOptions } : {})
-      })
+      let fn
+      if (def.requiresNativeDeps) {
+        // Use native bundling configuration for functions that need it
+        const nativeBundling = createNativeBundlingConfig({ 
+          bundleHtml: def.bundleHtml 
+        })
+        fn = createNodejsFunctionWithNativeDeps(this, `${def.name}-${envName}`, {
+          entry: path.join(__dirname, 'handlers', `${def.handler.split('.')[0]}.ts`),
+          handler: def.handler.split('.')[1],
+          functionName: `${def.name}-${envName}`,
+          description: def.description,
+          environment: lambdaEnv,
+          timeout: def.timeout ? Duration.seconds(def.timeout) : Duration.seconds(30),
+          memorySize: def.memorySize || 512, // Higher default for native deps
+          nativeBundling,
+          ...(def.streaming ? { invokeMode: 'RESPONSE_STREAM' } : {})
+        })
+      } else {
+        // Use standard configuration for regular functions
+        fn = createDefaultNodejsFunction(this, `${def.name}-${envName}`, {
+          entry: path.join(__dirname, 'handlers', `${def.handler.split('.')[0]}.ts`),
+          handler: def.handler.split('.')[1],
+          functionName: `${def.name}-${envName}`,
+          description: def.description,
+          environment: lambdaEnv,
+          timeout: def.timeout ? Duration.seconds(def.timeout) : Duration.seconds(30),
+          memorySize: def.memorySize || 128,
+          ...(def.streaming ? { invokeMode: 'RESPONSE_STREAM' } : {}),
+          ...(bundlingOptions ? { bundling: bundlingOptions } : {})
+        })
+      }
       this.lambdas[def.name] = fn
       // Attach IAM policies if specified
       if (def.iamPolicies) {

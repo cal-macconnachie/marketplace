@@ -5,6 +5,7 @@ import { Construct } from 'constructs'
 import { Runtime } from 'aws-cdk-lib/aws-lambda'
 import { aws_apigateway as apiGW } from 'aws-cdk-lib'
 import * as cdk from 'aws-cdk-lib'
+import { BundlingOptions } from 'aws-cdk-lib/aws-lambda-nodejs'
 
 export function createDefaultNodejsFunction(scope: Construct, id: string, props: NodejsFunctionProps) {
   if (!props.entry) {
@@ -16,6 +17,31 @@ export function createDefaultNodejsFunction(scope: Construct, id: string, props:
     timeout: cdk.Duration.seconds(29),
     handler: 'handler',
     ...props
+  })
+}
+
+/**
+ * Creates a Lambda function with native dependency bundling support.
+ * Use this when your Lambda requires native binaries like Sharp, Canvas, etc.
+ */
+export function createNodejsFunctionWithNativeDeps(
+  scope: Construct, 
+  id: string, 
+  props: NodejsFunctionProps & { nativeBundling: BundlingOptions }
+) {
+  if (!props.entry) {
+    throw new Error('Lambda function "entry" (path) is required')
+  }
+  
+  const { nativeBundling, ...functionProps } = props
+  
+  return new NodejsFunction(scope, id, {
+    runtime: Runtime.NODEJS_22_X,
+    memorySize: 512, // Higher memory for native deps
+    timeout: cdk.Duration.seconds(60), // Longer timeout for processing
+    handler: 'handler',
+    bundling: nativeBundling,
+    ...functionProps
   })
 }
 
