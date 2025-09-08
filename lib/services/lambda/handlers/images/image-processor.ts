@@ -12,8 +12,20 @@ export const processImage = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
-    // Extract key from path parameters
-    const key = event.pathParameters?.proxy
+    // Extract key from path - handle both API Gateway proxy and Lambda Function URL
+    let key = event.pathParameters?.proxy
+    
+    // If no proxy parameter (Lambda Function URL), extract from raw path
+    if (!key) {
+      // For Lambda Function URL, check different path properties
+      const lambdaEvent = event as unknown as { rawPath?: string; requestContext?: { http?: { path?: string } } }
+      const rawPath = lambdaEvent.rawPath || lambdaEvent.requestContext?.http?.path || event.path
+      if (rawPath) {
+        // Remove leading slash and extract everything as the image path
+        const pathWithoutSlash = rawPath.startsWith('/') ? rawPath.slice(1) : rawPath
+        key = pathWithoutSlash
+      }
+    }
 
     if (!key) {
       return {
