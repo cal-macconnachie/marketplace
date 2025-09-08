@@ -76,98 +76,25 @@ export const processImage = async (
       }
     }
 
-    // Convert the readable stream to buffer
-    const chunks: Uint8Array[] = []
-    
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for await (const chunk of response.Body as any) {
-      chunks.push(chunk)
-    }
-    
-    const imageBuffer = Buffer.concat(chunks)
-
-    // Process the image with Sharp
-    let processedImage = sharp(imageBuffer)
-
-    // Apply resizing if dimensions provided
-    if (width || height) {
-      processedImage = processedImage.resize({
-        width: width ? parseInt(width) : undefined,
-        height: height ? parseInt(height) : undefined,
-        fit: 'inside',
-        withoutEnlargement: true
-      })
-    }
-
-    // Only recompress if quality is explicitly requested or if size exceeds limits
-    let processedBuffer: Buffer
-    let isJpegOutput = false
-    const MAX_SIZE_BYTES = 5.5 * 1024 * 1024 // 5.5MB
-
-    if (quality) {
-      // Explicit quality requested - recompress as JPEG
-      processedImage = processedImage.jpeg({ quality: parseInt(quality) })
-      processedBuffer = await processedImage.toBuffer()
-      isJpegOutput = true
-    } else {
-      // No quality specified - try to preserve original format/quality
-      processedBuffer = await processedImage.toBuffer()
-      
-      // Only recompress if the result is too large for Lambda
-      if (processedBuffer.length > MAX_SIZE_BYTES) {
-        let currentQuality = 85
-        
-        do {
-          // Reset and reapply transformations with JPEG compression
-          processedImage = sharp(imageBuffer)
-          
-          if (width || height) {
-            processedImage = processedImage.resize({
-              width: width ? parseInt(width) : undefined,
-              height: height ? parseInt(height) : undefined,
-              fit: 'inside',
-              withoutEnlargement: true
-            })
-          }
-          
-          processedImage = processedImage.jpeg({ quality: currentQuality })
-          processedBuffer = await processedImage.toBuffer()
-          isJpegOutput = true
-          
-          if (processedBuffer.length > MAX_SIZE_BYTES && currentQuality > 10) {
-            currentQuality -= 5
-          } else {
-            break
-          }
-        } while (processedBuffer.length > MAX_SIZE_BYTES && currentQuality > 10)
-      }
-    }
-
-    // If still too large even at minimum quality, return error
-    if (processedBuffer.length > MAX_SIZE_BYTES) {
-      return {
-        statusCode: 413,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Credentials': true,
-        },
-        body: JSON.stringify({
-          error: 'Image too large to process',
-          details: 'Unable to compress image below size limit'
-        })
-      }
-    }
+    const imageData = await response.Body.transformToByteArray()
+    const imageResize = sharp(imageData).resize({
+      width: width ? parseInt(width) : undefined,
+      height: height ? parseInt(height) : undefined,
+      fit: 'cover'
+    })
+    if (isJpegContentType({ contentType: response.ContentType })) imageResize.jpeg({ quality: quality ? parseInt(quality) : 100 })
+    if (isPngContentType({ contentType: response.ContentType })) imageResize.png({ palette: true })
+    const resizedImageData = await imageResize.toBuffer()
 
     return {
       statusCode: 200,
       headers: {
-        'Content-Type': isJpegOutput ? 'image/jpeg' : response.ContentType || 'image/jpeg',
+        'Content-Type': response.ContentType || 'application/octet-stream',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,
         'Cache-Control': 'public, max-age=31536000'
       },
-      body: processedBuffer.toString('base64'),
+      body: resizedImageData.toString('base64'),
       isBase64Encoded: true
     }
 
@@ -187,4 +114,12 @@ export const processImage = async (
       })
     }
   }
+}
+
+function isJpegContentType({ contentType }: { contentType?: string }) {
+  return contentType === 'image/jpeg'
+}
+
+function isPngContentType({ contentType }: { contentType?: string }) {
+  return contentType === 'image/png'
 }
