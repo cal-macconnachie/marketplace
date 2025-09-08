@@ -13,7 +13,7 @@ import {
   HttpOrigin
 } from 'aws-cdk-lib/aws-cloudfront-origins'
 import {
-  Stack, StackProps, Duration
+  Stack, StackProps, Duration, Fn
 } from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import {
@@ -44,8 +44,11 @@ export class CloudFrontStack extends Stack {
         
         // Use provided Lambda URL for image processor
         if (origin.originId === 'image-processor-origin' && imageLambdaUrl) {
-          // Extract hostname from Lambda Function URL (remove https:// prefix and trailing path)
-          domainName = imageLambdaUrl.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+          // Extract hostname from Lambda Function URL using CDK intrinsic functions
+          // Split by '//' and take the second part, then split by '/' and take the first part
+          const afterProtocol = Fn.select(1, Fn.split('//', imageLambdaUrl))
+          domainName = Fn.select(0, Fn.split('/', afterProtocol))
+          console.log(`Setting domainName for image-processor-origin using CDK functions`)
         }
 
         return new HttpOrigin(domainName, {
