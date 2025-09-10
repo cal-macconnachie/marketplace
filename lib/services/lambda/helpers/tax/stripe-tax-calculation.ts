@@ -19,6 +19,7 @@ export async function calculateTaxWithStripe(
   }
 ): Promise<TaxCalculationResult> {
   // Parse location for customer details
+  console.log('Tax calculation location:', params.location)
   const locationParts = params.location.split(':')
   let customerDetails: Stripe.Tax.CalculationCreateParams.CustomerDetails
   
