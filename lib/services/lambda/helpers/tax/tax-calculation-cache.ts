@@ -29,7 +29,7 @@ export function generateLocationKey(user?: User, ipAddress?: string): string {
     return `ip:${ipAddress}`
   }
   
-  return 'unknown:unknown:unknown:unknown'
+  return ''
 }
 
 // Helper function to generate tax calculation cache key

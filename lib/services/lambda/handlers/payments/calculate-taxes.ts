@@ -109,6 +109,17 @@ export const calculateTaxes = async (event: APIGatewayProxyEvent) => {
 
     // Generate location key for caching
     const location = generateLocationKey(user, ip)
+    if (location === '') {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Unable to determine location for tax calculation' }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
+      }
+    }
     
     // Calculate taxes for each unique product
     const taxCalculationResult = await calculateTaxesWithCaching(items, productsHash, orgsHash, location)
