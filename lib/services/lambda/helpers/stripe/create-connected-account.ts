@@ -310,6 +310,11 @@ export const createConnectedAccount = async ({
 
     const account = await stripe.accounts.create(params)
     
+    // Enable tax capability for the connected account (required for 2025 basic tax API)
+    await stripe.accounts.updateCapability(account.id, 'tax', {
+      requested: true
+    })
+    
     if (!country) {
       throw new Error('Country is required for bank account')
     }
