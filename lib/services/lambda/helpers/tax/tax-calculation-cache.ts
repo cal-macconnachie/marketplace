@@ -6,9 +6,7 @@ import { Organization } from '../../handlers/organizations'
 export interface TaxCalculationCache {
   location: string
   tax_code: string
-  amount: number
   currency: string
-  tax_amount: number
   tax_rate: number
   expires_at: number
   calculated_at: number
@@ -32,15 +30,14 @@ export function generateLocationKey(user?: User, ipAddress?: string): string {
   return ''
 }
 
-// Helper function to generate tax calculation cache key
+// Helper function to generate tax calculation cache key (without amount for rate-based caching)
 export function generateTaxCacheKey(
   location: string, 
   productId: string, 
-  amount: number, 
   currency: string, 
   shipFromOrg?: Organization
 ): string {
-  let baseKey = `${location}:${productId}:${amount}:${currency}`
+  let baseKey = `${location}:${productId}:${currency}`
   
   // Include ship-from organization location if shipping is required
   if (shipFromOrg?.address) {
@@ -78,13 +75,11 @@ export async function getCachedTaxCalculation(
   }
 }
 
-// Cache tax calculation result
+// Cache tax rate result (amount-independent)
 export async function cacheTaxCalculation(
   location: string,
   taxCacheKey: string,
-  amount: number,
   currency: string,
-  taxAmount: number,
   taxRate: number
 ): Promise<void> {
   try {
@@ -96,9 +91,7 @@ export async function cacheTaxCalculation(
         tax_code: taxCacheKey
       },
       record: {
-        amount,
         currency,
-        tax_amount: taxAmount,
         tax_rate: taxRate,
         expires_at: expiresAt,
         calculated_at: Math.floor(Date.now() / 1000)

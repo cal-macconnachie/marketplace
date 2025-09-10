@@ -24,10 +24,10 @@ export interface TaxCalculationResult {
     amount: number
     tax_amount: number
     tax_rate: number
+    currency: string
   }>
   total_amount: number
   total_tax: number
-  currency: string
 }
 
 // Main tax calculation function with caching
@@ -46,11 +46,11 @@ export async function calculateTaxesWithCaching(
     amount: number
     tax_amount: number
     tax_rate: number
+    currency: string
   }> = []
   
   let totalAmount = 0
   let totalTax = 0
-  const currency = 'usd' // Default currency, could be made dynamic
   
   for (const item of items) {
     const productKey = `${item.group_id}:${item.id}`
@@ -60,15 +60,16 @@ export async function calculateTaxesWithCaching(
       console.warn(`Product not found: ${productKey}`)
       continue
     }
-    
+    const currency = product.default_price_data.currency
+
     // Calculate item total amount
     const itemAmount = product.default_price_data.unit_amount * item.quantity
     const organization = orgsHash[item.organization_id]
     const requiresShipping = product.metadata?.shipping_required === 'true'
     const shipFromOrg = requiresShipping ? organization : undefined
-    const taxCacheKey = generateTaxCacheKey(location, productKey, itemAmount, currency, shipFromOrg)
+    const taxCacheKey = generateTaxCacheKey(location, productKey, currency, shipFromOrg)
     
-    // Try to get cached tax calculation
+    // Try to get cached tax rate
     let taxAmount = 0
     let taxRate = 0
     
@@ -76,30 +77,29 @@ export async function calculateTaxesWithCaching(
       const cachedTax = await getCachedTaxCalculation(location, taxCacheKey)
       
       if (cachedTax) {
-        taxAmount = cachedTax.tax_amount
+        // Use cached tax rate to calculate tax amount manually
         taxRate = cachedTax.tax_rate
+        taxAmount = Math.round(itemAmount * (taxRate / 100))
       } else {
-        // Calculate tax using Stripe
+        // Calculate tax using Stripe with a sample amount to get the rate
         const taxCalculation = await calculateTaxWithStripe(stripe, {
-          amount: itemAmount,
+          amount: 100, // Use standard amount to get tax rate
           currency,
           tax_code: product.tax_code || 'txcd_99999999', // Default tax code
-          reference: `${product.name} (${item.quantity}x)`,
+          reference: `${product.name} (sample for rate)`,
           location,
           shipFromOrg,
           stripeAccountId: organization?.stripe_account_id
         })
         
-        taxAmount = taxCalculation.tax_amount
         taxRate = taxCalculation.tax_rate
+        taxAmount = Math.round(itemAmount * (taxRate / 100))
         
-        // Cache the result
+        // Cache the tax rate (not amount-specific)
         await cacheTaxCalculation(
           location,
           taxCacheKey,
-          itemAmount,
           currency,
-          taxAmount,
           taxRate
         )
       }
@@ -107,17 +107,17 @@ export async function calculateTaxesWithCaching(
       console.error('Error getting/setting tax cache:', error)
       // Fallback to direct Stripe calculation
       const taxCalculation = await calculateTaxWithStripe(stripe, {
-        amount: itemAmount,
+        amount: 100, // Use standard amount to get tax rate
         currency,
         tax_code: product.tax_code || 'txcd_99999999',
-        reference: `${product.name} (${item.quantity}x)`,
+        reference: `${product.name} (sample for rate)`,
         location,
         shipFromOrg,
         stripeAccountId: organization?.stripe_account_id
       })
       
-      taxAmount = taxCalculation.tax_amount
       taxRate = taxCalculation.tax_rate
+      taxAmount = Math.round(itemAmount * (taxRate / 100))
     }
     
     taxCalculations.push({
@@ -127,7 +127,8 @@ export async function calculateTaxesWithCaching(
       quantity: item.quantity,
       amount: itemAmount,
       tax_amount: taxAmount,
-      tax_rate: taxRate
+      tax_rate: taxRate,
+      currency
     })
     
     totalAmount += itemAmount
@@ -137,7 +138,6 @@ export async function calculateTaxesWithCaching(
   return {
     items: taxCalculations,
     total_amount: totalAmount,
-    total_tax: totalTax,
-    currency
+    total_tax: totalTax
   }
 }
