@@ -204,5 +204,18 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
       }
     ],
     billingMode: 'PAY_PER_REQUEST'
+  },
+  {
+    tableName: 'tax-calculations',
+    partitionKey: {
+      name: 'location',
+      type: 'S'
+    },
+    sortKey: {
+      name: 'tax_code',
+      type: 'S'
+    },
+    billingMode: 'PAY_PER_REQUEST',
+    ttlAttribute: 'expires_at'
   }
 ]

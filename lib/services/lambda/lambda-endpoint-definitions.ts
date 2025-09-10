@@ -361,6 +361,18 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     }
   },
   {
+    name: 'calculateTaxes',
+    handler: 'payments/calculate-taxes.calculateTaxes',
+    description: 'Calculate Taxes',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'calculate-taxes',
+      method: 'POST',
+      auth: 'none',
+      cors: true
+    }
+  },
+  {
     name: 'cancelSubscription',
     handler: 'payments/cancel-subscription.cancelSubscription',
     description: 'Cancel Subscription',
