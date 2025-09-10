@@ -210,6 +210,26 @@ export const createConnectedAccount = async ({
       }
     }
     
+    // Ensure business profile exists for setting support address (required for tax calculations)
+    if (!params.business_profile) {
+      params.business_profile = {}
+    }
+    
+    // Set support address for tax calculations (required for both individual and company accounts)
+    params.business_profile.support_address = {
+      line1: address.line1,
+      city: address.city,
+      postal_code: address.postal_code,
+      country: address.country
+    }
+    // Add optional address fields
+    if (address.line2) {
+      params.business_profile.support_address.line2 = address.line2
+    }
+    if (address.state) {
+      params.business_profile.support_address.state = address.state
+    }
+    
     // Conditionally add company or individual details based on business type
     if (businessType === 'company') {
       params.company = {
@@ -281,6 +301,10 @@ export const createConnectedAccount = async ({
         if (address.state) {
           params.individual.address.state = address.state
         }
+      } else {
+        console.warn('Incomplete address provided for individual; skipping address assignment', {
+          address
+        })
       }
     }
 
