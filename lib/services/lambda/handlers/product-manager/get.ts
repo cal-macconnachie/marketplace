@@ -70,7 +70,8 @@ export const publicGetProduct = async (event: APIGatewayProxyEvent) => {
       'default_price_data',
       'images',
       'marketing_features',
-      'organization_id'
+      'organization_id',
+      'metadata'
     ]
     // remove all fields from product that arent public
     const publicProduct = Object.fromEntries(
