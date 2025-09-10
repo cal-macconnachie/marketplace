@@ -79,7 +79,16 @@ export const calculateTaxes = async (event: APIGatewayProxyEvent) => {
     })
     const products = await Promise.all(productPromises)
     
-    // Check which products require shipping and get their organization IDs
+    // Get all organization IDs for tax calculations (need stripe_account_id for each)
+    const allOrgIds = new Set<string>()
+    items.forEach(item => {
+      allOrgIds.add(item.organization_id)
+    })
+    
+    // Fetch all organizations referenced by items
+    const organizations = await Promise.all([...allOrgIds].map(orgId => getOrganizationById(orgId)))
+    
+    // Also track which products require shipping for ship_from_details
     const shippingRequiredOrgIds = new Set<string>()
     products.forEach((product) => {
       if (product?.metadata?.shipping_required === 'true') {
@@ -89,11 +98,6 @@ export const calculateTaxes = async (event: APIGatewayProxyEvent) => {
         }
       }
     })
-    
-    // Only fetch organizations that have products requiring shipping
-    const organizations = shippingRequiredOrgIds.size > 0 
-      ? await Promise.all([...shippingRequiredOrgIds].map(orgId => getOrganizationById(orgId)))
-      : []
     const orgsHash = organizations.reduce((acc: { [orgId: string]: Organization }, org) => {
       if (org != null) {
         acc[org.id] = org

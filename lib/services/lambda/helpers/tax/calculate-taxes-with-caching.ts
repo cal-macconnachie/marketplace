@@ -86,7 +86,8 @@ export async function calculateTaxesWithCaching(
           tax_code: product.tax_code || 'txcd_99999999', // Default tax code
           reference: `${product.name} (${item.quantity}x)`,
           location,
-          shipFromOrg
+          shipFromOrg,
+          stripeAccountId: organization?.stripe_account_id
         })
         
         taxAmount = taxCalculation.tax_amount
@@ -111,7 +112,8 @@ export async function calculateTaxesWithCaching(
         tax_code: product.tax_code || 'txcd_99999999',
         reference: `${product.name} (${item.quantity}x)`,
         location,
-        shipFromOrg
+        shipFromOrg,
+        stripeAccountId: organization?.stripe_account_id
       })
       
       taxAmount = taxCalculation.tax_amount

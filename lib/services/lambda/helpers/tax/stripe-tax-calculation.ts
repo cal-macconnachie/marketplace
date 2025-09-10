@@ -16,6 +16,7 @@ export async function calculateTaxWithStripe(
     reference: string
     location: string
     shipFromOrg?: Organization
+    stripeAccountId?: string
   }
 ): Promise<TaxCalculationResult> {
   // Parse location for customer details
@@ -83,7 +84,9 @@ export async function calculateTaxWithStripe(
       calculationParams.ship_from_details = shipFromDetails
     }
     
-    const calculation = await stripe.tax.calculations.create(calculationParams)
+    const calculation = await stripe.tax.calculations.create(calculationParams, 
+      params.stripeAccountId ? { stripeAccount: params.stripeAccountId } : {}
+    )
     
     const lineItem = calculation.line_items?.data?.[0]
     if (lineItem) {
