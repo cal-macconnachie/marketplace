@@ -310,10 +310,29 @@ export const createConnectedAccount = async ({
 
     const account = await stripe.accounts.create(params)
     
-    // Enable tax capability for the connected account (required for 2025 basic tax API)
-    await stripe.accounts.updateCapability(account.id, 'tax', {
-      requested: true
-    })
+    // Enable Stripe Tax for the connected account using Tax Settings API
+    try {
+      await stripe.tax.settings.update({
+        defaults: {
+          tax_code: 'txcd_10000000', // General - Tangible Goods
+          tax_behavior: 'exclusive'
+        },
+        head_office: {
+          address: {
+            line1: address.line1,
+            city: address.city,
+            state: address.state,
+            postal_code: address.postal_code,
+            country: address.country
+          }
+        }
+      }, {
+        stripeAccount: account.id
+      })
+    } catch (taxError) {
+      console.warn('Failed to enable tax settings for connected account:', taxError)
+      // Continue with account creation even if tax setup fails
+    }
     
     if (!country) {
       throw new Error('Country is required for bank account')
