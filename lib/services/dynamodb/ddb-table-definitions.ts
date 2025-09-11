@@ -217,5 +217,14 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
     },
     billingMode: 'PAY_PER_REQUEST',
     ttlAttribute: 'expires_at'
+  },
+  {
+    tableName: 'rate-limits',
+    partitionKey: {
+      name: 'key',
+      type: 'S'
+    },
+    billingMode: 'PAY_PER_REQUEST',
+    ttlAttribute: 'expires_at'
   }
 ]

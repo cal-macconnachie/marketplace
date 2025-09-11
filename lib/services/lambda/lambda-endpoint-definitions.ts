@@ -475,6 +475,24 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
 
   // Organization Management
   {
+    name: 'publicCreateUser',
+    handler: 'users/public-create-user.publicCreateUser',
+    description: 'Public User Creation with Rate Limiting',
+    environment: [
+      'USERS_TABLE',
+      'ORGANIZATIONS_TABLE',
+      'RATE_LIMITS_TABLE'
+    ],
+    timeout: 10,
+    memorySize: 256,
+    apiGw: {
+      path: 'public/users',
+      method: 'POST',
+      auth: 'none',
+      cors: true
+    }
+  },
+  {
     name: 'addUserToOrganization',
     handler: 'organizations/add-user-to-organization.add',
     description: 'Add User To Organization',
