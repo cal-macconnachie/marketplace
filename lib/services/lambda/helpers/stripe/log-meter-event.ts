@@ -109,7 +109,10 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
 
     // Add metadata to payload if provided
     if (metadata) {
-      Object.entries(metadata).forEach(([key, val]) => {
+      Object.entries(metadata).forEach(([
+        key,
+        val
+      ]) => {
         eventPayload[key] = String(val)
       })
     }
