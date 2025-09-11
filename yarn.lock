@@ -3349,6 +3349,11 @@ country-to-currency@^2.0.2:
   resolved "https://registry.yarnpkg.com/country-to-currency/-/country-to-currency-2.0.2.tgz#3a46efc6dccb5904341821b4e727db0926bd4339"
   integrity sha512-vM4pJUmhw1EEvfqx12ZpbXqCAHMPp/P6dxtz+V0mT5NKiJaC73cbKk7OPxpGZhno+CthOkIyl+a4VAlToFvX7Q==
 
+country-to-iso@^1.6.1:
+  version "1.6.1"
+  resolved "https://registry.yarnpkg.com/country-to-iso/-/country-to-iso-1.6.1.tgz#dd9aaabb98ebccbd2c8804dd0abb31a93439419e"
+  integrity sha512-rJi4AyD4rgy7OPtIpdmpbFcL2IRuV67tO1BjrKAefKhLoSfz7n9V1pwjfiNHVVbyznP0h9pjMfUce8AdRQyrnA==
+
 create-jest@^29.7.0:
   version "29.7.0"
   resolved "https://registry.yarnpkg.com/create-jest/-/create-jest-29.7.0.tgz#a355c5b3cb1e1af02ba177fe7afd7feee49a5320"
@@ -4079,6 +4084,11 @@ isexe@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/isexe/-/isexe-2.0.0.tgz#e8fbf374dc556ff8947a10dcb0572d633f2cfa10"
   integrity sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==
+
+iso-3166@^4.3.0:
+  version "4.3.0"
+  resolved "https://registry.yarnpkg.com/iso-3166/-/iso-3166-4.3.0.tgz#3eb4cbf26f6baaddc1e1bd34a0bc27079d61b94a"
+  integrity sha512-H4kM/sVbxTjSl9xnQCYOrNWdpN0R8Uz26j1BuXI9E6U+kw5wmd3HyPgr/v4+NCuvV/NcvwTfZxd5XZ4lPKvBNA==
 
 istanbul-lib-coverage@^3.0.0, istanbul-lib-coverage@^3.2.0:
   version "3.2.2"

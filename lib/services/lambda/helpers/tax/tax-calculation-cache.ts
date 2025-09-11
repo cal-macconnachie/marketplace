@@ -2,6 +2,7 @@ import { get } from '../dynamo-helpers/get'
 import { create } from '../dynamo-helpers/create'
 import { User } from '../../handlers/users'
 import { Organization } from '../../handlers/organizations'
+import { convertAddressToCodes } from './address-code-converter'
 
 export interface TaxCalculationCache {
   location: string
@@ -15,10 +16,15 @@ export interface TaxCalculationCache {
 // Helper function to generate a location-based cache key
 export function generateLocationKey(user?: User, ipAddress?: string): string {
   if (user?.address) {
-    const {
-      country, state, city, postal_code
-    } = user.address
-    return `${country || 'unknown'}:${state || 'unknown'}:${city || 'unknown'}:${postal_code || 'unknown'}`
+    // Convert address names to codes for consistent caching
+    const addressCodes = convertAddressToCodes({
+      country: user.address.country,
+      state: user.address.state,
+      city: user.address.city,
+      postal_code: user.address.postal_code
+    })
+    
+    return `${addressCodes.country || 'unknown'}:${addressCodes.state || 'unknown'}:${addressCodes.city || 'unknown'}:${addressCodes.postal_code || 'unknown'}`
   }
   
   if (ipAddress) {
@@ -41,8 +47,15 @@ export function generateTaxCacheKey(
   
   // Include ship-from organization location if shipping is required
   if (shipFromOrg?.address) {
-    const orgAddr = shipFromOrg.address
-    const shipFromLocation = `${orgAddr.country}:${orgAddr.state}:${orgAddr.city}:${orgAddr.postal_code}`
+    // Convert organization address names to codes for consistency
+    const orgAddressCodes = convertAddressToCodes({
+      country: shipFromOrg.address.country,
+      state: shipFromOrg.address.state,
+      city: shipFromOrg.address.city,
+      postal_code: shipFromOrg.address.postal_code
+    })
+    
+    const shipFromLocation = `${orgAddressCodes.country}:${orgAddressCodes.state}:${orgAddressCodes.city}:${orgAddressCodes.postal_code}`
     baseKey += `:ship_from:${shipFromLocation}`
   }
   
