@@ -181,7 +181,9 @@ export const createConnectedAccountHandler = async (event: APIGatewayProxyEvent)
         missing_requirements: result.missingRequirements,
         charges_enabled: result.account.charges_enabled,
         payouts_enabled: result.account.payouts_enabled,
-        details_submitted: result.account.details_submitted
+        details_submitted: result.account.details_submitted,
+        tax_enabled: result.taxEnabled,
+        tax_registrations: result.taxRegistrations
       }),
       headers: {
         'Access-Control-Allow-Origin': '*',

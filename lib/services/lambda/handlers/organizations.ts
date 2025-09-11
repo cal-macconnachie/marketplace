@@ -44,6 +44,15 @@ export interface Organization {
   missing_requirements?: string[]
   charges_enabled?: boolean // Whether the account can accept charges
   payouts_enabled?: boolean // Whether the account can receive payouts
+  
+  // tax configuration
+  tax_enabled?: boolean // Whether Stripe Tax is enabled for this account
+  tax_settings?: {
+    tax_code: string // Default tax code for products
+    tax_behavior: 'exclusive' | 'inclusive' // Whether tax is added on top or included in price
+    head_office_country: string // Country where business is headquartered
+  }
+  tax_registrations?: string[] // Array of "country:registration_id" pairs
 }
 
 // handles updating the users products

@@ -60,6 +60,8 @@ interface CreateConnectedAccountResult {
   onboardingUrl?: string
   requiresOnboarding: boolean
   missingRequirements: string[]
+  taxEnabled: boolean
+  taxRegistrations: string[]
 }
 
 export const createConnectedAccount = async ({
@@ -308,30 +310,195 @@ export const createConnectedAccount = async ({
       }
     }
 
+    // Helper functions for tax configuration
+    const getTaxCodeForBusiness = (mcc?: string): string => {
+      if (!mcc) return 'txcd_10000000' // General - Tangible Goods (default)
+      
+      // Map common MCCs to appropriate tax codes
+      const mccToTaxCode: Record<string, string> = {
+        '5734': 'txcd_30070000', // Computer Software
+        '5815': 'txcd_30070000', // Digital Goods
+        '7372': 'txcd_30070000', // Software Development
+        '5411': 'txcd_10000000', // Grocery Stores
+        '5812': 'txcd_20030000', // Restaurants
+        '5541': 'txcd_11000000', // Gas Stations
+        '5651': 'txcd_10000000', // Clothing Stores
+        '7991': 'txcd_20030000', // Recreation Services
+        '8999': 'txcd_30070000'  // Professional Services
+      }
+      
+      return mccToTaxCode[mcc] || 'txcd_10000000' // Default to tangible goods
+    }
+    
+    // Determine tax behavior based on country
+    const getTaxBehavior = (country: string): 'exclusive' | 'inclusive' => {
+      // US and Canada typically use exclusive (add tax on top)
+      // Most other countries use inclusive (tax included in price)
+      const exclusiveCountries = [
+        'US',
+        'CA'
+      ]
+      return exclusiveCountries.includes(country.toUpperCase()) ? 'exclusive' : 'inclusive'
+    }
+    
+    // Get required tax registrations based on business location
+    const getRequiredRegistrations = (country: string, state?: string) => {
+      const registrations: Array<{
+        country: string
+        country_options: Record<string, Record<string, string>>
+        active_from: 'now' | number
+      }> = []
+      
+      const countryCode = country.toUpperCase()
+      
+      switch (countryCode) {
+        case 'US':
+          // US businesses typically need state sales tax registration
+          if (state) {
+            registrations.push({
+              country: 'US',
+              country_options: {
+                us: {
+                  state: state.toUpperCase(),
+                  type: 'state_sales_tax'
+                }
+              },
+              active_from: 'now'
+            })
+          }
+          break
+          
+        case 'CA':
+          // Canadian businesses need GST/HST registration
+          registrations.push({
+            country: 'CA',
+            country_options: {
+              ca: {
+                province_standard_id: state || 'ON', // Default to Ontario if no province specified
+                type: 'standard'
+              }
+            },
+            active_from: 'now'
+          })
+          break
+          
+        case 'GB':
+          // UK businesses need VAT registration
+          registrations.push({
+            country: 'GB',
+            country_options: {
+              gb: {
+                type: 'standard'
+              }
+            },
+            active_from: 'now'
+          })
+          break
+          
+        case 'DE':
+        case 'FR':
+        case 'IT':
+        case 'ES':
+        case 'NL':
+        case 'IE':
+          // EU businesses may need IOSS for digital services
+          registrations.push({
+            country: countryCode,
+            country_options: {
+              [countryCode.toLowerCase()]: {
+                type: 'ioss'
+              }
+            },
+            active_from: 'now'
+          })
+          break
+          
+        case 'AU':
+          // Australian businesses need GST registration
+          registrations.push({
+            country: 'AU',
+            country_options: {
+              au: {
+                type: 'standard'
+              }
+            },
+            active_from: 'now'
+          })
+          break
+      }
+      
+      return registrations
+    }
+
     const account = await stripe.accounts.create(params)
     
-    // Enable Stripe Tax for the connected account using Tax Settings API
+    // Enable comprehensive Stripe Tax configuration for the connected account
+    let taxEnabled = false
     try {
-      await stripe.tax.settings.update({
+      
+      const taxCode = getTaxCodeForBusiness(businessProfile?.mcc)
+      const taxBehavior = getTaxBehavior(address.country)
+      
+      const headOfficeAddress: Record<string, string> = {
+        line1: address.line1,
+        city: address.city,
+        state: address.state,
+        postal_code: address.postal_code,
+        country: address.country
+      }
+      
+      // Add line2 if provided
+      if (address.line2) {
+        headOfficeAddress.line2 = address.line2
+      }
+      
+      const taxSettings = {
         defaults: {
-          tax_code: 'txcd_10000000', // General - Tangible Goods
-          tax_behavior: 'exclusive'
+          tax_code: taxCode,
+          tax_behavior: taxBehavior
         },
         head_office: {
-          address: {
-            line1: address.line1,
-            city: address.city,
-            state: address.state,
-            postal_code: address.postal_code,
-            country: address.country
-          }
+          address: headOfficeAddress
         }
-      }, {
+      }
+      
+      await stripe.tax.settings.update(taxSettings, {
         stripeAccount: account.id
       })
+      
+      taxEnabled = true
+      console.log(`Tax settings configured for connected account: ${account.id}`)
+      console.log(`- Tax code: ${taxCode}`)
+      console.log(`- Tax behavior: ${taxBehavior}`)
+      console.log(`- Head office: ${address.city}, ${address.country}`)
+      
     } catch (taxError) {
-      console.warn('Failed to enable tax settings for connected account:', taxError)
+      console.warn('Failed to configure tax settings for connected account:', taxError)
       // Continue with account creation even if tax setup fails
+    }
+    
+    // Create automatic tax registrations for common jurisdictions
+    const taxRegistrations: string[] = []
+    if (taxEnabled) {
+      try {
+        const registrationsToCreate = getRequiredRegistrations(address.country, address.state)
+        
+        for (const registration of registrationsToCreate) {
+          try {
+            const taxRegistration = await stripe.tax.registrations.create(registration, {
+              stripeAccount: account.id
+            })
+            taxRegistrations.push(`${taxRegistration.country}:${taxRegistration.id}`)
+            console.log(`Created tax registration: ${taxRegistration.country} (${taxRegistration.id})`)
+          } catch (regError) {
+            console.warn(`Failed to create tax registration for ${registration.country}:`, regError)
+            // Continue with other registrations even if one fails
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to create tax registrations:', error)
+        // Continue with account creation even if registrations fail
+      }
     }
     
     if (!country) {
@@ -388,6 +555,13 @@ export const createConnectedAccount = async ({
         charges_enabled: accountWithRequirements.charges_enabled,
         payouts_enabled: accountWithRequirements.payouts_enabled,
         onboarding_completed_at: !requiresOnboarding ? new Date().toISOString() : undefined,
+        tax_enabled: taxEnabled,
+        tax_settings: taxEnabled ? {
+          tax_code: getTaxCodeForBusiness(businessProfile?.mcc),
+          tax_behavior: getTaxBehavior(address.country),
+          head_office_country: address.country
+        } : undefined,
+        tax_registrations: taxRegistrations.length > 0 ? taxRegistrations : undefined,
         ...(currency ? { currency } : {})
       }
     })
@@ -399,7 +573,9 @@ export const createConnectedAccount = async ({
       missingRequirements: [
         ...(accountWithRequirements.requirements?.currently_due || []),
         ...(accountWithRequirements.requirements?.eventually_due || [])
-      ]
+      ],
+      taxEnabled,
+      taxRegistrations
     }
   } catch (error: unknown) {
     handleStripeError(error)
