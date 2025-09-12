@@ -370,10 +370,9 @@ export const manageSubscription = async ({
       expand: ['latest_invoice.payment_intent'],
       customer: user.stripe_id,
       transfer_data: {
-        destination: connectedAccountId, // Connected account receives funds
-        amount_percent: (totalConnectedAccountAmount / totalAmount) * 100
+        destination: connectedAccountId // Connected account receives funds (minus application fee)
       },
-      application_fee_percent: (totalPlatformFee / totalAmount) * 100, // Platform fee percentage
+      application_fee_percent: (totalPlatformFee / totalAmount) * 100, // Platform fee percentage  
       on_behalf_of: connectedAccountId, // Makes connected account settlement merchant
       metadata: {
         platform_fee_amount: totalPlatformFee.toString(),

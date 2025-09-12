@@ -124,10 +124,9 @@ export const createOneTimePayment = async ({
     customer: customerId,
     payment_method: paymentMethodId,
     transfer_data: {
-      destination: product.account_id, // Connected account receives funds
-      amount: connectedAccountAmount
+      destination: product.account_id // Connected account receives funds (minus application fee)
     },
-    application_fee_amount: platformFeeAmount, // Platform fee
+    application_fee_amount: platformFeeAmount, // Platform fee (connected account gets finalAmount - platformFeeAmount)
     on_behalf_of: product.account_id, // Makes connected account settlement merchant
     metadata: {
       userId: user.id,
