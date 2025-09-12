@@ -250,19 +250,6 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
     
     if (existingUser) {
       user = existingUser
-      if (existingUser.cognito_id) {
-        return {
-          statusCode: 400,
-          body: JSON.stringify({
-            error: 'Please log in to checkout'
-          }),
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Credentials': true,
-            'Content-Type': 'application/json'
-          }
-        }
-      }
     } else {
       // Create new user
       const userId = v4()
