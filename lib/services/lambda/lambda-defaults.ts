@@ -33,7 +33,9 @@ export function createNodejsFunctionWithNativeDeps(
     throw new Error('Lambda function "entry" (path) is required')
   }
   
-  const { nativeBundling, ...functionProps } = props
+  const {
+    nativeBundling, ...functionProps 
+  } = props
   
   return new NodejsFunction(scope, id, {
     runtime: Runtime.NODEJS_22_X,

@@ -67,7 +67,7 @@ export async function calculateTaxesWithCaching(
     const organization = orgsHash[item.organization_id]
     const requiresShipping = product.metadata?.shipping_required === 'true'
     const shipFromOrg = requiresShipping ? organization : undefined
-    const taxCacheKey = generateTaxCacheKey(location, productKey, currency, shipFromOrg)
+    const taxCacheKey = generateTaxCacheKey(product.tax_code || 'txcd_99999999', shipFromOrg)
     
     // Try to get cached tax rate
     let taxAmount = 0
@@ -99,7 +99,6 @@ export async function calculateTaxesWithCaching(
         await cacheTaxCalculation(
           location,
           taxCacheKey,
-          currency,
           taxRate
         )
       }

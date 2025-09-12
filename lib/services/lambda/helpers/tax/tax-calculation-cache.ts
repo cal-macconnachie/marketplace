@@ -7,7 +7,6 @@ import { convertAddressToCodes } from './address-code-converter'
 export interface TaxCalculationCache {
   location: string
   tax_code: string
-  currency: string
   tax_rate: number
   expires_at: number
   calculated_at: number
@@ -38,14 +37,12 @@ export function generateLocationKey(user?: User, ipAddress?: string): string {
 
 // Helper function to generate tax calculation cache key (without amount for rate-based caching)
 export function generateTaxCacheKey(
-  location: string, 
-  productId: string, 
-  currency: string, 
+  taxCode: string,
   shipFromOrg?: Organization
 ): string {
-  let baseKey = `${location}:${productId}:${currency}`
+  let baseKey = taxCode
   
-  // Include ship-from organization location if shipping is required
+  // Include ship-from organization location if shipping is required for origin-based taxation
   if (shipFromOrg?.address) {
     // Convert organization address names to codes for consistency
     const orgAddressCodes = convertAddressToCodes({
@@ -92,7 +89,6 @@ export async function getCachedTaxCalculation(
 export async function cacheTaxCalculation(
   location: string,
   taxCacheKey: string,
-  currency: string,
   taxRate: number
 ): Promise<void> {
   try {
@@ -104,7 +100,6 @@ export async function cacheTaxCalculation(
         tax_code: taxCacheKey
       },
       record: {
-        currency,
         tax_rate: taxRate,
         expires_at: expiresAt,
         calculated_at: Math.floor(Date.now() / 1000)
