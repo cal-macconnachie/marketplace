@@ -345,7 +345,9 @@ export const createConnectedAccount = async ({
     const getRequiredRegistrations = (country: string, state?: string) => {
       const registrations: Array<{
         country: string
-        country_options: Record<string, Record<string, string>>
+        country_options: Record<string, {
+          [key: string]: unknown
+        }>
         active_from: 'now' | number
       }> = []
       
@@ -353,8 +355,8 @@ export const createConnectedAccount = async ({
       
       switch (countryCode) {
         case 'US':
-          // US businesses typically need state sales tax registration
           if (state) {
+            // Create state sales tax registration for US businesses
             registrations.push({
               country: 'US',
               country_options: {
@@ -365,48 +367,61 @@ export const createConnectedAccount = async ({
               },
               active_from: 'now'
             })
+          } else {
+            console.warn('US tax registration requires a state - skipping registration')
           }
           break
           
         case 'CA':
-          // Canadian businesses need GST/HST registration
+          // Always create federal GST/HST registration (simplified)
           registrations.push({
             country: 'CA',
             country_options: {
               ca: {
-                province_standard_id: state || 'ON', // Default to Ontario if no province specified
-                type: 'standard'
+                type: 'simplified'
               }
             },
             active_from: 'now'
           })
+          
+          // Add provincial tax registration (PST/RST/QST) if province is specified and applicable
+          if (state) {
+            const provincesWithPST = [
+              'BC', 
+              'SK', 
+              'MB', 
+              'QC'
+            ] // BC, Saskatchewan, Manitoba, Quebec
+            
+            if (provincesWithPST.includes(state.toUpperCase())) {
+              registrations.push({
+                country: 'CA',
+                country_options: {
+                  ca: {
+                    type: 'province_standard',
+                    province_standard: {
+                      province: state.toUpperCase()
+                    }
+                  }
+                },
+                active_from: 'now'
+              })
+            }
+          } else {
+            console.warn('Canada tax registration: province not specified, creating federal GST/HST only')
+          }
           break
           
         case 'GB':
-          // UK businesses need VAT registration
+          // UK businesses need standard VAT registration
           registrations.push({
             country: 'GB',
             country_options: {
               gb: {
-                type: 'standard'
-              }
-            },
-            active_from: 'now'
-          })
-          break
-          
-        case 'DE':
-        case 'FR':
-        case 'IT':
-        case 'ES':
-        case 'NL':
-        case 'IE':
-          // EU businesses may need IOSS for digital services
-          registrations.push({
-            country: countryCode,
-            country_options: {
-              [countryCode.toLowerCase()]: {
-                type: 'ioss'
+                type: 'standard',
+                standard: {
+                  place_of_supply_scheme: 'standard'
+                }
               }
             },
             active_from: 'now'
@@ -419,11 +434,113 @@ export const createConnectedAccount = async ({
             country: 'AU',
             country_options: {
               au: {
-                type: 'standard'
+                type: 'standard',
+                standard: {
+                  place_of_supply_scheme: 'standard'
+                }
               }
             },
             active_from: 'now'
           })
+          break
+          
+        // EU countries - standard VAT registration with standard place of supply scheme
+        case 'DE':
+        case 'FR':
+        case 'IT':
+        case 'ES':
+        case 'NL':
+        case 'IE':
+        case 'AT':
+        case 'BE':
+        case 'BG':
+        case 'CY':
+        case 'CZ':
+        case 'DK':
+        case 'EE':
+        case 'FI':
+        case 'GR':
+        case 'HR':
+        case 'HU':
+        case 'LT':
+        case 'LU':
+        case 'LV':
+        case 'MT':
+        case 'PL':
+        case 'PT':
+        case 'RO':
+        case 'SE':
+        case 'SI':
+        case 'SK':
+          registrations.push({
+            country: countryCode,
+            country_options: {
+              [countryCode.toLowerCase()]: {
+                type: 'standard',
+                standard: {
+                  place_of_supply_scheme: 'standard'
+                }
+              }
+            },
+            active_from: 'now'
+          })
+          break
+          
+        // Countries with simplified tax registration
+        case 'IN':
+        case 'MY':
+        case 'TH':
+        case 'ID':
+        case 'PH':
+        case 'VN':
+        case 'KR':
+        case 'MX':
+        case 'CL':
+        case 'CO':
+        case 'PE':
+        case 'SA':
+        case 'TR':
+        case 'RU':
+        case 'UA':
+        case 'EG':
+        case 'KE':
+        case 'NG':
+        case 'MA':
+          registrations.push({
+            country: countryCode,
+            country_options: {
+              [countryCode.toLowerCase()]: {
+                type: 'simplified'
+              }
+            },
+            active_from: 'now'
+          })
+          break
+          
+        // Countries with standard registration and place of supply scheme
+        case 'JP':
+        case 'SG':
+        case 'CH':
+        case 'NO':
+        case 'NZ':
+        case 'ZA':
+        case 'IS':
+          registrations.push({
+            country: countryCode,
+            country_options: {
+              [countryCode.toLowerCase()]: {
+                type: 'standard',
+                standard: {
+                  place_of_supply_scheme: 'standard'
+                }
+              }
+            },
+            active_from: 'now'
+          })
+          break
+          
+        default:
+          console.warn(`Tax registration for country ${countryCode} not configured - skipping automatic registration`)
           break
       }
       
