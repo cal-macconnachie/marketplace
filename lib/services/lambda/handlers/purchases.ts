@@ -16,6 +16,10 @@ export interface Purchase {
   payment_method_id: string
   amount: number
   currency: string
+  platform_fee_amount?: number
+  connected_account_id?: string
+  destination_charge_id?: string
+  transfer_id?: string
 }
 
 function validatePurchase(purchase: Partial<Purchase>): Purchase | false {

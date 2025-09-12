@@ -202,28 +202,6 @@ const paymentIntent = await stripe.paymentIntents.create({
 })
 ```
 
-### Phase 5: Migration Strategy
-
-#### 5.1 Feature Flag Approach
-```typescript
-// Environment variable or database flag
-const USE_DESTINATION_CHARGES = process.env.DESTINATION_CHARGES_ENABLED === 'true'
-
-// In payment processing
-if (USE_DESTINATION_CHARGES) {
-  return createDestinationCharge(params)
-} else {
-  return createDirectCharge(params) // Current implementation
-}
-```
-
-#### 5.2 Gradual Migration
-1. **Deploy destination charges code** with feature flag OFF
-2. **Test with specific organizations** by enabling flag per org
-3. **Monitor payment flows** and connected account transfers
-4. **Enable globally** once confident
-5. **Remove direct charges code** after successful migration
-
 ### Phase 6: Connected Account Onboarding
 
 #### 6.1 Account Requirements

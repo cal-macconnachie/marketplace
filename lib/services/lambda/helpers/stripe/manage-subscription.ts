@@ -13,6 +13,7 @@ import {
 } from "date-fns"
 import { addPurchase } from "../add-purchase"
 import { Purchase } from "../../handlers/purchases"
+import { calculatePlatformFee, calculateConnectedAccountAmount } from './calculate-platform-fee'
 
 export const manageSubscription = async ({
   promotionCode,
@@ -227,13 +228,9 @@ export const manageSubscription = async ({
           if (isMetered) {
             // For metered products, simply remove the subscription item
             if (subscriptionItems.length === 1) {
-              await stripe.subscriptions.cancel(currentOrgSubscriptionId!, {}, {
-                stripeAccount: connectedAccountId
-              })
+              await stripe.subscriptions.cancel(currentOrgSubscriptionId!)
             } else {
-              await stripe.subscriptionItems.del(existingItem.id, {}, {
-                stripeAccount: connectedAccountId
-              })
+              await stripe.subscriptionItems.del(existingItem.id)
               subscriptionItems = subscriptionItems.filter(item => item.id !== existingItem.id)
             }
             if (productKey) {
@@ -244,20 +241,14 @@ export const manageSubscription = async ({
             const quantityToRemove = priceItem.quantity ?? 1
             if ((existingItem.quantity ?? 1) <= quantityToRemove) {
               if (subscriptionItems.length === 1) {
-                await stripe.subscriptions.cancel(currentOrgSubscriptionId!, {}, {
-                  stripeAccount: connectedAccountId
-                })
+                await stripe.subscriptions.cancel(currentOrgSubscriptionId!)
               } else {
-                await stripe.subscriptionItems.del(existingItem.id, {}, {
-                  stripeAccount: connectedAccountId
-                })
+                await stripe.subscriptionItems.del(existingItem.id)
                 subscriptionItems = subscriptionItems.filter(item => item.id !== existingItem.id)
               }
             } else {
               await stripe.subscriptionItems.update(existingItem.id, {
                 quantity: (existingItem.quantity ?? 1) - quantityToRemove
-              }, {
-                stripeAccount: connectedAccountId
               })
             }
             if (productKey) {
@@ -284,9 +275,7 @@ export const manageSubscription = async ({
                 discounts: discounts,
                 proration_behavior: 'create_prorations'
               }
-              await stripe.subscriptionItems.update(existingItem.id, updateParams, {
-                stripeAccount: connectedAccountId
-              })
+              await stripe.subscriptionItems.update(existingItem.id, updateParams)
             }
           } else {
             // For non-metered products, update quantity
@@ -299,9 +288,7 @@ export const manageSubscription = async ({
             if (discounts.length > 0) {
               updateParams.discounts = discounts
             }
-            await stripe.subscriptionItems.update(existingItem.id, updateParams, {
-              stripeAccount: connectedAccountId
-            })
+            await stripe.subscriptionItems.update(existingItem.id, updateParams)
           }
         } else {
           const itemCreateParams: Stripe.SubscriptionItemCreateParams = {
@@ -318,9 +305,7 @@ export const manageSubscription = async ({
           if (discounts.length > 0) {
             itemCreateParams.discounts = discounts
           }
-          await stripe.subscriptionItems.create(itemCreateParams, {
-            stripeAccount: connectedAccountId
-          })
+          await stripe.subscriptionItems.create(itemCreateParams)
         }
         
         if (productKey) {
@@ -341,8 +326,6 @@ export const manageSubscription = async ({
       if (productChanges.added.length > 0) {
         await stripe.subscriptions.update(currentOrgSubscriptionId!, {
           billing_cycle_anchor: 'unchanged'
-        }, {
-          stripeAccount: connectedAccountId
         })
       }
     }
@@ -359,18 +342,50 @@ export const manageSubscription = async ({
       return subscriptionItem
     })
     
+    // Calculate platform fee for subscription items
+    let totalAmount = 0
+    const subscriptionItemsWithFees = await Promise.all(subscriptionItems.map(async (item) => {
+      const price = await stripe.prices.retrieve(item.price, { stripeAccount: connectedAccountId })
+      const itemAmount = (price.unit_amount || 0) * (item.quantity || 1)
+      totalAmount += itemAmount
+      
+      const platformFeeAmount = await calculatePlatformFee(itemAmount)
+      const connectedAccountAmount = calculateConnectedAccountAmount(itemAmount, platformFeeAmount)
+      
+      return {
+        ...item,
+        metadata: {
+          platform_fee_amount: platformFeeAmount.toString(),
+          connected_account_amount: connectedAccountAmount.toString()
+        }
+      }
+    }))
+    
+    const totalPlatformFee = await calculatePlatformFee(totalAmount)
+    const totalConnectedAccountAmount = calculateConnectedAccountAmount(totalAmount, totalPlatformFee)
+
     const startSubscriptionParams: Stripe.SubscriptionCreateParams = {
-      items: subscriptionItems,
+      items: subscriptionItemsWithFees,
       default_payment_method: paymentMethodId,
       expand: ['latest_invoice.payment_intent'],
       customer: user.stripe_id,
+      transfer_data: {
+        destination: connectedAccountId, // Connected account receives funds
+        amount_percent: (totalConnectedAccountAmount / totalAmount) * 100
+      },
+      application_fee_percent: (totalPlatformFee / totalAmount) * 100, // Platform fee percentage
+      on_behalf_of: connectedAccountId, // Makes connected account settlement merchant
+      metadata: {
+        platform_fee_amount: totalPlatformFee.toString(),
+        connected_account_amount: totalConnectedAccountAmount.toString(),
+        connected_account_id: connectedAccountId
+      }
     }
     if (discounts.length > 0) {
       startSubscriptionParams.discounts = discounts
     }
-    subscription = await stripe.subscriptions.create(startSubscriptionParams, {
-      stripeAccount: connectedAccountId
-    })
+    // NO stripeAccount parameter - subscription created on platform
+    subscription = await stripe.subscriptions.create(startSubscriptionParams)
     for (const priceItem of priceItems) {
       const priceId = priceItem.price
       const productKey = productKeysByPrice[priceId]
@@ -452,6 +467,9 @@ export const manageSubscription = async ({
     const ourProduct = products.find(p => p.id === productKey.id)
     
     if (stripeProduct && ourProduct) {
+      const itemAmount = ourProduct.default_price_data?.unit_amount || 0
+      const platformFeeAmount = await calculatePlatformFee(itemAmount)
+      
       const purchase: Purchase = {
         id: v4(),
         user_id: user.id,
@@ -462,8 +480,11 @@ export const manageSubscription = async ({
         purchased_at: new Date().toISOString(),
         organization_id: organization.id,
         payment_method_id: paymentMethodId || '',
-        amount: ourProduct.default_price_data?.unit_amount || 0,
-        currency: ourProduct.default_price_data?.currency || 'CAD'
+        amount: itemAmount,
+        currency: ourProduct.default_price_data?.currency || 'CAD',
+        platform_fee_amount: platformFeeAmount,
+        connected_account_id: connectedAccountId,
+        destination_charge_id: subscription?.id
       }
       
       await addPurchase(purchase)

@@ -8,6 +8,9 @@ import { update } from "../dynamo-helpers/update"
 import { Organization } from "../../handlers/organizations"
 import { addPurchase } from '../add-purchase'
 import { v4 } from 'uuid'
+import {
+  calculatePlatformFee, calculateConnectedAccountAmount 
+} from './calculate-platform-fee'
 
 export const createOneTimePayment = async ({
   promotionCode,
@@ -110,12 +113,22 @@ export const createOneTimePayment = async ({
     discountAmount = originalAmount - finalAmount
   }
 
-  // Create a PaymentIntent for one-time payment
+  // Calculate platform fee
+  const platformFeeAmount = await calculatePlatformFee(finalAmount)
+  const connectedAccountAmount = calculateConnectedAccountAmount(finalAmount, platformFeeAmount)
+
+  // Create a PaymentIntent using destination charges pattern
   const paymentIntent = await stripe.paymentIntents.create({
     amount: finalAmount,
     currency: product.default_price_data.currency,
     customer: customerId,
     payment_method: paymentMethodId,
+    transfer_data: {
+      destination: product.account_id, // Connected account receives funds
+      amount: connectedAccountAmount
+    },
+    application_fee_amount: platformFeeAmount, // Platform fee
+    on_behalf_of: product.account_id, // Makes connected account settlement merchant
     metadata: {
       userId: user.id,
       productId: product.id,
@@ -123,6 +136,8 @@ export const createOneTimePayment = async ({
       type: 'one_time_payment',
       original_amount: originalAmount.toString(),
       discount_amount: discountAmount.toString(),
+      platform_fee_amount: platformFeeAmount.toString(),
+      connected_account_amount: connectedAccountAmount.toString(),
       ...(appliedDiscount && {
         discount_type: appliedDiscount.type,
         discount_code: appliedDiscount.code || appliedDiscount.coupon.id
@@ -132,16 +147,14 @@ export const createOneTimePayment = async ({
       enabled: true,
       allow_redirects: 'never'
     }
-  }, {
-    stripeAccount: product.account_id
+    // NO stripeAccount parameter - charge created on platform
   })
 
   if (!paymentIntent) {
     throw new Error('Failed to create payment intent')
   }
-  const confirmedPaymentIntent = await stripe.paymentIntents.confirm(paymentIntent.id, {}, {
-    stripeAccount: product.account_id
-  })
+  const confirmedPaymentIntent = await stripe.paymentIntents.confirm(paymentIntent.id, {})
+  // NO stripeAccount parameter - confirming platform payment intent
   if (confirmedPaymentIntent.status !== 'succeeded') {
     return {
       success: false,
@@ -196,7 +209,10 @@ export const createOneTimePayment = async ({
     payment_method_id: paymentMethodId!,
     product_name: product.name,
     amount: finalAmount,
-    currency: product.default_price_data.currency
+    currency: product.default_price_data.currency,
+    platform_fee_amount: platformFeeAmount,
+    connected_account_id: product.account_id,
+    destination_charge_id: confirmedPaymentIntent.id
   })
   return {
     success: true,

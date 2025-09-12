@@ -79,3 +79,4 @@ Environment variables are set per deployment:
 DO NOT USE THE FOLLOWING COMMANDS
 - yarn build
 - yarn lint
+- yarn test
