@@ -27,7 +27,12 @@ export const createOneTimePayment = async ({
   const stripe = getStripeClient()
   const customerId = user.stripe_id
   // Implementation for creating a one-time payment using Stripe API
-  const [stripeProduct] = await Promise.all([stripe.products.retrieve(product.id)])
+  // Use connected account when retrieving product
+  const [stripeProduct] = await Promise.all([
+    stripe.products.retrieve(product.id, {
+      stripeAccount: product.account_id
+    })
+  ])
   const priceId = typeof stripeProduct.default_price === 'string' ? stripeProduct.default_price : stripeProduct.default_price?.id
 
   if (!priceId) {
@@ -58,7 +63,9 @@ export const createOneTimePayment = async ({
         const stripePromoId = promoRecord.stripeId || promoRecord.id
         
         // Validate and retrieve promotion code from Stripe
-        const promoCode = await stripe.promotionCodes.retrieve(stripePromoId)
+        const promoCode = await stripe.promotionCodes.retrieve(stripePromoId, {
+          stripeAccount: product.account_id
+        })
         if (!promoCode.active) {
           throw new Error(`Promotion code ${promotionCode} is not active`)
         }
@@ -68,7 +75,9 @@ export const createOneTimePayment = async ({
         }
       } else if (couponId) {
         // Validate and retrieve coupon
-        discount = await stripe.coupons.retrieve(couponId)
+        discount = await stripe.coupons.retrieve(couponId, {
+          stripeAccount: product.account_id
+        })
         if (!discount.valid) {
           throw new Error(`Coupon ${couponId} is not valid`)
         }
@@ -123,12 +132,16 @@ export const createOneTimePayment = async ({
       enabled: true,
       allow_redirects: 'never'
     }
+  }, {
+    stripeAccount: product.account_id
   })
 
   if (!paymentIntent) {
     throw new Error('Failed to create payment intent')
   }
-  const confirmedPaymentIntent = await stripe.paymentIntents.confirm(paymentIntent.id)
+  const confirmedPaymentIntent = await stripe.paymentIntents.confirm(paymentIntent.id, {}, {
+    stripeAccount: product.account_id
+  })
   if (confirmedPaymentIntent.status !== 'succeeded') {
     return {
       success: false,

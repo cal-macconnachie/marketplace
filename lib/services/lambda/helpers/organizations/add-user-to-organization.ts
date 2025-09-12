@@ -49,14 +49,18 @@ export const addUserToOrganization = async ({
     1. if new org doesnt have a stripe set up we can transfer the old one
     2. if new org does have a stripe set up we need to cancel the old subscription
   */
-  const userHasActiveSubscription = oldOrg?.stripe_subscription_id && user.stripe_id && oldOrg.purchased_products != null && oldOrg.purchased_products.length > 0 && oldOrg.default_payment_method != null && oldOrg.default_payment_method.user_id === userId
-  if (userHasActiveSubscription && !newOrg.stripe_subscription_id && !newOrg.default_payment_method) {
+  const oldOrgHasSubscriptions = oldOrg && oldOrg.stripe_subscription_ids && Object.keys(oldOrg.stripe_subscription_ids).length > 0
+  const userHasActiveSubscription = oldOrgHasSubscriptions && user.stripe_id && oldOrg.purchased_products != null && oldOrg.purchased_products.length > 0 && oldOrg.default_payment_method != null && oldOrg.default_payment_method.user_id === userId
+  
+  const newOrgHasSubscriptions = newOrg.stripe_subscription_ids && Object.keys(newOrg.stripe_subscription_ids).length > 0
+  
+  if (userHasActiveSubscription && !newOrgHasSubscriptions && !newOrg.default_payment_method) {
     // transfer the subscription to the new org
     await update<Organization>({
       tableName: process.env.ORGANIZATIONS_TABLE!,
       key: { id: oldOrg.id },
       updates: {
-        stripe_subscription_id: '',
+        stripe_subscription_ids: {},
         default_payment_method: '',
         purchased_products: ''
       }
@@ -65,20 +69,32 @@ export const addUserToOrganization = async ({
       tableName: process.env.ORGANIZATIONS_TABLE!,
       key: { id: organizationId },
       updates: {
-        stripe_subscription_id: oldOrg.stripe_subscription_id,
+        stripe_subscription_ids: oldOrg.stripe_subscription_ids || {},
         default_payment_method: oldOrg.default_payment_method,
         purchased_products: oldOrg.purchased_products
       }
     })
   }
-  if (userHasActiveSubscription && oldOrg.stripe_subscription_id != null && newOrg.stripe_subscription_id != null) {
+  if (userHasActiveSubscription && newOrgHasSubscriptions) {
     const stripe = getStripeClient()
-    await stripe.subscriptions.cancel(oldOrg.stripe_subscription_id)
+    
+    // Cancel all subscriptions from old org
+    if (oldOrg.stripe_subscription_ids) {
+      for (const [
+        accountId,
+        subscriptionId
+      ] of Object.entries(oldOrg.stripe_subscription_ids)) {
+        await stripe.subscriptions.cancel(subscriptionId, {}, {
+          stripeAccount: accountId
+        })
+      }
+    }
+    
     await update<Organization>({
       tableName: process.env.ORGANIZATIONS_TABLE!,
       key: { id: oldOrg.id },
       updates: {
-        stripe_subscription_id: '',
+        stripe_subscription_ids: {},
         default_payment_method: '',
         purchased_products: ''
       }

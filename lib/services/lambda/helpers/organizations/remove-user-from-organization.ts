@@ -24,7 +24,7 @@ export const removeUserFromOrganization = async ({
   // Ensure the user is part of the organization
   const orgUsers = await getOrganizationUsers({ orgId })
   if (!orgUsers.some(user => user.id === userId)) throw new Error("User is not part of the organization")
-  const orgSubId = org.stripe_subscription_id
+  const orgSubIds = org.stripe_subscription_ids
   const orgDefaultPaymentMethod = org.default_payment_method
   const orgPurchasedProducts = org.purchased_products
   let isThisUsersSub = false
@@ -38,7 +38,7 @@ export const removeUserFromOrganization = async ({
       updates: {
         default_payment_method: '',
         purchased_products: '',
-        stripe_subscription_id: ''
+        stripe_subscription_ids: {}
       }
     })
     isThisUsersSub = true
@@ -64,7 +64,7 @@ export const removeUserFromOrganization = async ({
         id: newOrgId,
         ...(orgDefaultPaymentMethod && isThisUsersSub ? { default_payment_method: orgDefaultPaymentMethod } : {}),
         ...(orgPurchasedProducts != null && orgPurchasedProducts.length > 0 && isThisUsersSub ? { purchased_products: orgPurchasedProducts } : {}),
-        ...(orgSubId && isThisUsersSub ? { stripe_subscription_id: orgSubId } : {}),
+        ...(orgSubIds && isThisUsersSub ? { stripe_subscription_ids: orgSubIds } : {}),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }

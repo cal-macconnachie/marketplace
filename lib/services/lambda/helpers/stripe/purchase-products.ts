@@ -135,6 +135,9 @@ export const purchaseProducts = async ({
     }
   }
   try {
+    if (subscriptionProducts.length === 0) {
+      return
+    }
     await manageSubscription({
       promotionCode: promoCode,
       couponId: couponId,

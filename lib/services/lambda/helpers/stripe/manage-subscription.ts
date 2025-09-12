@@ -39,6 +39,46 @@ export const manageSubscription = async ({
   // if there is no org subscription one must be started
   // if we are removing a subscription product, we need to 1. ensure it is a part of the subscription and if it is the last item in a subscription we need to cancel the subscription instead of removing it from the sub
   const stripe = getStripeClient()
+  
+  // Group products by connected account and handle them separately
+  const productsByAccount = products.reduce((acc, product) => {
+    if (!acc[product.account_id]) {
+      acc[product.account_id] = []
+    }
+    acc[product.account_id].push(product)
+    return acc
+  }, {} as Record<string, Product[]>)
+  
+  const accountIds = Object.keys(productsByAccount)
+  
+  // If multiple accounts, handle each account separately
+  if (accountIds.length > 1) {
+    // Need to import the get function to refresh organization data between calls
+    const { get } = await import('../dynamo-helpers/get')
+    let currentOrg = organization
+    
+    for (const accountId of accountIds) {
+      await manageSubscription({
+        promotionCode,
+        couponId,
+        products: productsByAccount[accountId],
+        paymentMethodId,
+        user,
+        organization: currentOrg,
+        remove
+      })
+      
+      // Refresh organization data for next iteration
+      currentOrg = await get<Organization>({
+        tableName: process.env.ORGANIZATIONS_TABLE!,
+        key: { id: organization.id }
+      }) ?? currentOrg
+    }
+    return
+  }
+  
+  const connectedAccountId = accountIds[0]
+  
   const discounts: Array<{promotion_code?: string, coupon?: string}> = []
   if (promotionCode || couponId) {
     if (promotionCode) {
@@ -53,7 +93,9 @@ export const manageSubscription = async ({
         
       // Validate promotion code exists and is active in Stripe
       try {
-        const promoCode = await stripe.promotionCodes.retrieve(stripePromoId)
+        const promoCode = await stripe.promotionCodes.retrieve(stripePromoId, {
+          stripeAccount: connectedAccountId
+        })
         if (!promoCode.active) {
           throw new Error(`Promotion code ${promotionCode} is not active`)
         }
@@ -66,7 +108,9 @@ export const manageSubscription = async ({
     if (couponId) {
       // Validate coupon exists and is valid
       try {
-        const coupon = await stripe.coupons.retrieve(couponId)
+        const coupon = await stripe.coupons.retrieve(couponId, {
+          stripeAccount: connectedAccountId
+        })
         if (!coupon.valid) {
           throw new Error(`Coupon ${couponId} is not valid`)
         }
@@ -76,7 +120,8 @@ export const manageSubscription = async ({
       }
     }
   }
-  const currentOrgSubscriptionId = organization.stripe_subscription_id
+  // Get current subscription ID for this connected account
+  const currentOrgSubscriptionId = organization.stripe_subscription_ids?.[connectedAccountId]
   // Get unique product IDs to avoid duplicate Stripe calls
   const uniqueProductIds = [...new Set(products.map(product => product.id))]
   
@@ -84,8 +129,12 @@ export const manageSubscription = async ({
     subscription,
     stripeProducts
   ] = await Promise.all([
-    currentOrgSubscriptionId ? stripe.subscriptions.retrieve(currentOrgSubscriptionId) : Promise.resolve(undefined),
-    Promise.all(uniqueProductIds.map(productId => stripe.products.retrieve(productId))),
+    currentOrgSubscriptionId ? stripe.subscriptions.retrieve(currentOrgSubscriptionId, {
+      stripeAccount: connectedAccountId
+    }) : Promise.resolve(undefined),
+    Promise.all(uniqueProductIds.map(productId => stripe.products.retrieve(productId, {
+      stripeAccount: connectedAccountId
+    }))),
   ])
   
   // Get prices with expanded product info to check for metered billing
@@ -93,7 +142,9 @@ export const manageSubscription = async ({
     const priceId = typeof stripeProduct.default_price === 'string'
       ? stripeProduct.default_price
       : stripeProduct.default_price?.id
-    return priceId ? stripe.prices.retrieve(priceId) : Promise.resolve(null)
+    return priceId ? stripe.prices.retrieve(priceId, {
+      stripeAccount: connectedAccountId
+    }) : Promise.resolve(null)
   }))
   const priceIds = stripeProducts.reduce((acc: { [productId: string]: string }, stripeProduct) => {
     const priceId = typeof stripeProduct.default_price === 'string'
@@ -176,9 +227,13 @@ export const manageSubscription = async ({
           if (isMetered) {
             // For metered products, simply remove the subscription item
             if (subscriptionItems.length === 1) {
-              await stripe.subscriptions.cancel(currentOrgSubscriptionId!)
+              await stripe.subscriptions.cancel(currentOrgSubscriptionId!, {}, {
+                stripeAccount: connectedAccountId
+              })
             } else {
-              await stripe.subscriptionItems.del(existingItem.id)
+              await stripe.subscriptionItems.del(existingItem.id, {}, {
+                stripeAccount: connectedAccountId
+              })
               subscriptionItems = subscriptionItems.filter(item => item.id !== existingItem.id)
             }
             if (productKey) {
@@ -189,14 +244,20 @@ export const manageSubscription = async ({
             const quantityToRemove = priceItem.quantity ?? 1
             if ((existingItem.quantity ?? 1) <= quantityToRemove) {
               if (subscriptionItems.length === 1) {
-                await stripe.subscriptions.cancel(currentOrgSubscriptionId!)
+                await stripe.subscriptions.cancel(currentOrgSubscriptionId!, {}, {
+                  stripeAccount: connectedAccountId
+                })
               } else {
-                await stripe.subscriptionItems.del(existingItem.id)
+                await stripe.subscriptionItems.del(existingItem.id, {}, {
+                  stripeAccount: connectedAccountId
+                })
                 subscriptionItems = subscriptionItems.filter(item => item.id !== existingItem.id)
               }
             } else {
               await stripe.subscriptionItems.update(existingItem.id, {
                 quantity: (existingItem.quantity ?? 1) - quantityToRemove
+              }, {
+                stripeAccount: connectedAccountId
               })
             }
             if (productKey) {
@@ -223,7 +284,9 @@ export const manageSubscription = async ({
                 discounts: discounts,
                 proration_behavior: 'create_prorations'
               }
-              await stripe.subscriptionItems.update(existingItem.id, updateParams)
+              await stripe.subscriptionItems.update(existingItem.id, updateParams, {
+                stripeAccount: connectedAccountId
+              })
             }
           } else {
             // For non-metered products, update quantity
@@ -236,7 +299,9 @@ export const manageSubscription = async ({
             if (discounts.length > 0) {
               updateParams.discounts = discounts
             }
-            await stripe.subscriptionItems.update(existingItem.id, updateParams)
+            await stripe.subscriptionItems.update(existingItem.id, updateParams, {
+              stripeAccount: connectedAccountId
+            })
           }
         } else {
           const itemCreateParams: Stripe.SubscriptionItemCreateParams = {
@@ -253,7 +318,9 @@ export const manageSubscription = async ({
           if (discounts.length > 0) {
             itemCreateParams.discounts = discounts
           }
-          await stripe.subscriptionItems.create(itemCreateParams)
+          await stripe.subscriptionItems.create(itemCreateParams, {
+            stripeAccount: connectedAccountId
+          })
         }
         
         if (productKey) {
@@ -274,6 +341,8 @@ export const manageSubscription = async ({
       if (productChanges.added.length > 0) {
         await stripe.subscriptions.update(currentOrgSubscriptionId!, {
           billing_cycle_anchor: 'unchanged'
+        }, {
+          stripeAccount: connectedAccountId
         })
       }
     }
@@ -299,7 +368,9 @@ export const manageSubscription = async ({
     if (discounts.length > 0) {
       startSubscriptionParams.discounts = discounts
     }
-    subscription = await stripe.subscriptions.create(startSubscriptionParams)
+    subscription = await stripe.subscriptions.create(startSubscriptionParams, {
+      stripeAccount: connectedAccountId
+    })
     for (const priceItem of priceItems) {
       const priceId = priceItem.price
       const productKey = productKeysByPrice[priceId]
@@ -331,7 +402,9 @@ export const manageSubscription = async ({
   for (const productKey of productChanges.added) {
     const stripeProduct = stripeProducts.find((p: Stripe.Product) => p.id === productKey.id)
     if (stripeProduct && prices[productKey.id] == null) {
-      const price = await stripe.prices.retrieve(typeof stripeProduct.default_price === 'string' ? stripeProduct.default_price : stripeProduct.default_price?.id || '')
+      const price = await stripe.prices.retrieve(typeof stripeProduct.default_price === 'string' ? stripeProduct.default_price : stripeProduct.default_price?.id || '', {
+        stripeAccount: connectedAccountId
+      })
       prices[productKey.id] = {
         amount: price.unit_amount ?? 0,
         currency: price.currency
@@ -397,14 +470,23 @@ export const manageSubscription = async ({
     }
   }
   
+  // Update subscription IDs mapping
+  const updatedSubscriptionIds = { ...organization.stripe_subscription_ids }
+  
+  if (purchasedProducts.length === 0) {
+    // Remove subscription for this account if no products remain
+    delete updatedSubscriptionIds[connectedAccountId]
+  } else if (subscription) {
+    // Set/update subscription ID for this account
+    updatedSubscriptionIds[connectedAccountId] = subscription.id
+  }
+
   await update<Organization>({
     tableName: process.env.ORGANIZATIONS_TABLE!,
     key: { id: organization.id },
     updates: {
       purchased_products: purchasedProducts,
-      ...(purchasedProducts.length === 0 
-        ? { stripe_subscription_id: '' } 
-        : subscription ? { stripe_subscription_id: subscription.id } : {})
+      stripe_subscription_ids: updatedSubscriptionIds
     }
   })
 }

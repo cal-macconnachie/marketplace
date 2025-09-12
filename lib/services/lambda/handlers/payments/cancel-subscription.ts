@@ -30,16 +30,43 @@ export async function cancelSubscription(event: APIGatewayProxyEvent) {
     if (!organization) {
       throw new Error(`Organization not found: ${user.organization_id}`)
     }
-    if (organization.stripe_subscription_id != subscriptionId) {
+    // Check if subscription exists in organization's subscription mapping
+    const subscriptionIds = organization.stripe_subscription_ids || {}
+    const allSubscriptionIds = Object.values(subscriptionIds)
+    
+    if (!allSubscriptionIds.includes(subscriptionId)) {
       throw new Error(`Subscription not found: ${subscriptionId}`)
     }
+    
+    // Find which account this subscription belongs to
+    let accountId: string | null = null
+    for (const [acctId, subId] of Object.entries(subscriptionIds)) {
+      if (subId === subscriptionId) {
+        accountId = acctId
+        break
+      }
+    }
+    
+    if (!accountId) {
+      throw new Error(`Account ID not found for subscription: ${subscriptionId}`)
+    }
+    
     const stripe = getStripeClient()
-    await stripe.subscriptions.cancel(subscriptionId)
+    
+    // Cancel subscription with connected account context
+    await stripe.subscriptions.cancel(subscriptionId, {}, {
+      stripeAccount: accountId
+    })
+    
+    // Update organization to remove this subscription
+    const updatedSubscriptionIds = { ...subscriptionIds }
+    delete updatedSubscriptionIds[accountId]
+    
     await update<Organization>({
       tableName: process.env.ORGANIZATIONS_TABLE!,
       key: { id: user.organization_id },
       updates: {
-        stripe_subscription_id: ''
+        stripe_subscription_ids: updatedSubscriptionIds
       }
     })
     return {

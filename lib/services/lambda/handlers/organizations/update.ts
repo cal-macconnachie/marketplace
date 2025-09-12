@@ -21,7 +21,7 @@ export const updateOrganizationHandler = async (event: APIGatewayProxyEvent) => 
     const blacklistedFields: (keyof Organization)[] = [
       'created_at',
       'purchased_products',
-      'stripe_subscription_id',
+      'stripe_subscription_ids',
       'stripe_account_id',
       'stripe_bank_account_id',
       'in_good_standing_until',
