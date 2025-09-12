@@ -11,7 +11,7 @@ export interface Product {
   description: string
   active: boolean
   metadata?: Record<string, string>
-  tax_code?: 'txcd_10103001'
+  tax_code?: string
   images?: string[]
   default_price_data: {
     currency: string

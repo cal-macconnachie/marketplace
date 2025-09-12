@@ -20,6 +20,8 @@ export interface Purchase {
   connected_account_id?: string
   destination_charge_id?: string
   transfer_id?: string
+  tax_amount?: number
+  base_amount?: number
 }
 
 function validatePurchase(purchase: Partial<Purchase>): Purchase | false {

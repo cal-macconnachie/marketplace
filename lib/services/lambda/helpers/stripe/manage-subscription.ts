@@ -13,7 +13,10 @@ import {
 } from "date-fns"
 import { addPurchase } from "../add-purchase"
 import { Purchase } from "../../handlers/purchases"
-import { calculatePlatformFee, calculateConnectedAccountAmount } from './calculate-platform-fee'
+import {
+  calculatePlatformFee, calculateConnectedAccountAmount 
+} from './calculate-platform-fee'
+import { get } from '../dynamo-helpers/get'
 
 export const manageSubscription = async ({
   promotionCode,
@@ -22,7 +25,9 @@ export const manageSubscription = async ({
   paymentMethodId,
   user,
   organization,
-  remove = false
+  remove = false,
+  customerLocation,
+  taxCode
 }: {
   promotionCode?: string
   couponId?: string
@@ -31,6 +36,8 @@ export const manageSubscription = async ({
   user: User
   organization: Organization
   remove: boolean
+  customerLocation?: string
+  taxCode?: string
 }) => {
   if (user.stripe_id == null) {
     // not a customer return
@@ -55,7 +62,6 @@ export const manageSubscription = async ({
   // If multiple accounts, handle each account separately
   if (accountIds.length > 1) {
     // Need to import the get function to refresh organization data between calls
-    const { get } = await import('../dynamo-helpers/get')
     let currentOrg = organization
     
     for (const accountId of accountIds) {
@@ -345,6 +351,10 @@ export const manageSubscription = async ({
     // Calculate platform fee for subscription items
     let totalAmount = 0
     const subscriptionItemsWithFees = await Promise.all(subscriptionItems.map(async (item) => {
+      if (item.quantity === 0 || item.price == null) {
+        // Skip items with zero quantity
+        return null
+      }
       const price = await stripe.prices.retrieve(item.price, { stripeAccount: connectedAccountId })
       const itemAmount = (price.unit_amount || 0) * (item.quantity || 1)
       totalAmount += itemAmount
@@ -365,7 +375,7 @@ export const manageSubscription = async ({
     const totalConnectedAccountAmount = calculateConnectedAccountAmount(totalAmount, totalPlatformFee)
 
     const startSubscriptionParams: Stripe.SubscriptionCreateParams = {
-      items: subscriptionItemsWithFees,
+      items: subscriptionItemsWithFees.filter((item) => item !== null),
       default_payment_method: paymentMethodId,
       expand: ['latest_invoice.payment_intent'],
       customer: user.stripe_id,
@@ -377,8 +387,22 @@ export const manageSubscription = async ({
       metadata: {
         platform_fee_amount: totalPlatformFee.toString(),
         connected_account_amount: totalConnectedAccountAmount.toString(),
-        connected_account_id: connectedAccountId
+        connected_account_id: connectedAccountId,
+        ...(customerLocation && { customer_location: customerLocation }),
+        ...(taxCode && { tax_code: taxCode })
       }
+    }
+    
+    // Enable automatic tax if customer location is provided
+    if (customerLocation) {
+      startSubscriptionParams.automatic_tax = {
+        enabled: true
+      }
+      
+      // Update customer with tax exemption info if needed
+      await stripe.customers.update(user.stripe_id, {
+        tax_exempt: 'none' // Can be 'none', 'exempt', or 'reverse'
+      })
     }
     if (discounts.length > 0) {
       startSubscriptionParams.discounts = discounts

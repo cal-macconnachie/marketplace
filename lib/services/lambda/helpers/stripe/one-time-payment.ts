@@ -11,6 +11,9 @@ import { v4 } from 'uuid'
 import {
   calculatePlatformFee, calculateConnectedAccountAmount 
 } from './calculate-platform-fee'
+import {
+  calculateTaxesWithCaching, ItemsInterface 
+} from '../tax/calculate-taxes-with-caching'
 
 export const createOneTimePayment = async ({
   promotionCode,
@@ -18,7 +21,9 @@ export const createOneTimePayment = async ({
   product,
   paymentMethodId,
   user,
-  organization
+  organization,
+  customerLocation,
+  taxCode
 }: {
   promotionCode?: string
   couponId?: string
@@ -26,6 +31,8 @@ export const createOneTimePayment = async ({
   product: Product
   user: User
   organization: Organization
+  customerLocation?: string
+  taxCode?: string
 }) => {
   const stripe = getStripeClient()
   const customerId = user.stripe_id
@@ -113,20 +120,73 @@ export const createOneTimePayment = async ({
     discountAmount = originalAmount - finalAmount
   }
 
-  // Calculate platform fee
+  // Calculate tax if customer location is provided
+  let taxAmount = 0
+  let taxRate = 0
+  if (customerLocation) {
+    try {
+      const taxItem: ItemsInterface = {
+        id: product.id,
+        group_id: product.group_id,
+        organization_id: organization.id,
+        quantity: 1
+      }
+      
+      const modifiedProduct = {
+        ...product,
+        default_price_data: {
+          ...product.default_price_data,
+          unit_amount: finalAmount // Use final amount after discounts
+        }
+      }
+      
+      // Override tax_code if provided
+      if (taxCode) {
+        modifiedProduct.tax_code = taxCode
+      }
+      
+      const productsHash = {
+        [`${product.group_id}:${product.id}`]: modifiedProduct
+      }
+      
+      const orgsHash = {
+        [organization.id]: organization
+      }
+      
+      const taxCalculation = await calculateTaxesWithCaching(
+        [taxItem],
+        productsHash,
+        orgsHash,
+        customerLocation
+      )
+      
+      if (taxCalculation.items.length > 0) {
+        taxAmount = taxCalculation.items[0].tax_amount
+        taxRate = taxCalculation.items[0].tax_rate
+      }
+    } catch (error) {
+      console.error('Tax calculation failed:', error)
+      // Continue without tax if calculation fails
+    }
+  }
+
+  // Calculate total amount including tax
+  const totalAmount = finalAmount + taxAmount
+
+  // Calculate platform fee on the base amount (before tax)
   const platformFeeAmount = await calculatePlatformFee(finalAmount)
   const connectedAccountAmount = calculateConnectedAccountAmount(finalAmount, platformFeeAmount)
 
   // Create a PaymentIntent using destination charges pattern
   const paymentIntent = await stripe.paymentIntents.create({
-    amount: finalAmount,
+    amount: totalAmount, // Total amount including tax
     currency: product.default_price_data.currency,
     customer: customerId,
     payment_method: paymentMethodId,
     transfer_data: {
       destination: product.account_id,
     },
-    application_fee_amount: platformFeeAmount, // Platform fee
+    application_fee_amount: platformFeeAmount, // Platform fee on base amount
     on_behalf_of: product.account_id, // Makes connected account settlement merchant
     metadata: {
       userId: user.id,
@@ -135,12 +195,18 @@ export const createOneTimePayment = async ({
       type: 'one_time_payment',
       original_amount: originalAmount.toString(),
       discount_amount: discountAmount.toString(),
+      tax_amount: taxAmount.toString(),
+      tax_rate: taxRate.toString(),
+      base_amount: finalAmount.toString(), // Amount before tax
+      total_amount: totalAmount.toString(), // Amount including tax
       platform_fee_amount: platformFeeAmount.toString(),
       connected_account_amount: connectedAccountAmount.toString(),
       ...(appliedDiscount && {
         discount_type: appliedDiscount.type,
         discount_code: appliedDiscount.code || appliedDiscount.coupon.id
-      })
+      }),
+      ...(customerLocation && { customer_location: customerLocation }),
+      ...(taxCode && { tax_code: taxCode })
     },
     automatic_payment_methods: {
       enabled: true,
@@ -169,7 +235,7 @@ export const createOneTimePayment = async ({
     metadata: product.metadata,
     unique_id: confirmedPaymentIntent.id,
     user_id: user.id,
-    amount: finalAmount,
+    amount: totalAmount, // Total amount including tax
     currency: product.default_price_data.currency
   }
   // Calculate expiration time based on product metadata 'time' field or default to 1 hour
@@ -207,11 +273,13 @@ export const createOneTimePayment = async ({
     is_subscription: false,
     payment_method_id: paymentMethodId!,
     product_name: product.name,
-    amount: finalAmount,
+    amount: totalAmount, // Total amount including tax
     currency: product.default_price_data.currency,
     platform_fee_amount: platformFeeAmount,
     connected_account_id: product.account_id,
-    destination_charge_id: confirmedPaymentIntent.id
+    destination_charge_id: confirmedPaymentIntent.id,
+    tax_amount: taxAmount,
+    base_amount: finalAmount // Amount before tax
   })
   return {
     success: true,
