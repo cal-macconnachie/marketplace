@@ -13,7 +13,6 @@ import {
 } from "date-fns"
 import { addPurchase } from "../add-purchase"
 import { Purchase } from "../../handlers/purchases"
-import { clonePaymentMethodToConnectedAccount } from './clone-payment-method'
 
 export const manageSubscription = async ({
   promotionCode,
@@ -79,24 +78,6 @@ export const manageSubscription = async ({
   }
   
   const connectedAccountId = accountIds[0]
-  
-  // Clone payment method and customer to connected account if needed
-  let effectivePaymentMethodId = paymentMethodId
-  let effectiveCustomerId = user.stripe_id
-  if (connectedAccountId && paymentMethodId && !remove) {
-    try {
-      const cloned = await clonePaymentMethodToConnectedAccount({
-        paymentMethodId,
-        user,
-        connectedAccountId
-      })
-      effectivePaymentMethodId = cloned.paymentMethodId
-      effectiveCustomerId = cloned.customerId
-    } catch (cloneError) {
-      console.error(`Failed to clone payment method for connected account: ${cloneError}`)
-      throw new Error(`Payment method not compatible with merchant account`)
-    }
-  }
   
   const discounts: Array<{promotion_code?: string, coupon?: string}> = []
   if (promotionCode || couponId) {
@@ -380,9 +361,9 @@ export const manageSubscription = async ({
     
     const startSubscriptionParams: Stripe.SubscriptionCreateParams = {
       items: subscriptionItems,
-      default_payment_method: effectivePaymentMethodId,
+      default_payment_method: paymentMethodId,
       expand: ['latest_invoice.payment_intent'],
-      customer: effectiveCustomerId,
+      customer: user.stripe_id,
     }
     if (discounts.length > 0) {
       startSubscriptionParams.discounts = discounts
