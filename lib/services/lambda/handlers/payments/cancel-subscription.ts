@@ -40,7 +40,10 @@ export async function cancelSubscription(event: APIGatewayProxyEvent) {
     
     // Find which account this subscription belongs to
     let accountId: string | null = null
-    for (const [acctId, subId] of Object.entries(subscriptionIds)) {
+    for (const [
+      acctId,
+      subId
+    ] of Object.entries(subscriptionIds)) {
       if (subId === subscriptionId) {
         accountId = acctId
         break

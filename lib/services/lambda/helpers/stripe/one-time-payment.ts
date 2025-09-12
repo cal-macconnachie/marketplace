@@ -8,6 +8,7 @@ import { update } from "../dynamo-helpers/update"
 import { Organization } from "../../handlers/organizations"
 import { addPurchase } from '../add-purchase'
 import { v4 } from 'uuid'
+import { clonePaymentMethodToConnectedAccount } from './clone-payment-method'
 
 export const createOneTimePayment = async ({
   promotionCode,
@@ -25,7 +26,6 @@ export const createOneTimePayment = async ({
   organization: Organization
 }) => {
   const stripe = getStripeClient()
-  const customerId = user.stripe_id
   // Implementation for creating a one-time payment using Stripe API
   // Use connected account when retrieving product
   const [stripeProduct] = await Promise.all([
@@ -110,12 +110,30 @@ export const createOneTimePayment = async ({
     discountAmount = originalAmount - finalAmount
   }
 
+  // Clone payment method and customer to connected account if needed
+  let effectivePaymentMethodId = paymentMethodId
+  let effectiveCustomerId = user.stripe_id
+  if (product.account_id && paymentMethodId) {
+    try {
+      const cloned = await clonePaymentMethodToConnectedAccount({
+        paymentMethodId,
+        user,
+        connectedAccountId: product.account_id
+      })
+      effectivePaymentMethodId = cloned.paymentMethodId
+      effectiveCustomerId = cloned.customerId
+    } catch (cloneError) {
+      console.error(`Failed to clone payment method for connected account: ${cloneError}`)
+      throw new Error(`Payment method not compatible with merchant account`)
+    }
+  }
+
   // Create a PaymentIntent for one-time payment
   const paymentIntent = await stripe.paymentIntents.create({
     amount: finalAmount,
     currency: product.default_price_data.currency,
-    customer: customerId,
-    payment_method: paymentMethodId,
+    customer: effectiveCustomerId,
+    payment_method: effectivePaymentMethodId,
     metadata: {
       userId: user.id,
       productId: product.id,
