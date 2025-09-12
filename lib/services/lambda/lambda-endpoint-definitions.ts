@@ -206,6 +206,18 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     }
   },
   {
+    name: 'createExpressLoginLink',
+    handler: 'stripe/create-express-login-link.createExpressLoginLinkHandler',
+    description: 'Create login link for Stripe Express Dashboard',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'stripe/express-login-link',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
     name: 'deleteConnectedAccounts',
     handler: 'stripe/delete-connected-accounts.deleteConnectedAccounts',
     description: 'Delete Stripe Connected Accounts',
