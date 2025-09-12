@@ -373,12 +373,12 @@ export const createConnectedAccount = async ({
           break
           
         case 'CA':
-          // Always create federal GST/HST registration (simplified)
+          // Create federal GST/HST registration (standard for Canadian businesses)
           registrations.push({
             country: 'CA',
             country_options: {
               ca: {
-                type: 'simplified'
+                type: 'standard'
               }
             },
             active_from: 'now'
