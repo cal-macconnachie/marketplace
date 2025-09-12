@@ -127,7 +127,6 @@ export const createOneTimePayment = async ({
       destination: product.account_id,
       amount: connectedAccountAmount // Connected account receives amount minus platform fee
     },
-    application_fee_amount: platformFeeAmount, // Platform fee
     on_behalf_of: product.account_id, // Makes connected account settlement merchant
     metadata: {
       userId: user.id,
