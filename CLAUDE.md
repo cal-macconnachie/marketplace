@@ -74,3 +74,8 @@ Environment variables are set per deployment:
 - `USER_POOL_CLIENT_ID` and `USER_POOL_ID` from Cognito stack
 - `STRIPE_SECRET_KEY` and `STRIPE_EVENT_DESTINATION` (dev/prod variants)
 - Local development requires `.env.local` and `.env.local.production` files
+
+### NOTES
+DO NOT USE THE FOLLOWING COMMANDS
+- yarn build
+- yarn lint

@@ -608,7 +608,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
   {
     name: 'eventHandler',
     handler: 'stripe-event-handler.stripeEventHandler',
-    description: 'Handle Stripe events via EventBridge',
+    description: 'Handle Stripe Connected Account events via EventBridge',
     environment: [
       'STRIPE_SECRET_KEY',
       'STRIPE_EVENT_DESTINATION'
@@ -619,11 +619,34 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       pattern: {
         // source starts with aws.partner/stripe.com
         source: [{ prefix: 'aws.partner/stripe.com' }],
-        // "detail-type":"customer.created",
+        // Connected account events only
+        'detail-type': ['account.updated']
+      }
+    }
+  },
+  {
+    name: 'platformEventHandler',
+    handler: 'stripe-platform-event-handler.stripePlatformEventHandler',
+    description: 'Handle Stripe Platform account events via EventBridge (destination charges)',
+    environment: [
+      'STRIPE_SECRET_KEY',
+      'STRIPE_EVENT_DESTINATION_PLATFORM'
+    ],
+    eventBridgeEvent: {
+      detailType: 'Stripe Event',
+      enabled: true,
+      pattern: {
+        // source starts with aws.partner/stripe.com
+        source: [{ prefix: 'aws.partner/stripe.com' }],
+        // Platform account events for destination charges
         'detail-type': [
+          'payment_intent.succeeded',
+          'payment_intent.payment_failed', 
+          'transfer.created',
+          'application_fee.created',
+          'charge.dispute.created',
           'invoice.paid',
-          'invoice.payment_failed',
-          'account.updated'
+          'invoice.payment_failed'
         ]
       }
     }

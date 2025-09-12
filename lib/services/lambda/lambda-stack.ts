@@ -273,10 +273,15 @@ export class LambdaStack extends cdk.Stack {
         const events = cdk.aws_events
         const eventsTargets = cdk.aws_events_targets
         let eventBusName = 'default'
-        if (def.eventBridgeEvent.detailType === 'Stripe Event') {
+        if (def.eventBridgeEvent.detailType === 'Stripe Event' && envVars['STRIPE_EVENT_DESTINATION']) {
           const stripeEventDestination = envVars['STRIPE_EVENT_DESTINATION']
           if (stripeEventDestination) {
             eventBusName = `aws.partner/stripe.com/${stripeEventDestination}`
+          }
+        } else if (def.eventBridgeEvent.detailType === 'Stripe Event' && envVars['STRIPE_EVENT_DESTINATION_PLATFORM']) {
+          const platformEventDestination = envVars['STRIPE_EVENT_DESTINATION_PLATFORM']
+          if (platformEventDestination) {
+            eventBusName = `aws.partner/stripe.com/${platformEventDestination}`
           }
         } else if (def.eventBridgeEvent.eventBus) {
           eventBusName = def.eventBridgeEvent.eventBus

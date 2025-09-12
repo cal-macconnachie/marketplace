@@ -40,6 +40,7 @@ export class PaymentAuthBackendStack extends cdk.Stack {
       'USER_POOL_ID': cognitoStack.userPool.userPoolId,
       'STRIPE_SECRET_KEY': `${envName === 'dev' ? process.env.STRIPE_SECRET_KEY_DEV : process.env.STRIPE_SECRET_KEY_PROD}`,
       'STRIPE_EVENT_DESTINATION': `${envName === 'dev' ? process.env.STRIPE_EVENT_DESTINATION_DEV : process.env.STRIPE_EVENT_DESTINATION_PROD}`,
+      'STRIPE_EVENT_DESTINATION_PLATFORM': `${envName === 'dev' ? process.env.STRIPE_EVENT_DESTINATION_PLATFORM_DEV : process.env.STRIPE_EVENT_DESTINATION_PLATFORM_PROD}`,
       'IMAGES_BUCKET_NAME': s3Stack.buckets['dot-images-product-store-direct'].bucketName,
     }
     const lambdaStack = new LambdaStack(this, `LambdaStack-${envName}`, {
