@@ -53,6 +53,9 @@ export interface Organization {
     head_office_country: string // Country where business is headquartered
   }
   tax_registrations?: string[] // Array of "country:registration_id" pairs
+
+  platform_fee_percent?: number
+  platform_fee_fixed?: number
 }
 
 // handles updating the users products

@@ -359,8 +359,10 @@ export const manageSubscription = async ({
       const price = await stripe.prices.retrieve(item.price, { stripeAccount: connectedAccountId })
       const itemAmount = (price.unit_amount || 0) * (item.quantity || 1)
       totalAmount += itemAmount
-      
-      const platformFeeAmount = await calculatePlatformFee(itemAmount)
+
+      const platformFeeAmount = await calculatePlatformFee({
+        amount: itemAmount, organizationId: organization.id
+      })
       const connectedAccountAmount = calculateConnectedAccountAmount(itemAmount, platformFeeAmount)
       
       return {
@@ -371,8 +373,10 @@ export const manageSubscription = async ({
         }
       }
     }))
-    
-    const totalPlatformFee = await calculatePlatformFee(totalAmount)
+
+    const totalPlatformFee = await calculatePlatformFee({
+      amount: totalAmount, organizationId: organization.id
+    })
     const totalConnectedAccountAmount = calculateConnectedAccountAmount(totalAmount, totalPlatformFee)
 
     const startSubscriptionParams: Stripe.SubscriptionCreateParams = {
@@ -493,8 +497,11 @@ export const manageSubscription = async ({
     
     if (stripeProduct && ourProduct) {
       const itemAmount = ourProduct.default_price_data?.unit_amount || 0
-      const platformFeeAmount = await calculatePlatformFee(itemAmount)
-      
+      const platformFeeAmount = await calculatePlatformFee({
+        amount: itemAmount,
+        organizationId: organization.id
+      })
+
       const purchase: Purchase = {
         id: v4(),
         user_id: user.id,

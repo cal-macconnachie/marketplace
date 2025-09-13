@@ -177,7 +177,9 @@ export const createOneTimePayment = async ({
   const totalAmount = finalAmount + taxAmount
 
   // Calculate platform fee on the base amount (before tax)
-  const platformFeeAmount = await calculatePlatformFee(finalAmount)
+  const platformFeeAmount = await calculatePlatformFee({
+    amount: finalAmount, organizationId: organization.id 
+  })
   const connectedAccountAmount = calculateConnectedAccountAmount(finalAmount, platformFeeAmount)
 
   // Create a PaymentIntent using destination charges pattern

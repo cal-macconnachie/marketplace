@@ -1,10 +1,27 @@
-export const calculatePlatformFee = async (
+import { Organization } from '../../handlers/organizations'
+import { getOrganizationById } from '../organizations/get-organization-by-id'
+const organizationsCache: { [key: string]: Organization | null } = {}
+export const calculatePlatformFee = async ({
+  amount,
+  organizationId
+}: {
   amount: number
-): Promise<number> => {
-  // Platform fee logic: 5% + $0.30
-  const percentageFee = Math.round(amount * 0.05)
-  const fixedFee = 30 // $0.30 in cents
-  return Promise.resolve(percentageFee + fixedFee)
+  organizationId?: string
+}): Promise<number> => {
+  // Platform fee logic: 6% + $0.30
+  let percent = 0.06
+  let fixedFee = 30 // $0.30 in cents 
+  if (organizationId) {
+    const org = organizationsCache[organizationId] ? organizationsCache[organizationId] : await getOrganizationById(organizationId)
+    if (org && org.platform_fee_percent) {
+      percent = org.platform_fee_percent / 100
+    }
+    if (org && org.platform_fee_fixed) {
+      fixedFee = org.platform_fee_fixed
+    }
+  }
+  const percentageFee = Math.round(amount * percent)
+  return percentageFee + fixedFee
 }
 
 export const calculateConnectedAccountAmount = (
