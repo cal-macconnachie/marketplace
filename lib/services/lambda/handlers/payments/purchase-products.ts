@@ -4,14 +4,21 @@ import { purchaseProducts as purchaseProductsHelper } from '../../helpers/stripe
 export const purchaseProducts = async (event: APIGatewayProxyEvent) => {
   try {
     const {
-      body
+      body,
+      requestContext
     } = event
+    
+    // Extract IP address from request context
+    const ipAddress = requestContext?.identity?.sourceIp ||
+                     event.headers?.['X-Forwarded-For']?.split(',')[0]?.trim() ||
+                     event.headers?.['x-forwarded-for']?.split(',')[0]?.trim()
     const {
       userId,
       paymentMethodId,
       productKeys,
       promoCode,
-      couponId
+      couponId,
+      taxCode
     } : {
       userId: string,
       paymentMethodId?: string,
@@ -21,20 +28,25 @@ export const purchaseProducts = async (event: APIGatewayProxyEvent) => {
       })[]
       promoCode?: string
       couponId?: string
+      taxCode?: string
     } = JSON.parse(body ?? '{}')
     console.log(`Purchasing products for user ${userId}:`, {
       userId,
       paymentMethodId,
       productKeys,
       promoCode,
-      couponId
+      couponId,
+      taxCode,
+      ipAddress
     })
     await purchaseProductsHelper({
       userId,
       paymentMethodId,
       productKeys,
       promoCode,
-      couponId
+      couponId,
+      taxCode,
+      ipAddress
     })
     return {
       statusCode: 200,

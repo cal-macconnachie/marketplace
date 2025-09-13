@@ -11,7 +11,9 @@ export const purchaseProducts = async ({
   paymentMethodId,
   productKeys,
   promoCode,
-  couponId
+  couponId,
+  taxCode,
+  ipAddress
 }: {
   userId: string,
   paymentMethodId?: string,
@@ -21,6 +23,8 @@ export const purchaseProducts = async ({
   })[]
   promoCode?: string
   couponId?: string
+  taxCode?: string
+  ipAddress?: string
 }) => {
   const uniqueProductKeys = productKeys.reduce((acc: string[], product) => {
     const key = `${product.id}:${product.group_id}`
@@ -128,7 +132,9 @@ export const purchaseProducts = async ({
         paymentMethodId: paymentMethod.id,
         product,
         user,
-        organization
+        organization,
+        taxCode,
+        ipAddress
       })
     } catch (error) {
       console.error(`Error creating one-time payment for product ${product.id}:`, error)
@@ -145,7 +151,9 @@ export const purchaseProducts = async ({
       products: subscriptionProducts,
       user,
       organization,
-      remove: false
+      remove: false,
+      taxCode,
+      ipAddress
     })
   } catch (error) {
     console.error(`Error managing subscription for user ${user.id}:`, error)

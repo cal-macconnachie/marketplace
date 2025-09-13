@@ -17,6 +17,7 @@ import {
   calculatePlatformFee, calculateConnectedAccountAmount 
 } from './calculate-platform-fee'
 import { get } from '../dynamo-helpers/get'
+import { generateLocationKey } from '../tax/tax-calculation-cache'
 
 export const manageSubscription = async ({
   promotionCode,
@@ -26,8 +27,8 @@ export const manageSubscription = async ({
   user,
   organization,
   remove = false,
-  customerLocation,
-  taxCode
+  taxCode,
+  ipAddress
 }: {
   promotionCode?: string
   couponId?: string
@@ -36,8 +37,8 @@ export const manageSubscription = async ({
   user: User
   organization: Organization
   remove: boolean
-  customerLocation?: string
   taxCode?: string
+  ipAddress?: string
 }) => {
   if (user.stripe_id == null) {
     // not a customer return
@@ -388,12 +389,13 @@ export const manageSubscription = async ({
         platform_fee_amount: totalPlatformFee.toString(),
         connected_account_amount: totalConnectedAccountAmount.toString(),
         connected_account_id: connectedAccountId,
-        ...(customerLocation && { customer_location: customerLocation }),
+        customer_location: generateLocationKey(user, ipAddress),
         ...(taxCode && { tax_code: taxCode })
       }
     }
     
-    // Enable automatic tax if customer location is provided
+    // Enable automatic tax if customer location can be determined
+    const customerLocation = generateLocationKey(user, ipAddress)
     if (customerLocation) {
       startSubscriptionParams.automatic_tax = {
         enabled: true

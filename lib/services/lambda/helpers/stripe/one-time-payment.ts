@@ -14,6 +14,7 @@ import {
 import {
   calculateTaxesWithCaching, ItemsInterface 
 } from '../tax/calculate-taxes-with-caching'
+import { generateLocationKey } from '../tax/tax-calculation-cache'
 
 export const createOneTimePayment = async ({
   promotionCode,
@@ -22,8 +23,8 @@ export const createOneTimePayment = async ({
   paymentMethodId,
   user,
   organization,
-  customerLocation,
-  taxCode
+  taxCode,
+  ipAddress
 }: {
   promotionCode?: string
   couponId?: string
@@ -31,8 +32,8 @@ export const createOneTimePayment = async ({
   product: Product
   user: User
   organization: Organization
-  customerLocation?: string
   taxCode?: string
+  ipAddress?: string
 }) => {
   const stripe = getStripeClient()
   const customerId = user.stripe_id
@@ -120,9 +121,11 @@ export const createOneTimePayment = async ({
     discountAmount = originalAmount - finalAmount
   }
 
-  // Calculate tax if customer location is provided
+  // Calculate tax using user's location data (with IP fallback)
   let taxAmount = 0
   let taxRate = 0
+  const customerLocation = generateLocationKey(user, ipAddress)
+  
   if (customerLocation) {
     try {
       const taxItem: ItemsInterface = {
