@@ -126,6 +126,7 @@ export const createOneTimePayment = async ({
   let taxRate = 0
   let taxCalculationId = null
   let detailedTaxBreakdown = ''
+  let calculatedTotalAmount = 0 // Total from Stripe Tax API including tax
   const customerLocation = generateLocationKey(user, ipAddress)
   
   if (customerLocation && user.address) {
@@ -158,6 +159,9 @@ export const createOneTimePayment = async ({
       
       if (taxCalculation.line_items?.data && taxCalculation.line_items?.data?.length > 0) {
         taxCalculationId = taxCalculation.id
+        
+        // Use the total amount from Stripe Tax API (includes tax)
+        calculatedTotalAmount = taxCalculation.amount_total
         
         // Sum up tax amounts from all line items
         taxAmount = taxCalculation.line_items.data.reduce((total, lineItem) => {
@@ -244,8 +248,8 @@ export const createOneTimePayment = async ({
     }
   }
 
-  // Calculate total amount including tax
-  const totalAmount = finalAmount + taxAmount
+  // Use calculated total from Stripe Tax API if available, otherwise manual calculation
+  const totalAmount = calculatedTotalAmount > 0 ? calculatedTotalAmount : finalAmount + taxAmount
 
   // Calculate platform fee on the base amount (before tax)
   const platformFeeAmount = await calculatePlatformFee({
