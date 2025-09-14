@@ -121,13 +121,88 @@ export const createOneTimePayment = async ({
     discountAmount = originalAmount - finalAmount
   }
 
-  // Calculate tax using user's location data (with IP fallback)
+  // Calculate tax using Stripe Tax API for better itemization
   let taxAmount = 0
   let taxRate = 0
+  let taxCalculationId = null
+  let detailedTaxBreakdown = ''
   const customerLocation = generateLocationKey(user, ipAddress)
   
-  if (customerLocation) {
+  if (customerLocation && user.address) {
     try {
+      // Create Stripe Tax Calculation for detailed tax breakdown
+      const taxCalculation = await stripe.tax.calculations.create({
+        currency: product.default_price_data.currency,
+        line_items: [
+          {
+            amount: finalAmount,
+            reference: `product_${product.id}`,
+            tax_code: taxCode || product.tax_code || 'txcd_99999999' // General product tax code
+          }
+        ],
+        customer_details: {
+          address: {
+            line1: user.address.line_1,
+            line2: user.address.line_2 || undefined,
+            city: user.address.city,
+            state: user.address.state,
+            postal_code: user.address.postal_code,
+            country: user.address.country
+          },
+          address_source: 'billing'
+        },
+        expand: ['line_items']
+      }, {
+        stripeAccount: product.account_id
+      })
+      
+      if (taxCalculation.line_items?.data && taxCalculation.line_items?.data?.length > 0) {
+        taxCalculationId = taxCalculation.id
+        
+        // Sum up tax amounts from all line items
+        taxAmount = taxCalculation.line_items.data.reduce((total, lineItem) => {
+          return total + lineItem.amount_tax
+        }, 0)
+        
+        // Calculate weighted average tax rate and build detailed breakdown
+        let totalTaxableAmount = 0
+        let weightedTaxRate = 0
+        const taxBreakdownItems: string[] = []
+        
+        taxCalculation.line_items.data.forEach(lineItem => {
+          if (lineItem.tax_breakdown && lineItem.tax_breakdown.length > 0) {
+            lineItem.tax_breakdown.forEach(breakdown => {
+              if (breakdown.tax_rate_details?.percentage_decimal && breakdown.taxable_amount > 0) {
+                const rate = parseFloat(breakdown.tax_rate_details.percentage_decimal)
+                const weight = breakdown.taxable_amount
+                const taxType = breakdown.tax_rate_details.tax_type || 'tax'
+                const jurisdiction = breakdown.jurisdiction?.display_name || 
+                  `${breakdown.tax_rate_details.percentage_decimal || ''} ${breakdown.tax_rate_details.tax_type || ''}`.trim()
+                
+                weightedTaxRate += rate * weight
+                totalTaxableAmount += weight
+                
+                // Add to detailed breakdown
+                taxBreakdownItems.push(`${jurisdiction} ${taxType}: ${rate}% (${breakdown.amount})`)
+              }
+            })
+          }
+        })
+        
+        // Calculate final weighted average rate
+        if (totalTaxableAmount > 0) {
+          taxRate = weightedTaxRate / totalTaxableAmount
+        }
+        
+        // Create detailed tax breakdown string
+        detailedTaxBreakdown = taxBreakdownItems.length > 0 
+          ? taxBreakdownItems.join('; ') 
+          : `Tax: ${taxAmount} on ${finalAmount}`
+      }
+    } catch (error: unknown) {
+      console.error('Stripe Tax calculation failed, falling back to legacy calculation:', error)
+      
+      // Fallback to legacy tax calculation
       const taxItem: ItemsInterface = {
         id: product.id,
         group_id: product.group_id,
@@ -139,11 +214,10 @@ export const createOneTimePayment = async ({
         ...product,
         default_price_data: {
           ...product.default_price_data,
-          unit_amount: finalAmount // Use final amount after discounts
+          unit_amount: finalAmount
         }
       }
       
-      // Override tax_code if provided
       if (taxCode) {
         modifiedProduct.tax_code = taxCode
       }
@@ -156,20 +230,17 @@ export const createOneTimePayment = async ({
         [organization.id]: organization
       }
       
-      const taxCalculation = await calculateTaxesWithCaching(
+      const legacyTaxCalculation = await calculateTaxesWithCaching(
         [taxItem],
         productsHash,
         orgsHash,
         customerLocation
       )
       
-      if (taxCalculation.items.length > 0) {
-        taxAmount = taxCalculation.items[0].tax_amount
-        taxRate = taxCalculation.items[0].tax_rate
+      if (legacyTaxCalculation.items.length > 0) {
+        taxAmount = legacyTaxCalculation.items[0].tax_amount
+        taxRate = legacyTaxCalculation.items[0].tax_rate
       }
-    } catch (error) {
-      console.error('Tax calculation failed:', error)
-      // Continue without tax if calculation fails
     }
   }
 
@@ -182,8 +253,8 @@ export const createOneTimePayment = async ({
   })
   const connectedAccountAmount = calculateConnectedAccountAmount(finalAmount, platformFeeAmount)
 
-  // Create a PaymentIntent using destination charges pattern
-  const paymentIntent = await stripe.paymentIntents.create({
+  // Create a PaymentIntent using destination charges pattern with tax itemization
+  const paymentIntentCreateParams = {
     amount: totalAmount, // Total amount including tax
     currency: product.default_price_data.currency,
     customer: customerId,
@@ -206,6 +277,13 @@ export const createOneTimePayment = async ({
       total_amount: totalAmount.toString(), // Amount including tax
       platform_fee_amount: platformFeeAmount.toString(),
       connected_account_amount: connectedAccountAmount.toString(),
+      // Enhanced tax itemization metadata
+      subtotal: finalAmount.toString(), // Clear subtotal before tax
+      tax_breakdown: detailedTaxBreakdown || `Tax: ${taxAmount} on ${finalAmount}`, // Human readable tax breakdown
+      ...(taxCalculationId && { 
+        stripe_tax_calculation_id: taxCalculationId,
+        tax_method: 'stripe_tax_api'
+      }),
       ...(appliedDiscount && {
         discount_type: appliedDiscount.type,
         discount_code: appliedDiscount.code || appliedDiscount.coupon.id
@@ -215,10 +293,11 @@ export const createOneTimePayment = async ({
     },
     automatic_payment_methods: {
       enabled: true,
-      allow_redirects: 'never'
+      allow_redirects: 'never' as const
     }
-    // NO stripeAccount parameter - charge created on platform
-  })
+  }
+
+  const paymentIntent = await stripe.paymentIntents.create(paymentIntentCreateParams)
 
   if (!paymentIntent) {
     throw new Error('Failed to create payment intent')
