@@ -15,6 +15,7 @@ import {
   calculateTaxesWithCaching, ItemsInterface 
 } from '../tax/calculate-taxes-with-caching'
 import { generateLocationKey } from '../tax/tax-calculation-cache'
+import { Stripe } from 'stripe'
 
 export const createOneTimePayment = async ({
   promotionCode,
@@ -135,8 +136,8 @@ export const createOneTimePayment = async ({
     userAddressData: user.address 
   })
   
-  // Try Stripe Tax API if we have address info, otherwise fallback to legacy
-  if (user.address && user.address.country) {
+  // Try Stripe Tax API if we have address info or IP location
+  if ((user.address && user.address.country) || customerLocation) {
     try {
       // Create Stripe Tax Calculation for detailed tax breakdown
       const taxCalculation = await stripe.tax.calculations.create({
@@ -148,7 +149,7 @@ export const createOneTimePayment = async ({
             tax_code: taxCode || product.tax_code || 'txcd_99999999' // General product tax code
           }
         ],
-        customer_details: {
+        customer_details: user.address ? {
           address: {
             line1: user.address.line_1 || 'Unknown',
             line2: user.address.line_2 || undefined,
@@ -157,6 +158,10 @@ export const createOneTimePayment = async ({
             postal_code: user.address.postal_code || undefined,
             country: user.address.country
           },
+          address_source: 'billing'
+        } : {
+          // Use IP-based location when no user address available
+          ip_address: ipAddress,
           address_source: 'billing'
         },
         expand: ['line_items']
@@ -261,7 +266,7 @@ export const createOneTimePayment = async ({
       }
     }
   } else {
-    console.log('No tax calculation attempted - missing user address or country')
+    console.log('No tax calculation attempted - missing user address and customer location')
   }
   
   console.log('Final tax calculation result:', {
@@ -281,7 +286,7 @@ export const createOneTimePayment = async ({
   const connectedAccountAmount = calculateConnectedAccountAmount(finalAmount, platformFeeAmount)
 
   // Create a PaymentIntent using destination charges pattern with tax itemization
-  const paymentIntentCreateParams = {
+  const paymentIntentCreateParams: Stripe.PaymentIntentCreateParams = {
     amount: totalAmount, // Total amount including tax
     currency: product.default_price_data.currency,
     customer: customerId,
@@ -304,9 +309,7 @@ export const createOneTimePayment = async ({
       total_amount: totalAmount.toString(), // Amount including tax
       platform_fee_amount: platformFeeAmount.toString(),
       connected_account_amount: connectedAccountAmount.toString(),
-      // Enhanced tax itemization metadata
       subtotal: finalAmount.toString(), // Clear subtotal before tax
-      tax_breakdown: detailedTaxBreakdown || `Tax: ${taxAmount} on ${finalAmount}`, // Human readable tax breakdown
       ...(taxCalculationId && { 
         stripe_tax_calculation_id: taxCalculationId,
         tax_method: 'stripe_tax_api'
