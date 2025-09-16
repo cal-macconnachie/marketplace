@@ -2,7 +2,7 @@ import { APIGatewayProxyEvent } from 'aws-lambda'
 import { create } from '../helpers/dynamo-helpers/create'
 import { update } from '../helpers/dynamo-helpers/update'
 import { get } from '../helpers/dynamo-helpers/get'
-import { queryAll } from '../helpers/dynamo-helpers/query'
+import { query } from '../helpers/dynamo-helpers/query'
 
 export interface Purchase {
   id: string
@@ -41,11 +41,23 @@ function validatePurchase(purchase: Partial<Purchase>): Purchase | false {
   return false
 }
 
+export interface PurchasesInput {
+  purchase: Partial<Purchase>
+  type?: 'create' | 'update' | 'read'
+  lastEvaluatedKey?: Record<string, unknown>
+  limit?: number
+}
+
 export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
-  const purchase: Partial<Purchase> & { type?: 'create' | 'update' | 'read' } = JSON.parse(event.body || '{}')
+  const {
+    purchase,
+    type: purchaseType,
+    lastEvaluatedKey,
+    limit = 30
+  }: PurchasesInput = JSON.parse(event.body || '{}')
   try {
     // read requests are allowed to not have the full key
-    if ((purchase.id == null || purchase.user_id == null) && purchase.type !== 'read') {
+    if ((purchase.id == null || purchase.user_id == null) && purchaseType !== 'read') {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'Missing required fields' }),
@@ -56,11 +68,7 @@ export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
         }
       }
     }
-    if (purchase.type == null || ![
-      'create',
-      'update',
-      'read'
-    ].includes(purchase.type)) {
+    if (purchaseType == null || !['read'].includes(purchaseType)) {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'Invalid purchase type' }),
@@ -71,8 +79,6 @@ export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
         }
       }
     }
-    const type = purchase.type
-    delete purchase.type
     let response = {
       statusCode: 200,
       body: '',
@@ -82,7 +88,7 @@ export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
         'Content-Type': 'application/json'
       }
     }
-    switch (type) {
+    switch (purchaseType) {
       case 'create':
         // Handle create
         const validatedPurchase = validatePurchase(purchase)
@@ -116,7 +122,10 @@ export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
         }
         break
       case 'read':
-        let readPurchases: Purchase[] | Purchase | undefined
+        let readPurchases: {
+          items: Purchase[]
+          lastEvaluatedKey?: Record<string, unknown>
+        } | Purchase | undefined
         // indexes organization_id-index payment_method_id-index sort purchased_at
         // key user_id sort id
         if (purchase.id && purchase.user_id) {
@@ -129,32 +138,38 @@ export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
           })
         }
         if (purchase.user_id && !purchase.id) {
-          readPurchases = await queryAll<Purchase>({
+          readPurchases = await query<Purchase>({
             tableName: process.env.PURCHASES_TABLE!,
             keyConditionExpression: 'user_id = :user_id',
             expressionAttributeValues: {
               ':user_id': purchase.user_id
-            }
+            },
+            limit,
+            exclusiveStartKey: lastEvaluatedKey
           })
         }
         if (readPurchases) {
           response.body = JSON.stringify(readPurchases)
         } else {
           if (purchase.organization_id) {
-            readPurchases = await queryAll<Purchase>({
+            readPurchases = await query<Purchase>({
               tableName: process.env.PURCHASES_TABLE!,
               keyConditionExpression: 'organization_id = :organization_id',
               expressionAttributeValues: {
                 ':organization_id': purchase.organization_id
-              }
+              },
+              limit,
+              exclusiveStartKey: lastEvaluatedKey
             })
           } else if (purchase.payment_method_id) {
-            readPurchases = await queryAll<Purchase>({
+            readPurchases = await query<Purchase>({
               tableName: process.env.PURCHASES_TABLE!,
               keyConditionExpression: 'payment_method_id = :payment_method_id',
               expressionAttributeValues: {
                 ':payment_method_id': purchase.payment_method_id
-              }
+              },
+              limit,
+              exclusiveStartKey: lastEvaluatedKey
             })
           }
         }
