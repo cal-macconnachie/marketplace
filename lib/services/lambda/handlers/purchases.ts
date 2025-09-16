@@ -154,6 +154,7 @@ export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
           if (purchase.organization_id) {
             readPurchases = await query<Purchase>({
               tableName: process.env.PURCHASES_TABLE!,
+              indexName: 'organization_id-index',
               keyConditionExpression: 'organization_id = :organization_id',
               expressionAttributeValues: {
                 ':organization_id': purchase.organization_id
@@ -164,6 +165,7 @@ export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
           } else if (purchase.payment_method_id) {
             readPurchases = await query<Purchase>({
               tableName: process.env.PURCHASES_TABLE!,
+              indexName: 'payment_method_id-index',
               keyConditionExpression: 'payment_method_id = :payment_method_id',
               expressionAttributeValues: {
                 ':payment_method_id': purchase.payment_method_id
