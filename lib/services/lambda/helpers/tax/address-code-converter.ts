@@ -125,14 +125,19 @@ function getStateCode(stateName: string, countryCode: string): string {
 export function convertAddressToCodes(address: AddressInput): AddressCodes {
   console.log('convertAddressToCodes input:', address)
 
-  // Convert country name to ISO Alpha-2 code
+  // If country is already a 2-letter ISO code, don't convert it
   let countryCode: string
-  try {
-    countryCode = countryToAlpha2(address.country) || address.country
-    console.log(`Country conversion: "${address.country}" -> "${countryCode}"`)
-  } catch (error) {
-    console.log(`Country conversion failed for "${address.country}":`, error)
+  if (address.country.length === 2 && /^[A-Z]{2}$/.test(address.country)) {
     countryCode = address.country
+    console.log(`Country already in ISO format: "${address.country}"`)
+  } else {
+    try {
+      countryCode = countryToAlpha2(address.country) || address.country
+      console.log(`Country conversion: "${address.country}" -> "${countryCode}"`)
+    } catch (error) {
+      console.log(`Country conversion failed for "${address.country}":`, error)
+      countryCode = address.country
+    }
   }
   
   // Convert state/province name to code
