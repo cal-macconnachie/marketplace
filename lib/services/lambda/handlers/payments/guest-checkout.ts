@@ -13,6 +13,7 @@ import {
   checkRateLimit,
   getRateLimitKey
 } from '../../helpers/rate-limiting/dynamo-rate-limiter'
+import { convertAddressToCodes } from '../../helpers/tax/address-code-converter'
 
 interface GuestCheckoutRequest {
   user: {
@@ -170,16 +171,49 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
       }
     }
 
-    if (body.user?.address && !validateAddress(body.user.address)) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ 
-          error: 'user.address must include line_1, state, city, country (2-letter code), and postal_code' 
+    // Convert and validate address if provided
+    let processedAddress = body.user?.address
+    if (body.user?.address) {
+      if (!body.user.address.line_1 || !body.user.address.state || !body.user.address.city || !body.user.address.country || !body.user.address.postal_code) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({
+            error: 'user.address must include line_1, state, city, country, and postal_code'
+          }),
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': true,
+            'Content-Type': 'application/json'
+          }
+        }
+      }
+
+      // Convert country and state to proper codes
+      processedAddress = {
+        city: '',
+        postal_code: '',
+        ...convertAddressToCodes({
+          country: body.user.address.country,
+          state: body.user.address.state,
+          city: body.user.address.city,
+          postal_code: body.user.address.postal_code
         }),
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Credentials': true,
-          'Content-Type': 'application/json'
+        line_1: body.user.address.line_1,
+        line_2: body.user.address.line_2,
+      }
+
+      // Final validation after conversion
+      if (!validateAddress(processedAddress)) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({
+            error: 'user.address validation failed after processing'
+          }),
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': true,
+            'Content-Type': 'application/json'
+          }
         }
       }
     }
@@ -265,7 +299,7 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
           given_name: body.user.given_name.trim(),
           family_name: body.user.family_name.trim(),
           email: body.user.email.toLowerCase().trim(),
-          address: body.user.address,
+          address: processedAddress,
           ip_address: body.user.ip_address || clientIp
         },
         returnCreated: true
