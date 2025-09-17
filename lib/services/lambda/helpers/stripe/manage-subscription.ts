@@ -387,7 +387,7 @@ export const manageSubscription = async ({
       transfer_data: {
         destination: connectedAccountId // Connected account receives funds (minus application fee)
       },
-      application_fee_percent: (totalPlatformFee / totalAmount) * 100, // Platform fee percentage  
+      application_fee_percent: Number(((totalPlatformFee / totalAmount) * 100).toFixed(2)), // Platform fee percentage
       on_behalf_of: connectedAccountId, // Makes connected account settlement merchant
       metadata: {
         platform_fee_amount: totalPlatformFee.toString(),
