@@ -137,12 +137,8 @@ export const manageSubscription = async ({
     subscription,
     stripeProducts
   ] = await Promise.all([
-    currentOrgSubscriptionId ? stripe.subscriptions.retrieve(currentOrgSubscriptionId, {
-      stripeAccount: connectedAccountId
-    }) : Promise.resolve(undefined),
-    Promise.all(uniqueProductIds.map(productId => stripe.products.retrieve(productId, {
-      stripeAccount: connectedAccountId
-    }))),
+    currentOrgSubscriptionId ? stripe.subscriptions.retrieve(currentOrgSubscriptionId) : Promise.resolve(undefined),
+    Promise.all(uniqueProductIds.map(productId => stripe.products.retrieve(productId))),
   ])
   
   // Get prices with expanded product info to check for metered billing
@@ -150,9 +146,7 @@ export const manageSubscription = async ({
     const priceId = typeof stripeProduct.default_price === 'string'
       ? stripeProduct.default_price
       : stripeProduct.default_price?.id
-    return priceId ? stripe.prices.retrieve(priceId, {
-      stripeAccount: connectedAccountId
-    }) : Promise.resolve(null)
+    return priceId ? stripe.prices.retrieve(priceId) : Promise.resolve(null)
   }))
   const priceIds = stripeProducts.reduce((acc: { [productId: string]: string }, stripeProduct) => {
     const priceId = typeof stripeProduct.default_price === 'string'
@@ -356,7 +350,7 @@ export const manageSubscription = async ({
         // Skip items with zero quantity
         return null
       }
-      const price = await stripe.prices.retrieve(item.price, { stripeAccount: connectedAccountId })
+      const price = await stripe.prices.retrieve(item.price)
       const itemAmount = (price.unit_amount || 0) * (item.quantity || 1)
       totalAmount += itemAmount
 
@@ -446,9 +440,7 @@ export const manageSubscription = async ({
   for (const productKey of productChanges.added) {
     const stripeProduct = stripeProducts.find((p: Stripe.Product) => p.id === productKey.id)
     if (stripeProduct && prices[productKey.id] == null) {
-      const price = await stripe.prices.retrieve(typeof stripeProduct.default_price === 'string' ? stripeProduct.default_price : stripeProduct.default_price?.id || '', {
-        stripeAccount: connectedAccountId
-      })
+      const price = await stripe.prices.retrieve(typeof stripeProduct.default_price === 'string' ? stripeProduct.default_price : stripeProduct.default_price?.id || '')
       prices[productKey.id] = {
         amount: price.unit_amount ?? 0,
         currency: price.currency
