@@ -151,6 +151,10 @@ export const manageSubscription = async ({
       ? stripeProduct.default_price
       : stripeProduct.default_price?.id
     const product = products[index]
+    console.log({
+      priceId,
+      stripeAccount: product.account_id
+    })
     return priceId ? stripe.prices.retrieve(priceId, {
       stripeAccount: product.account_id
     }) : Promise.resolve(null)
