@@ -27,6 +27,14 @@ export const createUpdateUser = async (userInput: Partial<User>) => {
     delete userInput.email // remove email from updates to avoid overwriting
     if (userInput.organization_id) delete userInput.organization_id
     if (userInput.is_organization_admin) delete userInput.is_organization_admin
+
+    // Handle cognito_id: only allow setting if it doesn't exist, throw error if it does
+    if (userInput.cognito_id) {
+      if (existingUser.cognito_id) {
+        throw new Error('User already has a Cognito ID and it cannot be updated')
+      }
+      // cognito_id will be included in the update since existingUser doesn't have one
+    }
     // delete very key from userInput that is the same as on th eexisting user
     const userInputKeys: (keyof User)[] = Object.keys(userInput) as (keyof User)[]
     for (const key of userInputKeys) {

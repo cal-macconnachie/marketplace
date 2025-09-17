@@ -584,10 +584,6 @@ export const createConnectedAccount = async ({
       })
       
       taxEnabled = true
-      console.log(`Tax settings configured for connected account: ${account.id}`)
-      console.log(`- Tax code: ${taxCode}`)
-      console.log(`- Tax behavior: ${taxBehavior}`)
-      console.log(`- Head office: ${address.city}, ${address.country}`)
       
     } catch (taxError) {
       console.warn('Failed to configure tax settings for connected account:', taxError)

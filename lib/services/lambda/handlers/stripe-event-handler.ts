@@ -53,7 +53,6 @@ export const stripeEventHandler = async (event: EventBridgeEvent<'Stripe Event',
         }
       })
 
-      console.log(`Updated organization ${org.id} onboarding status: ${isFullyOnboarded ? 'completed' : 'in_progress'}`)
       break
     }
     default: {

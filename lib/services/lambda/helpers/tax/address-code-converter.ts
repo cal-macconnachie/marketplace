@@ -123,26 +123,20 @@ function getStateCode(stateName: string, countryCode: string): string {
 
 // Convert address with full names to address with codes
 export function convertAddressToCodes(address: AddressInput): AddressCodes {
-  console.log('convertAddressToCodes input:', address)
-
   // If country is already a 2-letter ISO code, don't convert it
   let countryCode: string
   if (address.country.length === 2 && /^[A-Z]{2}$/.test(address.country)) {
     countryCode = address.country
-    console.log(`Country already in ISO format: "${address.country}"`)
   } else {
     try {
       countryCode = countryToAlpha2(address.country) || address.country
-      console.log(`Country conversion: "${address.country}" -> "${countryCode}"`)
-    } catch (error) {
-      console.log(`Country conversion failed for "${address.country}":`, error)
+    } catch {
       countryCode = address.country
     }
   }
   
   // Convert state/province name to code
   const stateCode = getStateCode(address.state, countryCode)
-  console.log(`State conversion: "${address.state}" -> "${stateCode}" (country: ${countryCode})`)
 
   const result = {
     country: countryCode,
@@ -151,6 +145,5 @@ export function convertAddressToCodes(address: AddressInput): AddressCodes {
     postal_code: address.postal_code
   }
 
-  console.log('convertAddressToCodes result:', result)
   return result
 }

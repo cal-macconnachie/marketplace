@@ -51,10 +51,10 @@ const validateEmail = (email: string): boolean => {
 }
 
 const validateName = (name: string): boolean => {
-  return typeof name === 'string' && 
-         name.trim().length > 0 && 
+  return typeof name === 'string' &&
+         name.trim().length > 0 &&
          name.length <= 100 &&
-         /^[a-zA-Z\s'-]+$/.test(name)
+         /^[a-zA-Z0-9\s'-]+$/.test(name)
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -189,14 +189,12 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
       }
 
       // Convert country and state to proper codes
-      console.log('Original address:', body.user.address)
       const convertedCodes = convertAddressToCodes({
         country: body.user.address.country,
         state: body.user.address.state,
         city: body.user.address.city,
         postal_code: body.user.address.postal_code
       })
-      console.log('Converted codes:', convertedCodes)
 
       processedAddress = {
         line_1: body.user.address.line_1,
@@ -206,7 +204,6 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
         city: convertedCodes.city || body.user.address.city,
         postal_code: convertedCodes.postal_code || body.user.address.postal_code
       }
-      console.log('Final processed address:', processedAddress)
 
       // Final validation after conversion
       if (!validateAddress(processedAddress)) {

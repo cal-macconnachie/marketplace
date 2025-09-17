@@ -51,7 +51,6 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
       // Handle destination charge completion
       if (paymentIntent.transfer_data?.destination) {
         const connectedAccountId = paymentIntent.transfer_data.destination
-        console.log(`Destination charge succeeded for ${paymentIntent.id} to connected account ${connectedAccountId}`)
         
         // Create purchase records from payment intent metadata or line items
         if (paymentIntent.metadata?.product_ids) {
@@ -81,7 +80,6 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
               }
               
               await addPurchase(purchase)
-              console.log(`Created purchase record for destination charge ${paymentIntent.id}, product ${productId}`)
             } catch (error) {
               console.error(`Failed to create purchase record for product ${productId}:`, error)
             }
@@ -254,18 +252,10 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                   }
                   
                   await addPurchase(purchase)
-                  console.log(`Created purchase record for platform subscription renewal ${productId} for organization ${organization.id}`)
                 } catch (error) {
                   console.error(`Failed to create purchase record for subscription product ${productId}:`, error)
                 }
               }
-            }
-            
-            for (const [
-              productId, 
-              periodEnd
-            ] of productPeriods.entries()) {
-              console.log(`Updated product ${productId} for organization ${organization.id} in_good_standing_until to ${new Date(periodEnd * 1000).toISOString()}`)
             }
           }
         }

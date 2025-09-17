@@ -48,7 +48,6 @@ export class CloudFrontStack extends Stack {
           // Split by '//' and take the second part, then split by '/' and take the first part
           const afterProtocol = Fn.select(1, Fn.split('//', imageLambdaUrl))
           domainName = Fn.select(0, Fn.split('/', afterProtocol))
-          console.log(`Setting domainName for image-processor-origin using CDK functions`)
         }
 
         return new HttpOrigin(domainName, {

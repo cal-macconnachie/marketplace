@@ -5,7 +5,6 @@ import { User } from '../users'
 import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 
 export const postAuthTrigger = async (event: PostAuthenticationTriggerEvent) => {
-  console.log('Post-authentication trigger event:', JSON.stringify(event, null, 2))
   
   const { userAttributes } = event.request
   const email = userAttributes.email
@@ -35,9 +34,6 @@ export const postAuthTrigger = async (event: PostAuthenticationTriggerEvent) => 
 
       await createUpdateUser(userData)
 
-      console.log('Created new user record for social sign-in:', email)
-    } else {
-      console.log('User already exists in DynamoDB:', email)
     }
   } catch (error) {
     console.error('Error in post-authentication trigger:', error)

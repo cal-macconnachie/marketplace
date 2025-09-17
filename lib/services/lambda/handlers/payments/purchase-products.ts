@@ -30,15 +30,6 @@ export const purchaseProducts = async (event: APIGatewayProxyEvent) => {
       couponId?: string
       taxCode?: string
     } = JSON.parse(body ?? '{}')
-    console.log(`Purchasing products for user ${userId}:`, {
-      userId,
-      paymentMethodId,
-      productKeys,
-      promoCode,
-      couponId,
-      taxCode,
-      ipAddress
-    })
     await purchaseProductsHelper({
       userId,
       paymentMethodId,

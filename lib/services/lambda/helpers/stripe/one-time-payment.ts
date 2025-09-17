@@ -126,15 +126,8 @@ export const createOneTimePayment = async ({
   let taxAmount = 0
   let taxRate = 0
   let taxCalculationId = null
-  let detailedTaxBreakdown = ''
   let calculatedTotalAmount = 0 // Total from Stripe Tax API including tax
   const customerLocation = generateLocationKey(user, ipAddress)
-  
-  console.log('Tax calculation debug:', { 
-    customerLocation, 
-    hasUserAddress: !!user.address,
-    userAddressData: user.address 
-  })
   
   // Try Stripe Tax API if we have address info or IP location
   if ((user.address && user.address.country) || customerLocation) {
@@ -209,18 +202,6 @@ export const createOneTimePayment = async ({
         if (totalTaxableAmount > 0) {
           taxRate = weightedTaxRate / totalTaxableAmount
         }
-        
-        // Create detailed tax breakdown string
-        detailedTaxBreakdown = taxBreakdownItems.length > 0 
-          ? taxBreakdownItems.join('; ') 
-          : `Tax: ${taxAmount} on ${finalAmount}`
-          
-        console.log('Stripe Tax API success:', {
-          calculatedTotalAmount,
-          taxAmount,
-          taxRate,
-          detailedTaxBreakdown
-        })
       }
     } catch (error: unknown) {
       console.error('Stripe Tax calculation failed, falling back to legacy calculation:', error)
@@ -265,16 +246,7 @@ export const createOneTimePayment = async ({
         taxRate = legacyTaxCalculation.items[0].tax_rate
       }
     }
-  } else {
-    console.log('No tax calculation attempted - missing user address and customer location')
   }
-  
-  console.log('Final tax calculation result:', {
-    taxAmount,
-    taxRate,
-    calculatedTotalAmount,
-    finalTotalAmount: calculatedTotalAmount > 0 ? calculatedTotalAmount : finalAmount + taxAmount
-  })
 
   // Use calculated total from Stripe Tax API if available, otherwise manual calculation
   const totalAmount = calculatedTotalAmount > 0 ? calculatedTotalAmount : finalAmount + taxAmount
