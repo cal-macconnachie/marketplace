@@ -396,7 +396,11 @@ export const manageSubscription = async ({
     const customerLocation = generateLocationKey(user, ipAddress)
     if (customerLocation) {
       startSubscriptionParams.automatic_tax = {
-        enabled: true
+        enabled: true,
+        liability: {
+          type: 'account',
+          account: connectedAccountId
+        }
       }
       
       // Update customer with tax exemption info if needed
