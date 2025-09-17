@@ -122,7 +122,7 @@ const createStripePrice = async (
   }
 
   return await stripe.prices.create(priceParams, {
-    stripeAccount: accountId
+    ...(priceData.recurring == null ? { stripeAccount: accountId } : {})
   })
 }
 
@@ -303,7 +303,7 @@ export const handler = async (event: DynamoDBStreamEvent) => {
                     ...productUpdateData,
                     active: true // Ensure it's unarchived
                   }, {
-                    stripeAccount: newRec.account_id
+                    ...(newRec.default_price_data.recurring == null ? { stripeAccount: newRec.account_id } : {})
                   })
                 } catch (error: unknown) {
                   if (error && typeof error === 'object' && 'code' in error && error.code === 'resource_missing') {
@@ -328,7 +328,7 @@ export const handler = async (event: DynamoDBStreamEvent) => {
                   stripeProduct = await stripe.products.update(stripeProduct.id, {
                     default_price: newPrice.id
                   }, {
-                    stripeAccount: newRec.account_id
+                    ...(newRec.default_price_data.recurring == null ? { stripeAccount: newRec.account_id } : {})
                   })
                 }
                 
@@ -376,14 +376,14 @@ export const handler = async (event: DynamoDBStreamEvent) => {
                   await stripe.products.update(productId, {
                     default_price: newPrice.id
                   }, {
-                    stripeAccount: newRec.account_id
+                    ...(newRec.default_price_data.recurring == null ? { stripeAccount: newRec.account_id } : {})
                   })
                 }
                 
                 // Update product with non-price fields
                 const productUpdateData = prepareProductDataForUpdate(newRec)
                 stripeProduct = await stripe.products.update(productId, productUpdateData, {
-                  stripeAccount: newRec.account_id
+                  ...(newRec.default_price_data.recurring == null ? { stripeAccount: newRec.account_id } : {})
                 })
                 
                 // Update price version if price changed
@@ -415,7 +415,7 @@ export const handler = async (event: DynamoDBStreamEvent) => {
                 await stripe.products.update(productId, {
                   active: false
                 }, {
-                  stripeAccount: old.account_id
+                  ...(old.default_price_data.recurring == null ? { stripeAccount: old.account_id } : {})
                 })
                 
                 // Archive the associated price if it exists
