@@ -146,17 +146,12 @@ export const manageSubscription = async ({
   ])
   
   // Get prices with expanded product info to check for metered billing
-  const stripePrices = await Promise.all(stripeProducts.map((stripeProduct, index) => {
+  const stripePrices = await Promise.all(stripeProducts.map(stripeProduct => {
     const priceId = typeof stripeProduct.default_price === 'string'
       ? stripeProduct.default_price
       : stripeProduct.default_price?.id
-    const product = products[index]
-    console.log({
-      priceId,
-      stripeAccount: product.account_id
-    })
     return priceId ? stripe.prices.retrieve(priceId, {
-      stripeAccount: product.account_id
+      stripeAccount: connectedAccountId
     }) : Promise.resolve(null)
   }))
   const priceIds = stripeProducts.reduce((acc: { [productId: string]: string }, stripeProduct) => {
