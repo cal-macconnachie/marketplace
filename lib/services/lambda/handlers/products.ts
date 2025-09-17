@@ -312,7 +312,7 @@ export const handler = async (event: DynamoDBStreamEvent) => {
                       ...productCreateData,
                       id: productId
                     }, {
-                      stripeAccount: newRec.account_id
+                      ...(newRec.default_price_data.recurring == null ? { stripeAccount: newRec.account_id } : {})
                     })
                   } else {
                     throw error
