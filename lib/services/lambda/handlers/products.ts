@@ -152,6 +152,9 @@ const prepareProductDataForCreate = (record: Product): Stripe.ProductCreateParam
     'organization_id'
   ] as const
   const productData = { ...record } satisfies Stripe.ProductCreateParams
+  productData.metadata = {
+    organization_id: record.organization_id
+  }
   
   // Remove fields that don't belong in Stripe Product API
   fieldsToRemove.forEach(field => {
@@ -178,6 +181,9 @@ const prepareProductDataForUpdate = (record: Product): Stripe.ProductUpdateParam
     'organization_id'
   ] as const
   const productData = { ...record } as Record<string, unknown>
+  productData.metadata = {
+    organization_id: record.organization_id
+  }
   
   // Remove fields that don't belong in Stripe Product API
   fieldsToRemove.forEach(field => {

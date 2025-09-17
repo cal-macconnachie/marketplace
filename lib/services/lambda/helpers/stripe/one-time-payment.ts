@@ -394,7 +394,7 @@ export const createOneTimePayment = async ({
     destination_charge_id: confirmedPaymentIntent.id,
     tax_amount: taxAmount,
     base_amount: finalAmount // Amount before tax
-  })
+  }, product)
   return {
     success: true,
     message: 'One-time payment successful',

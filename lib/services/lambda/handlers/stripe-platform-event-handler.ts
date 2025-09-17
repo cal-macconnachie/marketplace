@@ -76,7 +76,8 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                 organization_id: organization.id,
                 payment_method_id: typeof paymentIntent.payment_method === 'string' ? paymentIntent.payment_method : paymentIntent.payment_method?.id || '',
                 amount: paymentIntent.amount,
-                currency: paymentIntent.currency
+                currency: paymentIntent.currency,
+                seller_organization_id: stripeProduct.metadata?.organization_id
               }
               
               await addPurchase(purchase)
@@ -248,7 +249,8 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                     organization_id: organization.id,
                     payment_method_id: typeof invoice.default_payment_method === 'string' ? invoice.default_payment_method : invoice.default_payment_method?.id || '',
                     amount: amount,
-                    currency: lineItem.currency
+                    currency: lineItem.currency,
+                    seller_organization_id: stripeProduct.metadata?.organization_id
                   }
                   
                   await addPurchase(purchase)

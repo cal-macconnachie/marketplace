@@ -201,6 +201,18 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
           type: 'S'
         },
         projectionType: 'ALL'
+      },
+      {
+        indexName: 'seller_organization_id-index',
+        partitionKey: {
+          name: 'seller_organization_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'purchased_at',
+          type: 'S'
+        },
+        projectionType: 'ALL'
       }
     ],
     billingMode: 'PAY_PER_REQUEST'

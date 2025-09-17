@@ -519,7 +519,7 @@ export const manageSubscription = async ({
         destination_charge_id: subscription?.id
       }
       
-      await addPurchase(purchase)
+      await addPurchase(purchase, ourProduct)
     }
   }
   

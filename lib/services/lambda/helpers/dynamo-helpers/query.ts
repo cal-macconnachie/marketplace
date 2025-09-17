@@ -16,7 +16,8 @@ export async function query<T>({
   indexName,
   limit,
   scanIndexForward = true,
-  exclusiveStartKey
+  exclusiveStartKey,
+  sortOrder = 'DESC'
 }: {
   tableName: string
   keyConditionExpression: string
@@ -27,6 +28,7 @@ export async function query<T>({
   limit?: number
   scanIndexForward?: boolean
   exclusiveStartKey?: Record<string, unknown>
+  sortOrder?: 'ASC' | 'DESC'
 }): Promise<{ items: T[]; lastEvaluatedKey?: Record<string, unknown> }> {
   // Remove empty string values from expressionAttributeValues and exclusiveStartKey
   Object.keys(expressionAttributeValues).forEach((k) => {
@@ -49,7 +51,7 @@ export async function query<T>({
     FilterExpression: filterExpression,
     IndexName: indexName,
     Limit: limit,
-    ScanIndexForward: scanIndexForward,
+    ScanIndexForward: sortOrder === 'ASC' ? true : false,
     ExclusiveStartKey: exclusiveStartKey ? marshall(exclusiveStartKey) : undefined
   })
   const result = await dynamo.send(command)
@@ -67,6 +69,7 @@ export interface QueryAllInput {
   filterExpression?: string
   indexName?: string
   scanIndexForward?: boolean
+  sortOrder?: 'ASC' | 'DESC'
 }
 export async function queryAll<T>(params: QueryAllInput): Promise<T[]> {
   let items: T[] = []
