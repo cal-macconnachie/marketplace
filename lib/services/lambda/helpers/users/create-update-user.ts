@@ -23,7 +23,7 @@ export const createUpdateUser = async (userInput: Partial<User>) => {
   let user: User | undefined
   if (existingUser) {
     // create user is not allowed to update the organization id however it must be set
-    const userEmail = existingUser.email
+    const userId = existingUser.id
     delete userInput.email // remove email from updates to avoid overwriting
     if (userInput.organization_id) delete userInput.organization_id
     if (userInput.is_organization_admin) delete userInput.is_organization_admin
@@ -45,7 +45,7 @@ export const createUpdateUser = async (userInput: Partial<User>) => {
     if (Object.keys(userInput).length === 0) return existingUser
     user = await update<User>({
       tableName: process.env.USERS_TABLE!,
-      key: { email: userEmail },
+      key: { id: userId },
       updates: {
         ...userInput
       },
