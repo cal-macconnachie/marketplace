@@ -90,8 +90,30 @@ function getStateCode(stateName: string, countryCode: string): string {
       'wyoming': 'WY',
       'district of columbia': 'DC'
     }
-    
+
     const code = usStateMap[stateName.toLowerCase()]
+    if (code) return code
+  }
+
+  // Common Canadian province/territory name mappings
+  if (countryCode === 'CA') {
+    const caProvinceMap: Record<string, string> = {
+      'alberta': 'AB',
+      'british columbia': 'BC',
+      'manitoba': 'MB',
+      'new brunswick': 'NB',
+      'newfoundland and labrador': 'NL',
+      'northwest territories': 'NT',
+      'nova scotia': 'NS',
+      'nunavut': 'NU',
+      'ontario': 'ON',
+      'prince edward island': 'PE',
+      'quebec': 'QC',
+      'saskatchewan': 'SK',
+      'yukon': 'YT'
+    }
+
+    const code = caProvinceMap[stateName.toLowerCase()]
     if (code) return code
   }
   
@@ -101,21 +123,29 @@ function getStateCode(stateName: string, countryCode: string): string {
 
 // Convert address with full names to address with codes
 export function convertAddressToCodes(address: AddressInput): AddressCodes {
+  console.log('convertAddressToCodes input:', address)
+
   // Convert country name to ISO Alpha-2 code
   let countryCode: string
   try {
     countryCode = countryToAlpha2(address.country) || address.country
-  } catch {
+    console.log(`Country conversion: "${address.country}" -> "${countryCode}"`)
+  } catch (error) {
+    console.log(`Country conversion failed for "${address.country}":`, error)
     countryCode = address.country
   }
   
   // Convert state/province name to code
   const stateCode = getStateCode(address.state, countryCode)
-  
-  return {
+  console.log(`State conversion: "${address.state}" -> "${stateCode}" (country: ${countryCode})`)
+
+  const result = {
     country: countryCode,
     state: stateCode,
     city: address.city,
     postal_code: address.postal_code
   }
+
+  console.log('convertAddressToCodes result:', result)
+  return result
 }

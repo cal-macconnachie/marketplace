@@ -189,18 +189,24 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
       }
 
       // Convert country and state to proper codes
+      console.log('Original address:', body.user.address)
+      const convertedCodes = convertAddressToCodes({
+        country: body.user.address.country,
+        state: body.user.address.state,
+        city: body.user.address.city,
+        postal_code: body.user.address.postal_code
+      })
+      console.log('Converted codes:', convertedCodes)
+
       processedAddress = {
-        city: '',
-        postal_code: '',
-        ...convertAddressToCodes({
-          country: body.user.address.country,
-          state: body.user.address.state,
-          city: body.user.address.city,
-          postal_code: body.user.address.postal_code
-        }),
         line_1: body.user.address.line_1,
         line_2: body.user.address.line_2,
+        country: convertedCodes.country,
+        state: convertedCodes.state,
+        city: convertedCodes.city || body.user.address.city,
+        postal_code: convertedCodes.postal_code || body.user.address.postal_code
       }
+      console.log('Final processed address:', processedAddress)
 
       // Final validation after conversion
       if (!validateAddress(processedAddress)) {
