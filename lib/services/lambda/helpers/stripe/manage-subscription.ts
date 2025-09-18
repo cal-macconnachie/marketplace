@@ -51,13 +51,13 @@ export const manageSubscription = async ({
   const stripe = getStripeClient()
   
   // Group products by connected account and handle them separately
-  const productsByAccount = products.reduce((acc, product) => {
+  const productsByAccount = products.reduce((acc: Record<string, Product[]>, product) => {
     if (!acc[product.account_id]) {
       acc[product.account_id] = []
     }
     acc[product.account_id].push(product)
     return acc
-  }, {} as Record<string, Product[]>)
+  }, {})
   
   const accountIds = Object.keys(productsByAccount)
   
@@ -511,15 +511,99 @@ export const manageSubscription = async ({
     purchasedProducts.push(purchasedProduct)
   }
   
+  const distributeAmount = (total: number, quantity: number) => {
+    if (!quantity || quantity <= 0) {
+      return []
+    }
+    const sign = total >= 0 ? 1 : -1
+    const absoluteTotal = Math.abs(total)
+    const base = Math.floor(absoluteTotal / quantity)
+    let remainder = absoluteTotal - base * quantity
+    const distributed: number[] = []
+    for (let i = 0; i < quantity; i++) {
+      const extra = remainder > 0 ? 1 : 0
+      distributed.push(sign * (base + extra))
+      if (remainder > 0) {
+        remainder -= 1
+      }
+    }
+    return distributed
+  }
+
+  let invoiceAmountsByProduct = new Map<string, Array<{ baseAmount: number; taxAmount: number; totalAmount: number }>>()
+
+  if (productChanges.added.length > 0 && subscription) {
+    const refreshedSubscription = await stripe.subscriptions.retrieve(subscription.id, {
+      expand: ['latest_invoice']
+    })
+
+    subscription = refreshedSubscription
+
+    const latestInvoiceId = typeof refreshedSubscription.latest_invoice === 'string'
+      ? refreshedSubscription.latest_invoice
+      : refreshedSubscription.latest_invoice?.id
+
+    if (latestInvoiceId) {
+      const latestInvoice = await stripe.invoices.retrieve(latestInvoiceId, {
+        expand: ['lines.data.tax_amounts']
+      })
+
+      if (latestInvoice.lines?.data) {
+        const invoiceLineItems = latestInvoice.lines.data
+        invoiceAmountsByProduct = invoiceLineItems.reduce((acc, line) => {
+          const quantity = line.quantity ?? 1
+          if (!quantity) {
+            return acc
+          }
+
+          const priceDetails = line.pricing?.price_details
+
+          const priceId = priceDetails?.price
+          const productId = priceDetails?.product ?? (priceId ? productKeysByPrice[priceId]?.id : undefined)
+
+          if (!productId) {
+            return acc
+          }
+
+          const totalAmount = line.amount ?? 0
+          const taxAmount = (line.taxes ?? []).reduce((sum, tax) => sum + (tax?.amount ?? 0), 0)
+          const subtotal = totalAmount - taxAmount
+
+          const subtotalDistribution = distributeAmount(subtotal, quantity)
+          const taxDistribution = distributeAmount(taxAmount, quantity)
+          const totalDistribution = distributeAmount(totalAmount, quantity)
+
+          for (let i = 0; i < quantity; i++) {
+            const perItemAmounts = {
+              baseAmount: subtotalDistribution[i] ?? 0,
+              taxAmount: taxDistribution[i] ?? 0,
+              totalAmount: totalDistribution[i] ?? ((subtotalDistribution[i] ?? 0) + (taxDistribution[i] ?? 0))
+            }
+            const existing = acc.get(productId) ?? []
+            existing.push(perItemAmounts)
+            acc.set(productId, existing)
+          }
+
+          return acc
+        }, new Map<string, Array<{ baseAmount: number; taxAmount: number; totalAmount: number }>>())
+      }
+    }
+  }
+
   // Create purchase records for each added product
   for (const productKey of productChanges.added) {
     const stripeProduct = stripeProducts.find((p: Stripe.Product) => p.id === productKey.id)
     const ourProduct = products.find(p => p.id === productKey.id)
-    
+
     if (stripeProduct && ourProduct) {
-      const itemAmount = ourProduct.default_price_data?.unit_amount || 0
+      const priceAmount = (prices[productKey.id]?.amount ?? ourProduct.default_price_data?.unit_amount) || 0
+      const invoiceAmounts = invoiceAmountsByProduct.get(productKey.id)
+      const perItemInvoiceAmounts = invoiceAmounts?.shift()
+      const baseAmount = perItemInvoiceAmounts?.baseAmount ?? priceAmount
+      const taxAmount = perItemInvoiceAmounts?.taxAmount ?? 0
+      const totalAmount = perItemInvoiceAmounts?.totalAmount ?? baseAmount + taxAmount
       const platformFeeAmount = await calculatePlatformFee({
-        amount: itemAmount,
+        amount: baseAmount,
         organizationId: organization.id
       })
 
@@ -533,13 +617,15 @@ export const manageSubscription = async ({
         purchased_at: new Date().toISOString(),
         organization_id: organization.id,
         payment_method_id: paymentMethodId || '',
-        amount: itemAmount,
+        amount: totalAmount,
         currency: ourProduct.default_price_data?.currency || 'CAD',
         platform_fee_amount: platformFeeAmount,
         connected_account_id: connectedAccountId,
-        destination_charge_id: subscription?.id
+        destination_charge_id: subscription?.id,
+        base_amount: baseAmount,
+        tax_amount: taxAmount
       }
-      
+
       await addPurchase(purchase, ourProduct)
     }
   }
