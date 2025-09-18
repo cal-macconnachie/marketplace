@@ -6,6 +6,34 @@ import Stripe from 'stripe'
 import isEqual from 'lodash.isequal'
 import { getStripeClient } from '../helpers/stripe/stripe-client'
 import { update } from '../helpers/dynamo-helpers/update'
+import { convertAddressToCodes } from '../helpers/tax/address-code-converter'
+
+const toStripeAddress = (address?: User['address']): Stripe.AddressParam | undefined => {
+  if (!address) return undefined
+
+  const normalized = convertAddressToCodes({
+    country: address.country,
+    state: address.state,
+    city: address.city,
+    postal_code: address.postal_code
+  })
+
+  const state = normalized.state && normalized.state !== 'unknown'
+    ? normalized.state
+    : address.state
+  const country = normalized.country && normalized.country !== 'unknown'
+    ? normalized.country
+    : address.country
+
+  return {
+    line1: address.line_1,
+    line2: address.line_2 || undefined,
+    city: address.city,
+    state,
+    country,
+    postal_code: address.postal_code
+  }
+}
 
 export interface User {
   // basic fields
@@ -71,14 +99,7 @@ export const users = async (event: DynamoDBStreamEvent) => {
         name: newUser.name || `${newUser.given_name} ${newUser.family_name}`,
         email: newUser.email,
         phone: newUser.phone_number,
-        address: newUser.address ? {
-          line1: newUser.address.line_1,
-          line2: newUser.address.line_2,
-          state: newUser.address.state,
-          city: newUser.address.city,
-          country: newUser.address.country,
-          postal_code: newUser.address.postal_code
-        } : undefined,
+        address: toStripeAddress(newUser.address),
         metadata: {
           user_id: newUser.id,
           organization_id: newUser.organization_id
@@ -123,14 +144,7 @@ export const users = async (event: DynamoDBStreamEvent) => {
         name: newUser.name || `${newUser.given_name} ${newUser.family_name}`,
         email: newUser.email,
         phone: newUser.phone_number,
-        address: newUser.address ? {
-          line1: newUser.address.line_1,
-          line2: newUser.address.line_2,
-          state: newUser.address.state,
-          city: newUser.address.city,
-          country: newUser.address.country,
-          postal_code: newUser.address.postal_code
-        } : undefined,
+        address: toStripeAddress(newUser.address),
         metadata: {
           user_id: newUser.id,
           organization_id: newUser.organization_id

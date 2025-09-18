@@ -18,6 +18,7 @@ import {
 } from './calculate-platform-fee'
 import { get } from '../dynamo-helpers/get'
 import { generateLocationKey } from '../tax/tax-calculation-cache'
+import { convertAddressToCodes } from '../tax/address-code-converter'
 
 export const manageSubscription = async ({
   promotionCode,
@@ -402,11 +403,35 @@ export const manageSubscription = async ({
           account: connectedAccountId
         }
       }
-      
-      // Update customer with tax exemption info if needed
-      await stripe.customers.update(user.stripe_id, {
+
+      const customerUpdateParams: Stripe.CustomerUpdateParams = {
         tax_exempt: 'none' // Can be 'none', 'exempt', or 'reverse'
-      })
+      }
+
+      if (user.address) {
+        const normalized = convertAddressToCodes({
+          country: user.address.country,
+          state: user.address.state,
+          city: user.address.city,
+          postal_code: user.address.postal_code
+        })
+
+        customerUpdateParams.address = {
+          line1: user.address.line_1,
+          line2: user.address.line_2 || undefined,
+          city: user.address.city,
+          state: normalized.state && normalized.state !== 'unknown'
+            ? normalized.state
+            : user.address.state,
+          country: normalized.country && normalized.country !== 'unknown'
+            ? normalized.country
+            : user.address.country,
+          postal_code: user.address.postal_code
+        }
+      }
+
+      // Update customer with tax exemption info if needed
+      await stripe.customers.update(user.stripe_id, customerUpdateParams)
     }
     if (discounts.length > 0) {
       startSubscriptionParams.discounts = discounts
