@@ -149,6 +149,12 @@ export const manageSubscription = async ({
       : stripeProduct.default_price?.id
     return priceId ? stripe.prices.retrieve(priceId) : Promise.resolve(null)
   }))
+  const stripePriceMap = stripePrices.reduce<Record<string, Stripe.Price>>((acc, price) => {
+    if (price) {
+      acc[price.id] = price
+    }
+    return acc
+  }, {})
   const priceIds = stripeProducts.reduce((acc: { [productId: string]: string }, stripeProduct) => {
     const priceId = typeof stripeProduct.default_price === 'string'
       ? stripeProduct.default_price
@@ -545,7 +551,7 @@ export const manageSubscription = async ({
 
     if (latestInvoiceId) {
       const latestInvoice = await stripe.invoices.retrieve(latestInvoiceId, {
-        expand: ['lines.data.tax_amounts']
+        expand: ['lines.data.taxes']
       })
 
       if (latestInvoice.lines?.data) {
@@ -565,11 +571,19 @@ export const manageSubscription = async ({
             return acc
           }
 
-          const totalAmount = line.amount ?? 0
+          const lineAmount = line.amount ?? 0
           const taxAmount = (line.taxes ?? []).reduce((sum, tax) => sum + (tax?.amount ?? 0), 0)
-          const subtotal = totalAmount - taxAmount
+          const taxBehavior = priceId ? stripePriceMap[priceId]?.tax_behavior : undefined
+          const baseAmount = (() => {
+            if (taxBehavior === 'exclusive') {
+              return lineAmount
+            }
+            return lineAmount - taxAmount
+          })()
+          const normalizedBaseAmount = baseAmount < 0 ? 0 : baseAmount
+          const totalAmount = normalizedBaseAmount + taxAmount
 
-          const subtotalDistribution = distributeAmount(subtotal, quantity)
+          const subtotalDistribution = distributeAmount(normalizedBaseAmount, quantity)
           const taxDistribution = distributeAmount(taxAmount, quantity)
           const totalDistribution = distributeAmount(totalAmount, quantity)
 
