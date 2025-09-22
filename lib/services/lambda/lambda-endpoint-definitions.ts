@@ -525,7 +525,13 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       method: 'POST',
       auth: 'none',
       cors: true
-    }
+    },
+    iamPolicies: [
+      {
+        actions: ['events:PutEvents'],
+        resources: ['*']
+      }
+    ]
   },
   {
     name: 'addUserToOrganization',

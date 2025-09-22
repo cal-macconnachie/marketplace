@@ -163,6 +163,10 @@ export const purchaseProducts = async ({
         purchases.push(...manageSubscriptionResponse)
       }
     }
+  } catch (error) {
+    console.error(`Error managing subscription for user ${user.id}:`, error)
+  }
+  if (purchases.length > 0) {
     await putEvents({
       events: [
         {
@@ -195,7 +199,17 @@ export const purchaseProducts = async ({
         }
       ]
     })
-  } catch (error) {
-    console.error(`Error managing subscription for user ${user.id}:`, error)
+  }
+  // if purchases.length !== productsToPurchase.length we have some failures to purchase, we should check against the purchases to report failures
+  if (purchases.length !== productsToPurchase.length) {
+    let purchaseProds = purchases.map((p) => p.product_id)
+    for (const prod of productsToPurchase) {
+      const firstIndex = purchaseProds.indexOf(prod.id)
+      purchaseProds = purchaseProds.slice(firstIndex + 1, purchaseProds.length)
+    }
+    // any remaining products in purchaseProds were not purchased successfully
+    if (purchaseProds.length > 0) {
+      throw new Error(`Some products failed to purchase: ${purchaseProds.join(',')}`)
+    }
   }
 }
