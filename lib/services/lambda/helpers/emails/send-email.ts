@@ -63,15 +63,6 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
     subject: params.subject,
     body: params.body,
   }
-  console.log({
-    to: params.to,
-    cc: params.cc,
-    bcc: params.bcc,
-    reply_to: params.reply_to,
-    from: params.from,
-    subject: params.subject,
-    body: params.body.length
-  })
 
   const command = new InvokeCommand({
     FunctionName: targetArn!, // full ARN for cross-account invocation

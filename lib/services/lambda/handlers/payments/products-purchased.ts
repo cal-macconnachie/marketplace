@@ -20,7 +20,7 @@ export const productsPurchased = async (event: EventBridgeEvent<'products-purcha
   // 3) Prepare email fields
   const subject = `Your Receipt • ${ctx.summary.total_formatted}`
   const to = ctx.customer_email || ''
-  const from = 'Marketplace <marketplace-no-reply@csm.codes>'
+  const from = `${ctx.organization_name ?? 'Marketplace'} Receipt <marketplace-no-reply@csm.codes>`
 
   if (!to) {
     // If we don't have a customer email, skip sending but do not throw
