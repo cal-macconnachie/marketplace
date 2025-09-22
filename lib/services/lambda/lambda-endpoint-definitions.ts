@@ -359,7 +359,13 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       method: 'POST',
       auth: 'cognito',
       cors: true
-    }
+    },
+    iamPolicies: [
+      {
+        actions: ['events:PutEvents'],
+        resources: ['*']
+      }
+    ]
   },
   {
     name: 'productsPurchased',
