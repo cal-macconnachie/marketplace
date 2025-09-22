@@ -68,6 +68,7 @@ export interface User {
 
   // ADMIN
   is_internal_admin?: boolean
+  receipt_opt_out?: boolean
 }
 
 export const users = async (event: DynamoDBStreamEvent) => {

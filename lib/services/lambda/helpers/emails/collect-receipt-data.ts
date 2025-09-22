@@ -87,6 +87,7 @@ export interface ReceiptEmailContext {
     support_url?: string
     statement_descriptor?: string
   }>
+  opt_out?: boolean // If true, user has opted out of receipt emails
 }
 
 type ProductsPurchasedEventDetail = {
@@ -162,6 +163,23 @@ export const collectReceiptEmailData = async (
   ])
 
   if (!user) throw new Error(`User not found: ${userId}`)
+  if (user.receipt_opt_out) {
+    console.warn('User opted out of receipt emails; skipping')
+    return {
+      preheader: '',
+      receipt_number: '',
+      purchase_datetime: '',
+      currency: '',
+      customer_name: '',
+      customer_email: '',
+      line_items: [],
+      summary: {
+        subtotal_formatted: '',
+        total_formatted: ''
+      },
+      opt_out: true
+    }
+  }
 
   // Load purchases by key
   const purchases = (await Promise.all(
