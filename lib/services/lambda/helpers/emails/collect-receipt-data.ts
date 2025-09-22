@@ -113,12 +113,22 @@ export const collectReceiptEmailData = async (
   } = detail
 
   // Load core records
-  const [user, organization, paymentMethod] = await Promise.all([
-    get<User>({ tableName: process.env.USERS_TABLE!, key: { id: userId } }),
-    get<Organization>({ tableName: process.env.ORGANIZATIONS_TABLE!, key: { id: organizationId } }),
+  const [
+    user,
+    organization,
+    paymentMethod
+  ] = await Promise.all([
+    get<User>({
+      tableName: process.env.USERS_TABLE!, key: { id: userId } 
+    }),
+    get<Organization>({
+      tableName: process.env.ORGANIZATIONS_TABLE!, key: { id: organizationId } 
+    }),
     get<PaymentMethod>({
       tableName: process.env.PAYMENT_METHODS_TABLE!,
-      key: { user_id: userId, id: paymentMethodId }
+      key: {
+        user_id: userId, id: paymentMethodId 
+      }
     })
   ])
 
@@ -128,7 +138,11 @@ export const collectReceiptEmailData = async (
   // Load purchases by key
   const purchases = (await Promise.all(
     purchaseKeys.map((k) =>
-      get<Purchase>({ tableName: process.env.PURCHASES_TABLE!, key: { id: k.id, user_id: k.user_id } })
+      get<Purchase>({
+        tableName: process.env.PURCHASES_TABLE!, key: {
+          id: k.id, user_id: k.user_id 
+        } 
+      })
     )
   )).filter(Boolean) as Purchase[]
 
@@ -140,12 +154,18 @@ export const collectReceiptEmailData = async (
   // Build a lookup to fetch Product (for descriptions/interval) using event detail for group_id
   const productKeyById: Record<string, { id: string; group_id: string }> = {}
   for (const p of purchasedProducts) {
-    productKeyById[p.id] = { id: p.id, group_id: p.group_id }
+    productKeyById[p.id] = {
+      id: p.id, group_id: p.group_id 
+    }
   }
 
   const productRecords = (await Promise.all(
     Object.values(productKeyById).map((pp) =>
-      get<Product>({ tableName: process.env.PRODUCTS_TABLE!, key: { group_id: pp.group_id, id: pp.id } })
+      get<Product>({
+        tableName: process.env.PRODUCTS_TABLE!, key: {
+          group_id: pp.group_id, id: pp.id 
+        } 
+      })
     )
   )).filter(Boolean) as Product[]
 
@@ -233,7 +253,10 @@ export const collectReceiptEmailData = async (
     total_formatted: formatCurrency(totalMinor, currency)
   }
 
-  const customer_name = user.name || [user.given_name, user.family_name].filter(Boolean).join(" ") || "Customer"
+  const customer_name = user.name || [
+    user.given_name,
+    user.family_name
+  ].filter(Boolean).join(" ") || "Customer"
   const customer_email = user.email || ""
 
   const context: ReceiptEmailContext = {
