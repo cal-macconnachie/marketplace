@@ -1,8 +1,10 @@
 import { Organization } from "../../handlers/organizations"
 import { PaymentMethod } from "../../handlers/payment-methods"
 import { Product } from "../../handlers/products"
+import { Purchase } from '../../handlers/purchases'
 import { User } from "../../handlers/users"
 import { get } from "../dynamo-helpers/get"
+import { putEvents } from '../eventbridge/put-events'
 import { manageSubscription } from "./manage-subscription"
 import { createOneTimePayment } from "./one-time-payment"
 
@@ -124,9 +126,10 @@ export const purchaseProducts = async ({
   const productsToPurchase = productKeys.map((key) => productsHash[`${key.group_id}:${key.id}`]).filter(Boolean)
   const oneTimeProduct = productsToPurchase.filter((prod) => !Boolean(prod.default_price_data.recurring))
   const subscriptionProducts = productsToPurchase.filter((prod) => Boolean(prod.default_price_data.recurring))
+  const purchases: Purchase[] = []
   for (const product of oneTimeProduct) {
     try {
-      await createOneTimePayment({
+      const paymentResponse = await createOneTimePayment({
         promotionCode: promoCode,
         couponId: couponId,
         paymentMethodId: paymentMethod.id,
@@ -136,24 +139,62 @@ export const purchaseProducts = async ({
         taxCode,
         ipAddress
       })
+      if (paymentResponse.purchase) {
+        purchases.push(paymentResponse.purchase)
+      }
     } catch (error) {
       console.error(`Error creating one-time payment for product ${product.id}:`, error)
     }
   }
   try {
-    if (subscriptionProducts.length === 0) {
-      return
+    if (subscriptionProducts.length !== 0) {
+      const manageSubscriptionResponse = await manageSubscription({
+        promotionCode: promoCode,
+        couponId: couponId,
+        paymentMethodId: paymentMethod.id,
+        products: subscriptionProducts,
+        user,
+        organization,
+        remove: false,
+        taxCode,
+        ipAddress
+      })
+      if (manageSubscriptionResponse) {
+        purchases.push(...manageSubscriptionResponse)
+      }
     }
-    await manageSubscription({
-      promotionCode: promoCode,
-      couponId: couponId,
-      paymentMethodId: paymentMethod.id,
-      products: subscriptionProducts,
-      user,
-      organization,
-      remove: false,
-      taxCode,
-      ipAddress
+    await putEvents({
+      events: [
+        {
+          Source: 'purchase-products',
+          DetailType: 'products-purchased',
+          Detail: JSON.stringify({
+            userId: user.id,
+            organizationId: organization.id,
+            paymentMethodId: paymentMethod.id,
+            purchases: purchases.map(({
+              user_id, id 
+            }) => ({
+              user_id, id 
+            })),
+            products: Object.values(productsToPurchase.map((prod) => {
+              return {
+                group_id: prod.group_id,
+                id: prod.id
+              }
+            }).reduce((acc: {
+              [key: string]: { group_id: string; id: string; quantity: number }
+            }, curr) => {
+              acc[`${curr.group_id}:${curr.id}`] = {
+                group_id: curr.group_id,
+                id: curr.id,
+                quantity: (acc[`${curr.group_id}:${curr.id}`]?.quantity || 0) + 1
+              }
+              return acc
+            }, {}))
+          })
+        }
+      ]
     })
   } catch (error) {
     console.error(`Error managing subscription for user ${user.id}:`, error)

@@ -34,7 +34,7 @@ export const sharpBundlingConfig: BundlingOptions = {
  * Combines Sharp configuration with custom HTML bundling if needed.
  */
 export function createNativeBundlingConfig(options?: {
-  bundleHtml?: string[]
+  bundleTemplate?: string[]
   additionalNodeModules?: string[]
 }): BundlingOptions {
   const baseConfig = { ...sharpBundlingConfig }
@@ -46,15 +46,15 @@ export function createNativeBundlingConfig(options?: {
     ]
   }
   
-  if (options?.bundleHtml) {
+  if (options?.bundleTemplate) {
     const originalAfterBundling = baseConfig.commandHooks?.afterBundling || (() => [])
     baseConfig.commandHooks = {
       beforeBundling: baseConfig.commandHooks?.beforeBundling || (() => []),
       beforeInstall: baseConfig.commandHooks?.beforeInstall || (() => []),
       afterBundling: (inputDir: string, outputDir: string): string[] => {
         const originalCommands = originalAfterBundling(inputDir, outputDir)
-        const htmlCommands = options.bundleHtml!.map(htmlFile => 
-          `cp "${inputDir}/lib/services/lambda/handlers/${htmlFile}" "${outputDir}/" 2>/dev/null || true`
+        const htmlCommands = options.bundleTemplate!.map(htmlFile =>
+          `mkdir -p "${outputDir}/$(dirname ${htmlFile})" 2>/dev/null || true && cp "${inputDir}/lib/services/lambda/templates/${htmlFile}" "${outputDir}/${htmlFile}" 2>/dev/null || true`
         )
         return [
           ...originalCommands,

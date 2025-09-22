@@ -605,6 +605,7 @@ export const manageSubscription = async ({
   }
 
   // Create purchase records for each added product
+  const purchases: Purchase[] = []
   for (const productKey of productChanges.added) {
     const stripeProduct = stripeProducts.find((p: Stripe.Product) => p.id === productKey.id)
     const ourProduct = products.find(p => p.id === productKey.id)
@@ -640,8 +641,12 @@ export const manageSubscription = async ({
         tax_amount: taxAmount
       }
 
-      await addPurchase(purchase, ourProduct)
+      const finalPurchase = await addPurchase(purchase, ourProduct)
+      if (finalPurchase) {
+        purchases.push(finalPurchase)
+      }
     }
+    return purchases
   }
   
   // Update subscription IDs mapping

@@ -42,6 +42,9 @@ export class PaymentAuthBackendStack extends cdk.Stack {
       'STRIPE_EVENT_DESTINATION': `${envName === 'dev' ? process.env.STRIPE_EVENT_DESTINATION_DEV : process.env.STRIPE_EVENT_DESTINATION_PROD}`,
       'STRIPE_EVENT_DESTINATION_PLATFORM': `${envName === 'dev' ? process.env.STRIPE_EVENT_DESTINATION_PLATFORM_DEV : process.env.STRIPE_EVENT_DESTINATION_PLATFORM_PROD}`,
       'IMAGES_BUCKET_NAME': s3Stack.buckets['dot-images-product-store-direct'].bucketName,
+      'EMAIL_AWS_REGION': process.env.EMAIL_AWS_REGION ?? '',
+      'EMAIL_LAMBDA_ARN': process.env.EMAIL_LAMBDA_ARN ?? '',
+      'EMAIL_ASSUME_ROLE_ARN': process.env.EMAIL_ASSUME_ROLE_ARN ?? ''
     }
     const lambdaStack = new LambdaStack(this, `LambdaStack-${envName}`, {
       envName,

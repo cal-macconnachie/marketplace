@@ -349,7 +349,7 @@ export const createOneTimePayment = async ({
       purchased_products: (organization.purchased_products ?? []).concat([purchasedProduct])
     }
   })
-  await addPurchase({
+  const purchase = await addPurchase({
     id: v4(),
     user_id: user.id,
     product_id: product.id,
@@ -371,6 +371,7 @@ export const createOneTimePayment = async ({
     success: true,
     message: 'One-time payment successful',
     paymentIntentId: confirmedPaymentIntent.id,
-    purchasedProduct
+    purchasedProduct,
+    purchase
   }
 }

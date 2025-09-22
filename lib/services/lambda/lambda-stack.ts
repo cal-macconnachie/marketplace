@@ -131,15 +131,18 @@ export class LambdaStack extends cdk.Stack {
           }
         }
       }
-      // Prepare bundling options for HTML files if specified
-      const bundlingOptions = def.bundleHtml ? {
+      // Prepare bundling options for template files if specified (supports nested directories under templates/)
+      const bundlingOptions = def.bundleTemplate ? {
         commandHooks: {
           beforeBundling: () => [],
           beforeInstall: () => [],
           afterBundling: (inputDir: string, outputDir: string): string[] => {
-            const copyCommands = def.bundleHtml!.map(htmlFile => 
-              `cp "${path.join(inputDir, 'lib/services/lambda/handlers', htmlFile)}" "${outputDir}/" 2>/dev/null || true`
-            )
+            const copyCommands = def.bundleTemplate!.map(file => {
+              const src = path.join(inputDir, 'lib/services/lambda/templates', file)
+              const destDir = path.join(outputDir, path.dirname(file))
+              const dest = path.join(outputDir, file)
+              return `mkdir -p "${destDir}" 2>/dev/null || true && cp "${src}" "${dest}" 2>/dev/null || true`
+            })
             return copyCommands
           }
         }
@@ -150,7 +153,7 @@ export class LambdaStack extends cdk.Stack {
       if (def.requiresNativeDeps) {
         // Use native bundling configuration for functions that need it
         const nativeBundling = createNativeBundlingConfig({ 
-          bundleHtml: def.bundleHtml 
+          bundleTemplate: def.bundleTemplate 
         })
         fn = createNodejsFunctionWithNativeDeps(this, `${def.name}-${envName}`, {
           entry: path.join(__dirname, 'handlers', `${def.handler.split('.')[0]}.ts`),

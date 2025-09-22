@@ -47,10 +47,11 @@ export interface LambdaEndpointDefinition {
   }
   streaming?: boolean // Enable Lambda response streaming for this endpoint
   /**
-   * If set, these HTML files will be bundled with the Lambda function and available at runtime.
-   * Paths should be relative to the handlers directory.
+   * If set, these template files will be bundled with the Lambda function and available at runtime.
+   * Paths are relative to lib/services/lambda/templates (supports nested directories).
+   * They will be copied into the Lambda bundle preserving the relative directory structure.
    */
-  bundleHtml?: string[] // List of HTML files to bundle with this specific Lambda
+  bundleTemplate?: string[] // List of template files to bundle with this specific Lambda
   /**
    * If set to true, uses native dependency bundling (required for packages like Sharp, Canvas, etc.)
    * This enables proper Linux binary compilation for Lambda runtime.
@@ -359,6 +360,28 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       auth: 'cognito',
       cors: true
     }
+  },
+  {
+    name: 'productsPurchased',
+    handler: 'payments/products-purchased.productsPurchased',
+    description: 'Handle products purchased event and send receipt',
+    eventBridgeEvent: {
+      detailType: 'products-purchased',
+      enabled: true
+    },
+    // Bare filename -> templates directory
+    bundleTemplate: ['receipt.hbs'],
+    environment: [
+      'EMAIL_LAMBDA_ARN',
+      'EMAIL_AWS_REGION',
+      'EMAIL_ASSUME_ROLE_ARN'
+    ],
+    iamPolicies: [
+      {
+        actions: ['sts:AssumeRole'],
+        resources: ['arn:aws:iam::472312425428:role/cross-dev-lambdaInvokeFrom-629891807011']
+      }
+    ]
   },
   {
     name: 'purchases',

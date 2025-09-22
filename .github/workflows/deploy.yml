@@ -43,6 +43,9 @@ jobs:
       STRIPE_EVENT_DESTINATION_PLATFORM_PROD: ${{ secrets.STRIPE_EVENT_DESTINATION_PLATFORM_PROD }}
       STRIPE_SECRET_KEY_DEV: ${{ secrets.STRIPE_SECRET_KEY_DEV }}
       STRIPE_SECRET_KEY_PROD: ${{ secrets.STRIPE_SECRET_KEY_PROD }}
+      EMAIL_AWS_REGION: ${{ secrets.EMAIL_AWS_REGION }}
+      EMAIL_LAMBDA_ARN: ${{ secrets.EMAIL_LAMBDA_ARN }}
+      EMAIL_ASSUME_ROLE_ARN: ${{ secrets.EMAIL_ASSUME_ROLE_ARN }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -94,6 +97,9 @@ jobs:
       STRIPE_EVENT_DESTINATION_PLATFORM_PROD: ${{ secrets.STRIPE_EVENT_DESTINATION_PLATFORM_PROD }}
       STRIPE_SECRET_KEY_DEV: ${{ secrets.STRIPE_SECRET_KEY_DEV }}
       STRIPE_SECRET_KEY_PROD: ${{ secrets.STRIPE_SECRET_KEY_PROD }}
+      EMAIL_AWS_REGION: ${{ secrets.EMAIL_AWS_REGION }}
+      EMAIL_LAMBDA_ARN: ${{ secrets.EMAIL_LAMBDA_ARN }}
+      EMAIL_ASSUME_ROLE_ARN: ${{ secrets.EMAIL_ASSUME_ROLE_ARN }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
