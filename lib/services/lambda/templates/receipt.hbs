@@ -93,9 +93,9 @@
                   <tr>
                     <td class="brand">
                       {{#if organization_logo_url}}
-                        <img src="{{organization_logo_url}}" alt="{{organization_name}}" height="32" style="max-height:32px;vertical-align:middle;">
+                        <img src="{{organization_logo_url}}" alt="{{header_brand}}" height="32" style="max-height:32px;vertical-align:middle;">
                       {{else}}
-                        {{organization_name}}
+                        {{header_brand}}
                       {{/if}}
                     </td>
                     <td class="text-right muted small">
@@ -121,44 +121,126 @@
             </tr>
 
             <!-- Line Items -->
-            <tr>
-              <td class="px-24">
-                <table role="presentation" class="table items-table">
-                  <thead>
-                    <tr>
-                      <th align="left">Item</th>
-                      <th class="qty" align="right">Qty</th>
-                      <th class="price" align="right">Price</th>
-                      <th class="amount" align="right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {{#each line_items}}
+            {{#if is_multi_seller}}
+              {{#each seller_groups}}
+                <tr>
+                  <td class="px-24 pt-8 pb-8">
+                    <div class="small" style="font-weight:600;">Seller: {{this.seller_name}}{{#unless this.seller_name}}{{this.seller_id}}{{/unless}}</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="px-24">
+                    <table role="presentation" class="table items-table">
+                      <thead>
+                        <tr>
+                          <th align="left">Item</th>
+                          <th class="qty" align="right">Qty</th>
+                          <th class="price" align="right">Price</th>
+                          <th class="amount" align="right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {{#each this.items}}
+                          <tr>
+                            <td>
+                              <div style="font-weight:600;">{{this.product_name}}</div>
+                              {{#if this.product_description}}
+                                <div class="muted small" style="margin-top:2px;">{{this.product_description}}</div>
+                              {{/if}}
+                              <div class="muted small" style="margin-top:4px;">
+                                {{#if this.product_id}}<span>ID: {{this.product_id}}</span>{{/if}}
+                                {{#if this.is_subscription}}
+                                  <span class="badge">Subscription{{#if this.interval_text}} • {{this.interval_text}}{{/if}}</span>
+                                {{/if}}
+                              </div>
+                              <div class="mobile-only muted small" style="margin-top:6px;">
+                                {{#if this.quantity}}Qty {{this.quantity}}{{/if}}{{#if this.unit_price_formatted}}{{#if this.quantity}} • {{/if}}{{this.unit_price_formatted}}{{/if}}
+                              </div>
+                            </td>
+                            <td class="qty mobile-hidden" align="right">{{this.quantity}}</td>
+                            <td class="price mobile-hidden" align="right">{{this.unit_price_formatted}}</td>
+                            <td class="amount" align="right">{{this.subtotal_formatted}}</td>
+                          </tr>
+                        {{/each}}
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+                <!-- Seller totals -->
+                <tr>
+                  <td class="px-24 py-16">
+                    <table role="presentation" class="table totals">
+                      <tbody>
+                        <tr>
+                          <td class="label">Subtotal</td>
+                          <td class="value" align="right">{{subtotal_formatted}}</td>
+                        </tr>
+                        {{#if fees_formatted}}
+                        <tr>
+                          <td class="label">Fees</td>
+                          <td class="value" align="right">{{fees_formatted}}</td>
+                        </tr>
+                        {{/if}}
+                        {{#if tax_formatted}}
+                        <tr>
+                          <td class="label">Tax</td>
+                          <td class="value" align="right">{{tax_formatted}}</td>
+                        </tr>
+                        {{/if}}
+                        <tr>
+                          <td class="label grand">Total</td>
+                          <td class="value grand" align="right">{{total_formatted}}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <div class="muted small" style="margin-top:6px;">
+                      {{#if statement_descriptor}}<div>Descriptor: {{statement_descriptor}}</div>{{/if}}
+                      {{#if support_url}}<div>Support: <a href="{{support_url}}" style="color:#4f46e5;">Contact</a></div>{{/if}}
+                    </div>
+                  </td>
+                </tr>
+              {{/each}}
+            {{else}}
+              <tr>
+                <td class="px-24">
+                  <table role="presentation" class="table items-table">
+                    <thead>
                       <tr>
-                        <td>
-                          <div style="font-weight:600;">{{this.product_name}}</div>
-                          {{#if this.product_description}}
-                            <div class="muted small" style="margin-top:2px;">{{this.product_description}}</div>
-                          {{/if}}
-                          <div class="muted small" style="margin-top:4px;">
-                            {{#if this.product_id}}<span>ID: {{this.product_id}}</span>{{/if}}
-                            {{#if this.is_subscription}}
-                              <span class="badge">Subscription{{#if this.interval_text}} • {{this.interval_text}}{{/if}}</span>
-                            {{/if}}
-                          </div>
-                          <div class="mobile-only muted small" style="margin-top:6px;">
-                            {{#if this.quantity}}Qty {{this.quantity}}{{/if}}{{#if this.unit_price_formatted}}{{#if this.quantity}} • {{/if}}{{this.unit_price_formatted}}{{/if}}
-                          </div>
-                        </td>
-                        <td class="qty mobile-hidden" align="right">{{this.quantity}}</td>
-                        <td class="price mobile-hidden" align="right">{{this.unit_price_formatted}}</td>
-                        <td class="amount" align="right">{{this.subtotal_formatted}}</td>
+                        <th align="left">Item</th>
+                        <th class="qty" align="right">Qty</th>
+                        <th class="price" align="right">Price</th>
+                        <th class="amount" align="right">Amount</th>
                       </tr>
-                    {{/each}}
-                  </tbody>
-                </table>
-              </td>
-            </tr>
+                    </thead>
+                    <tbody>
+                      {{#each line_items}}
+                        <tr>
+                          <td>
+                            <div style="font-weight:600;">{{this.product_name}}</div>
+                            {{#if this.product_description}}
+                              <div class="muted small" style="margin-top:2px;">{{this.product_description}}</div>
+                            {{/if}}
+                            <div class="muted small" style="margin-top:4px;">
+                              {{#if this.product_id}}<span>ID: {{this.product_id}}</span>{{/if}}
+                              {{#if this.is_subscription}}
+                                <span class="badge">Subscription{{#if this.interval_text}} • {{this.interval_text}}{{/if}}</span>
+                              {{/if}}
+                              {{#if this.seller_name}}<span class="badge">Seller: {{this.seller_name}}</span>{{/if}}
+                            </div>
+                            <div class="mobile-only muted small" style="margin-top:6px;">
+                              {{#if this.quantity}}Qty {{this.quantity}}{{/if}}{{#if this.unit_price_formatted}}{{#if this.quantity}} • {{/if}}{{this.unit_price_formatted}}{{/if}}
+                            </div>
+                          </td>
+                          <td class="qty mobile-hidden" align="right">{{this.quantity}}</td>
+                          <td class="price mobile-hidden" align="right">{{this.unit_price_formatted}}</td>
+                          <td class="amount" align="right">{{this.subtotal_formatted}}</td>
+                        </tr>
+                      {{/each}}
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+            {{/if}}
 
             <!-- Totals -->
             <tr>
@@ -220,16 +302,32 @@
                       {{#if customer_email}}<div class="small muted">{{customer_email}}</div>{{/if}}
                     </td>
                     <td valign="top" width="50%" class="text-right">
-                      <div class="small" style="font-weight:600;">Seller</div>
-                      <div class="small" style="margin-top:4px;">{{organization_name}}</div>
-                      {{#if organization_email}}<div class="small muted">{{organization_email}}</div>{{/if}}
-                      {{#if organization_address_line_1}}
-                        <div class="small muted" style="margin-top:4px;">
-                          <span class="address-line">{{organization_address_line_1}}</span>
-                          {{#if organization_address_line_2}}<span class="address-line">{{organization_address_line_2}}</span>{{/if}}
-                          <span class="address-line">{{organization_city}}, {{organization_state}} {{organization_postal_code}}</span>
-                          <span class="address-line">{{organization_country}}</span>
-                        </div>
+                      {{#if is_multi_seller}}
+                        <div class="small" style="font-weight:600;">Sellers</div>
+                        {{#each sellers}}
+                          <div class="small" style="margin-top:8px;">{{this.name}}</div>
+                          {{#if this.email}}<div class="small muted">{{this.email}}</div>{{/if}}
+                          {{#if this.address_line_1}}
+                            <div class="small muted" style="margin-top:2px;">
+                              <span class="address-line">{{this.address_line_1}}</span>
+                              {{#if this.address_line_2}}<span class="address-line">{{this.address_line_2}}</span>{{/if}}
+                              <span class="address-line">{{this.city}}, {{this.state}} {{this.postal_code}}</span>
+                              <span class="address-line">{{this.country}}</span>
+                            </div>
+                          {{/if}}
+                        {{/each}}
+                      {{else}}
+                        <div class="small" style="font-weight:600;">Seller</div>
+                        <div class="small" style="margin-top:4px;">{{organization_name}}</div>
+                        {{#if organization_email}}<div class="small muted">{{organization_email}}</div>{{/if}}
+                        {{#if organization_address_line_1}}
+                          <div class="small muted" style="margin-top:4px;">
+                            <span class="address-line">{{organization_address_line_1}}</span>
+                            {{#if organization_address_line_2}}<span class="address-line">{{organization_address_line_2}}</span>{{/if}}
+                            <span class="address-line">{{organization_city}}, {{organization_state}} {{organization_postal_code}}</span>
+                            <span class="address-line">{{organization_country}}</span>
+                          </div>
+                        {{/if}}
                       {{/if}}
                     </td>
                   </tr>
@@ -254,7 +352,7 @@
                   Need help? Reply to this email.
                 {{/if}}
                 <br/>
-                {{organization_name}} • {{#if organization_email}}{{organization_email}}{{/if}}
+                {{footer_brand}}
               </td>
             </tr>
           </table>

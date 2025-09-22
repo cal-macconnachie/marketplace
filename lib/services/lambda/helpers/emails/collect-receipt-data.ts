@@ -14,6 +14,8 @@ export interface ReceiptLineItem {
   subtotal_formatted: string
   is_subscription?: boolean
   interval_text?: string
+  seller_id?: string
+  seller_name?: string
 }
 
 export interface ReceiptSummary {
@@ -29,9 +31,12 @@ export interface ReceiptEmailContext {
   receipt_number: string
   purchase_datetime: string
   currency: string
+  header_brand?: string
+  footer_brand?: string
+  is_multi_seller?: boolean
 
-  organization_name: string
-  organization_email?: string
+  organization_name?: string // kept for backward compatibility when single seller
+  organization_email?: string // kept for backward compatibility when single seller
   organization_logo_url?: string
   organization_address_line_1?: string
   organization_address_line_2?: string
@@ -52,11 +57,40 @@ export interface ReceiptEmailContext {
   line_items: ReceiptLineItem[]
   summary: ReceiptSummary
   notes?: string
+  sellers?: Array<{
+    id: string
+    name?: string
+    email?: string
+    address_line_1?: string
+    address_line_2?: string
+    city?: string
+    state?: string
+    postal_code?: string
+    country?: string
+  }>
+  seller_groups?: Array<{
+    seller_id: string
+    seller_name?: string
+    seller_email?: string
+    seller_phone?: string
+    address_line_1?: string
+    address_line_2?: string
+    city?: string
+    state?: string
+    postal_code?: string
+    country?: string
+    items: ReceiptLineItem[]
+    subtotal_formatted: string
+    tax_formatted?: string
+    fees_formatted?: string
+    total_formatted: string
+    support_url?: string
+    statement_descriptor?: string
+  }>
 }
 
 type ProductsPurchasedEventDetail = {
   userId: string
-  organizationId: string
   paymentMethodId: string
   purchases: { user_id: string; id: string }[]
   products: { group_id: string; id: string; quantity: number }[]
@@ -106,7 +140,6 @@ export const collectReceiptEmailData = async (
 ): Promise<ReceiptEmailContext> => {
   const {
     userId,
-    organizationId,
     paymentMethodId,
     purchases: purchaseKeys,
     products: purchasedProducts
@@ -115,14 +148,10 @@ export const collectReceiptEmailData = async (
   // Load core records
   const [
     user,
-    organization,
     paymentMethod
   ] = await Promise.all([
     get<User>({
       tableName: process.env.USERS_TABLE!, key: { id: userId } 
-    }),
-    get<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!, key: { id: organizationId } 
     }),
     get<PaymentMethod>({
       tableName: process.env.PAYMENT_METHODS_TABLE!,
@@ -133,7 +162,6 @@ export const collectReceiptEmailData = async (
   ])
 
   if (!user) throw new Error(`User not found: ${userId}`)
-  if (!organization) throw new Error(`Organization not found: ${organizationId}`)
 
   // Load purchases by key
   const purchases = (await Promise.all(
@@ -168,9 +196,21 @@ export const collectReceiptEmailData = async (
       })
     )
   )).filter(Boolean) as Product[]
+  const organizationIds = Array.from(new Set(productRecords.map((p) => p.organization_id)))
+  const organizations = (await Promise.all(
+    organizationIds.map((id) =>
+      get<Organization>({
+        tableName: process.env.ORGANIZATIONS_TABLE!, key: { id }
+      })
+    )
+  )).filter(Boolean) as Organization[]
 
   const productById: Record<string, Product> = {}
   for (const p of productRecords) productById[p.id] = p
+
+  // Build organizations lookup
+  const orgById: Record<string, Organization> = {}
+  for (const org of organizations) orgById[org.id] = org
 
   // Group purchases by product_id
   const purchasesByProductId: Record<string, Purchase[]> = {}
@@ -181,7 +221,7 @@ export const collectReceiptEmailData = async (
   }
 
   // Derive currency
-  const currency = purchases[0]?.currency || organization.currency || "USD"
+  const currency = purchases[0]?.currency
 
   // Compute line items
   const line_items: ReceiptLineItem[] = []
@@ -191,6 +231,9 @@ export const collectReceiptEmailData = async (
   let totalMinor = 0
 
   const allProductIds = Object.keys(purchasesByProductId)
+
+  // For per-seller grouping
+  const groupTotals: Record<string, { base: number; tax: number; fees: number; total: number; items: ReceiptLineItem[]; descriptors: Set<string> }> = {}
 
   for (const productId of allProductIds) {
     const qty = purchasesByProductId[productId]?.length || 1
@@ -221,10 +264,12 @@ export const collectReceiptEmailData = async (
     const desc = productById[productId]?.description
     const isSub = relatedPurchases.some((p) => p.is_subscription) || Boolean(productById[productId]?.default_price_data?.recurring)
     const interval = intervalTextFromProduct(productById[productId])
+    const sellerId = productById[productId]?.organization_id
+    const sellerName = sellerId ? orgById[sellerId]?.name : undefined
 
     const unitMinor = qty > 0 ? Math.round(productBaseMinor / qty) : 0
 
-    line_items.push({
+    const item: ReceiptLineItem = {
       product_id: productId,
       product_name: name,
       product_description: desc,
@@ -232,8 +277,27 @@ export const collectReceiptEmailData = async (
       unit_price_formatted: formatCurrency(unitMinor, currency),
       subtotal_formatted: formatCurrency(productBaseMinor, currency),
       is_subscription: isSub || undefined,
-      interval_text: interval
-    })
+      interval_text: interval,
+      seller_id: sellerId,
+      seller_name: sellerName
+    }
+
+    line_items.push(item)
+
+    // Accumulate per-seller totals and items
+    const gid = sellerId || 'unknown'
+    if (!groupTotals[gid]) {
+      groupTotals[gid] = {
+        base: 0, tax: 0, fees: 0, total: 0, items: [], descriptors: new Set<string>() 
+      }
+    }
+    groupTotals[gid].base += productBaseMinor
+    groupTotals[gid].tax += productTaxMinor
+    groupTotals[gid].fees += productFeesMinor
+    groupTotals[gid].total += productTotalMinor
+    groupTotals[gid].items.push(item)
+    const descriptor = productById[productId]?.statement_descriptor
+    if (descriptor) groupTotals[gid].descriptors.add(descriptor)
   }
 
   // Receipt metadata
@@ -259,21 +323,80 @@ export const collectReceiptEmailData = async (
   ].filter(Boolean).join(" ") || "Customer"
   const customer_email = user.email || ""
 
+  // Sellers list (unique per organization in this receipt)
+  const sellers: ReceiptEmailContext['sellers'] = organizations.map((org) => ({
+    id: org.id,
+    name: org.name,
+    email: org.email,
+    address_line_1: org.address?.line_1,
+    address_line_2: org.address?.line_2,
+    city: org.address?.city,
+    state: org.address?.state,
+    postal_code: org.address?.postal_code,
+    country: org.address?.country
+  }))
+
+  const isMultiSeller = sellers.length > 1
+  const headerBrand = isMultiSeller
+    ? (process.env.MARKETPLACE_BRAND || 'CSM Marketplace')
+    : (sellers[0]?.name || 'Seller')
+
+  // Build seller_groups if multi-seller
+  const seller_groups = isMultiSeller
+    ? Object.entries(groupTotals).map(([
+      sid,
+      t
+    ]) => {
+      const org = sid !== 'unknown' ? orgById[sid] : undefined
+      const descriptors = Array.from(t.descriptors)
+      const statement_descriptor = descriptors.length === 1 ? descriptors[0] : undefined
+      const support_url = org?.email
+        ? `mailto:${org.email}`
+        : (org?.phone ? `tel:${org.phone}` : undefined)
+      return {
+        seller_id: sid,
+        seller_name: org?.name,
+        seller_email: org?.email,
+        seller_phone: org?.phone,
+        address_line_1: org?.address?.line_1,
+        address_line_2: org?.address?.line_2,
+        city: org?.address?.city,
+        state: org?.address?.state,
+        postal_code: org?.address?.postal_code,
+        country: org?.address?.country,
+        items: t.items.sort((a, b) => a.product_name.localeCompare(b.product_name)),
+        subtotal_formatted: formatCurrency(t.base, currency),
+        tax_formatted: t.tax ? formatCurrency(t.tax, currency) : undefined,
+        fees_formatted: t.fees ? formatCurrency(t.fees, currency) : undefined,
+        total_formatted: formatCurrency(t.total, currency),
+        support_url,
+        statement_descriptor
+      }
+    })
+    : undefined
+
   const context: ReceiptEmailContext = {
     preheader: `Your receipt for ${line_items.length} item(s) – ${summary.total_formatted}`,
     receipt_number,
     purchase_datetime,
     currency,
+    header_brand: headerBrand,
+    footer_brand: headerBrand,
+    is_multi_seller: isMultiSeller,
 
-    organization_name: organization.name || "",
-    organization_email: organization.email,
-    // organization_logo_url: optional, not stored in Organization; leave undefined
-    organization_address_line_1: organization.address?.line_1,
-    organization_address_line_2: organization.address?.line_2,
-    organization_city: organization.address?.city,
-    organization_state: organization.address?.state,
-    organization_postal_code: organization.address?.postal_code,
-    organization_country: organization.address?.country,
+    // For single-seller receipts, populate legacy organization_* fields for template compatibility
+    ...(isMultiSeller
+      ? {}
+      : {
+        organization_name: sellers[0]?.name,
+        organization_email: sellers[0]?.email,
+        organization_address_line_1: sellers[0]?.address_line_1,
+        organization_address_line_2: sellers[0]?.address_line_2,
+        organization_city: sellers[0]?.city,
+        organization_state: sellers[0]?.state,
+        organization_postal_code: sellers[0]?.postal_code,
+        organization_country: sellers[0]?.country
+      }),
 
     customer_name,
     customer_email,
@@ -283,8 +406,11 @@ export const collectReceiptEmailData = async (
     payment_method_expiry_month: paymentMethod?.expiry_month,
     payment_method_expiry_year: paymentMethod?.expiry_year,
 
-    line_items: line_items.sort((a, b) => a.product_name.localeCompare(b.product_name)),
-    summary
+    line_items: line_items
+      .sort((a, b) => a.product_name.localeCompare(b.product_name)),
+    summary,
+    sellers,
+    seller_groups
   }
 
   return context

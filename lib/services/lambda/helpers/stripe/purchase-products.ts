@@ -170,7 +170,6 @@ export const purchaseProducts = async ({
           DetailType: 'products-purchased',
           Detail: JSON.stringify({
             userId: user.id,
-            organizationId: organization.id,
             paymentMethodId: paymentMethod.id,
             purchases: purchases.map(({
               user_id, id 
