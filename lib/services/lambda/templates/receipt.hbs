@@ -47,6 +47,11 @@
 
       .badge { display: inline-block; font-size: 11px; color: #374151; background: #f3f4f6; border-radius: 999px; padding: 2px 8px; margin-left: 6px; }
 
+      /* Responsive helpers */
+      .mobile-only { display: none; }
+      .mobile-hidden { display: table-cell; }
+      .address-line { display: block; }
+
       @media (prefers-color-scheme: dark) {
         .wrapper { background: #0b0f15 !important; }
         .container { background: #111827 !important; }
@@ -59,6 +64,15 @@
       }
       @media screen and (max-width: 600px) {
         .px-24 { padding-left: 16px !important; padding-right: 16px !important; }
+        /* Stack two-column sections on mobile */
+        .stack-on-mobile { display: block !important; width: 100% !important; }
+        .stack-on-mobile td, .stack-on-mobile th { display: block !important; width: 100% !important; text-align: left !important; }
+        .text-right { text-align: left !important; }
+        /* Items table: hide Qty & Price; show inline meta */
+        .items-table .qty,
+        .items-table .price { display: none !important; }
+        .mobile-only { display: block !important; }
+        .mobile-hidden { display: none !important; }
       }
     </style>
   </head>
@@ -109,7 +123,7 @@
             <!-- Line Items -->
             <tr>
               <td class="px-24">
-                <table role="presentation" class="table">
+                <table role="presentation" class="table items-table">
                   <thead>
                     <tr>
                       <th align="left">Item</th>
@@ -132,9 +146,12 @@
                               <span class="badge">Subscription{{#if this.interval_text}} • {{this.interval_text}}{{/if}}</span>
                             {{/if}}
                           </div>
+                          <div class="mobile-only muted small" style="margin-top:6px;">
+                            {{#if this.quantity}}Qty {{this.quantity}}{{/if}}{{#if this.unit_price_formatted}}{{#if this.quantity}} • {{/if}}{{this.unit_price_formatted}}{{/if}}
+                          </div>
                         </td>
-                        <td class="qty" align="right">{{this.quantity}}</td>
-                        <td class="price" align="right">{{this.unit_price_formatted}}</td>
+                        <td class="qty mobile-hidden" align="right">{{this.quantity}}</td>
+                        <td class="price mobile-hidden" align="right">{{this.unit_price_formatted}}</td>
                         <td class="amount" align="right">{{this.subtotal_formatted}}</td>
                       </tr>
                     {{/each}}
@@ -158,12 +175,6 @@
                       <td class="value" align="right">-{{summary.discounts_formatted}}</td>
                     </tr>
                     {{/if}}
-                    {{#if summary.fees_formatted}}
-                    <tr>
-                      <td class="label">Fees</td>
-                      <td class="value" align="right">{{summary.fees_formatted}}</td>
-                    </tr>
-                    {{/if}}
                     {{#if summary.tax_formatted}}
                     <tr>
                       <td class="label">Tax</td>
@@ -182,7 +193,7 @@
             <!-- Payment Method -->
             <tr>
               <td class="px-24 pb-16">
-                <table role="presentation" width="100%">
+                <table role="presentation" width="100%" class="stack-on-mobile">
                   <tr>
                     <td class="muted small">
                       {{#if payment_method_brand}}Paid with {{payment_method_brand}}{{/if}}{{#if payment_method_last4}} •••• {{payment_method_last4}}{{/if}}
@@ -201,7 +212,7 @@
             <!-- Customer & Org Details -->
             <tr>
               <td class="px-24 py-16">
-                <table role="presentation" width="100%">
+                <table role="presentation" width="100%" class="stack-on-mobile">
                   <tr>
                     <td valign="top" width="50%">
                       <div class="small" style="font-weight:600;">Billed To</div>
@@ -214,9 +225,10 @@
                       {{#if organization_email}}<div class="small muted">{{organization_email}}</div>{{/if}}
                       {{#if organization_address_line_1}}
                         <div class="small muted" style="margin-top:4px;">
-                          {{organization_address_line_1}}{{#if organization_address_line_2}}<br />{{organization_address_line_2}}{{/if}}<br />
-                          {{organization_city}}, {{organization_state}} {{organization_postal_code}}<br />
-                          {{organization_country}}
+                          <span class="address-line">{{organization_address_line_1}}</span>
+                          {{#if organization_address_line_2}}<span class="address-line">{{organization_address_line_2}}</span>{{/if}}
+                          <span class="address-line">{{organization_city}}, {{organization_state}} {{organization_postal_code}}</span>
+                          <span class="address-line">{{organization_country}}</span>
                         </div>
                       {{/if}}
                     </td>
