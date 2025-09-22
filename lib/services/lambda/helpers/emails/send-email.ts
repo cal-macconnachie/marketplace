@@ -67,7 +67,10 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
   const command = new InvokeCommand({
     FunctionName: targetArn!, // full ARN for cross-account invocation
     InvocationType: 'Event', // async fire-and-forget
-    Payload: Buffer.from(JSON.stringify({ body: payload })),
+    // Imitate a minimal API Gateway event: body must be a string
+    Payload: Buffer.from(
+      JSON.stringify({ body: JSON.stringify(payload) })
+    ),
   })
 
   const res = await client.send(command)
