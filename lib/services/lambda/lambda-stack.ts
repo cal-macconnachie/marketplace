@@ -53,6 +53,33 @@ export class LambdaStack extends cdk.Stack {
       deployOptions: { stageName: envName },
       binaryMediaTypes: ['text/html']
     })
+    // Ensure API Gateway adds CORS headers on gateway-generated errors (e.g., 401/403)
+    const corsErrorHeaders: Record<string, string> = {
+      'Access-Control-Allow-Origin': "'*'",
+      'Access-Control-Allow-Headers':
+        "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'",
+      'Access-Control-Allow-Methods': "'GET,POST,PUT,DELETE,PATCH,OPTIONS'"
+    }
+    this.api.addGatewayResponse('Default4XX', {
+      type: apiGW.ResponseType.DEFAULT_4XX,
+      responseHeaders: corsErrorHeaders
+    })
+    this.api.addGatewayResponse('Default5XX', {
+      type: apiGW.ResponseType.DEFAULT_5XX,
+      responseHeaders: corsErrorHeaders
+    })
+    this.api.addGatewayResponse('Unauthorized', {
+      type: apiGW.ResponseType.UNAUTHORIZED,
+      responseHeaders: corsErrorHeaders
+    })
+    this.api.addGatewayResponse('AccessDenied', {
+      type: apiGW.ResponseType.ACCESS_DENIED,
+      responseHeaders: corsErrorHeaders
+    })
+    this.api.addGatewayResponse('MissingAuthToken', {
+      type: apiGW.ResponseType.MISSING_AUTHENTICATION_TOKEN,
+      responseHeaders: corsErrorHeaders
+    })
     this.apiKey = this.api.addApiKey('ApiKey')
     this.usagePlan = this.api.addUsagePlan('UsagePlan', {
       name: 'DefaultUsagePlan',
