@@ -238,5 +238,30 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
     },
     billingMode: 'PAY_PER_REQUEST',
     ttlAttribute: 'expires_at'
+  },
+  {
+    tableName: 'one-time-codes',
+    partitionKey: {
+      name: 'email',
+      type: 'S'
+    },
+    sortKey: {
+      name: 'type',
+      type: 'S'
+    },
+    billingMode: 'PAY_PER_REQUEST',
+    ttlAttribute: 'expires_at'
+  },
+  {
+    tableName: 'purchase-carts',
+    partitionKey: {
+      name: 'user_id',
+      type: 'S'
+    },
+    sortKey: {
+      name: 'id',
+      type: 'S'
+    },
+    billingMode: 'PAY_PER_REQUEST'
   }
 ]

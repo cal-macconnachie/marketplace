@@ -6,7 +6,7 @@ const cognitoClient = new CognitoIdentityProviderClient({})
 export async function changePassword(event: APIGatewayProxyEvent) {
   const { body } = event
   const {
-    accessToken, oldPassword, newPassword 
+    accessToken, oldPassword, newPassword
   } = JSON.parse(body || "{}")
   if (!accessToken || !oldPassword || !newPassword) {
     return {

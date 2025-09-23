@@ -61,6 +61,48 @@ export interface LambdaEndpointDefinition {
 export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
   // Authentication & Authorization
   {
+    name: 'requestResetPassword',
+    handler: 'auth/request-reset-password.requestResetPassword',
+    description: 'Request password reset (send OTP email)',
+    environment: [
+      'EMAIL_LAMBDA_ARN',
+      'EMAIL_AWS_REGION',
+      'EMAIL_ASSUME_ROLE_ARN'
+    ],
+    iamPolicies: [
+      {
+        actions: ['sts:AssumeRole'],
+        resources: ['arn:aws:iam::472312425428:role/cross-dev-lambdaInvokeFrom-629891807011']
+      }
+    ],
+    // Bundle reset email template into the function package
+    bundleTemplate: ['reset-password.hbs'],
+    apiGw: {
+      path: 'auth/request-reset-password',
+      method: 'POST',
+      auth: 'none',
+      cors: true
+    }
+  },
+  {
+    name: 'resetPassword',
+    handler: 'auth/reset-password.resetPassword',
+    description: 'Reset password using OTP',
+    environment: ['USER_POOL_ID'],
+    iamPolicies: [
+      {
+        actions: ['cognito-idp:AdminSetUserPassword'],
+        resources: ['*']
+      }
+    ],
+    apiGw: {
+      path: 'auth/reset-password',
+      method: 'POST',
+      auth: 'none',
+      cors: true
+    }
+  },
+  {
     name: 'register',
     handler: 'auth/register.register',
     description: 'Register',

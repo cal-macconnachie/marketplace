@@ -4,6 +4,7 @@ import { PaymentMethod } from "../../handlers/payment-methods"
 import { Product } from "../../handlers/products"
 import { Purchase } from "../../handlers/purchases"
 import { User } from "../../handlers/users"
+import { createPurchaseCart } from '../create-purchase-cart'
 
 export interface ReceiptLineItem {
   product_id: string
@@ -319,7 +320,6 @@ export const collectReceiptEmailData = async (
   }
 
   // Receipt metadata
-  const receipt_number = purchases[0]?.id || `${Date.now()}`
   const purchase_datetime = formatDateTime(
     purchases
       .map((p) => p.purchased_at)
@@ -392,10 +392,14 @@ export const collectReceiptEmailData = async (
       }
     })
     : undefined
-
+  // Create purchase cart with collision-safe short id (conditional put + retry)
+  const purchaseCart = await createPurchaseCart({
+    userId: user.id,
+    purchaseIds: purchaseKeys.map(({ id }) => id)
+  })
   const context: ReceiptEmailContext = {
     preheader: `Your receipt for ${line_items.length} item(s) – ${summary.total_formatted}`,
-    receipt_number,
+    receipt_number: purchaseCart.id,
     purchase_datetime,
     currency,
     header_brand: headerBrand,
