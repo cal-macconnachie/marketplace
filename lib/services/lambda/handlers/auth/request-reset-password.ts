@@ -4,14 +4,19 @@ import {
 } from '../../helpers/create-one-time-password'
 import { get } from '../../helpers/dynamo-helpers/get'
 import { sendResetPasswordEmail } from '../../helpers/emails/send-reset-password-email'
+import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
 
-export const requestResetPassword = async function (event: APIGatewayProxyEvent) {
+export const requestResetPassword = rateLimitedHandler(async function (event: APIGatewayProxyEvent) {
   const { body } = event
   const { email } = JSON.parse(body || '{}')
   if (!email) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ message: 'Missing email' })
+      body: JSON.stringify({ message: 'Missing email' }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true
+      }
     }
   }
   const otp = await get<OneTimePassword>({
@@ -29,7 +34,11 @@ export const requestResetPassword = async function (event: APIGatewayProxyEvent)
   if (otp && !allowOverwrite) {
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'A One-Time Password (OTP) has already been sent. Please check your email or try again in 5 minutes.' })
+      body: JSON.stringify({ message: 'A One-Time Password (OTP) has already been sent. Please check your email or try again in 5 minutes.' }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true
+      }
     }
   }
   const newOtp = await createOneTimePassword({
@@ -43,6 +52,10 @@ export const requestResetPassword = async function (event: APIGatewayProxyEvent)
   })
   return {
     statusCode: 200,
-    body: JSON.stringify({ message: 'Please check your inbox for the One-Time Password (OTP).' })
+    body: JSON.stringify({ message: 'Please check your inbox for the One-Time Password (OTP).' }),
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Credentials': true
+    }
   }
-}
+})

@@ -5,9 +5,10 @@ import { APIGatewayProxyEvent } from "aws-lambda"
 import { get } from '../../helpers/dynamo-helpers/get'
 import { OneTimePassword } from '../../helpers/create-one-time-password'
 import { deleteItem } from '../../helpers/dynamo-helpers/delete'
+import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
 const cognitoClient = new CognitoIdentityProviderClient({})
 
-export const resetPassword = async function (event: APIGatewayProxyEvent) {
+export const resetPassword = rateLimitedHandler(async function (event: APIGatewayProxyEvent) {
   const { body } = event
   const {
     email, newPassword, otp
@@ -15,13 +16,21 @@ export const resetPassword = async function (event: APIGatewayProxyEvent) {
   if (email == null || newPassword == null || otp == null) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ message: 'Missing required fields' })
+      body: JSON.stringify({ message: 'Missing required fields' }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true
+      }
     }
   }
   if (isNaN(parseInt(otp)) || parseInt(otp) < 100000 || parseInt(otp) > 999999) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ message: 'Invalid OTP' })
+      body: JSON.stringify({ message: 'Invalid OTP' }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true
+      }
     }
   }
   const oneTimePassword = await get<OneTimePassword>({
@@ -57,11 +66,19 @@ export const resetPassword = async function (event: APIGatewayProxyEvent) {
     }
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Password changed successfully' })
+      body: JSON.stringify({ message: 'Password changed successfully' }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true
+      }
     }
   }
   return {
     statusCode: 400,
-    body: JSON.stringify({ message: 'Invalid OTP' })
+    body: JSON.stringify({ message: 'Invalid OTP' }),
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Credentials': true
+    }
   }
-}
+})

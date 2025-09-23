@@ -23,18 +23,9 @@ export const rateLimitedHandler = (
   }
 ): Handler<APIGatewayProxyEvent, APIGatewayProxyResult> => {
   return async (event, context, callback) => {
-    const accessKey = `${event.requestContext.authorizer?.claims.email}:${handler.name}`
-    if (event.requestContext.authorizer?.claims.email == null) {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Credentials': true,
-          'Content-Type': 'application/json'
-        }
-      }
-    }
+    // if no authed user then by ip
+    const startOfAccessKey = event.requestContext.authorizer?.claims.email ?? event.requestContext.identity.sourceIp
+    const accessKey = `${startOfAccessKey}:${handler.name}`
     const {
       allowed,
       resetTime,
