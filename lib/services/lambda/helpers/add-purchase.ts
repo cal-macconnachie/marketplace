@@ -2,7 +2,7 @@ import { Purchase } from '../handlers/purchases'
 import { Product } from '../handlers/products'
 import { create } from './dynamo-helpers/create'
 
-export async function addPurchase(purchase: Purchase, product?: Product): Promise<Purchase> {
+export async function addPurchase(purchase: Purchase, product?: Product, persist = true): Promise<Purchase> {
   let finalPurchase = purchase
 
   // If seller_organization_id is not provided and we have a product, get it from the product
@@ -13,13 +13,17 @@ export async function addPurchase(purchase: Purchase, product?: Product): Promis
     }
   }
 
-  return await create<Purchase>({
-    tableName: process.env.PURCHASES_TABLE!,
-    key: {
-      user_id: finalPurchase.user_id,
-      id: finalPurchase.id
-    },
-    record: finalPurchase,
-    returnCreated: true
-  })
+  if (persist) {
+    return await create<Purchase>({
+      tableName: process.env.PURCHASES_TABLE!,
+      key: {
+        user_id: finalPurchase.user_id,
+        id: finalPurchase.id
+      },
+      record: finalPurchase,
+      returnCreated: true
+    })
+  }
+
+  return finalPurchase
 }

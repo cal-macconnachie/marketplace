@@ -23,6 +23,15 @@ export interface Purchase {
   tax_amount?: number
   base_amount?: number
   seller_organization_id?: string
+  applied_discount?: {
+    type: 'promotion_code' | 'coupon'
+    code?: string
+    coupon?: {
+      id: string
+      amount_off: number
+      percent_off: number
+    }
+  }
 }
 
 function validatePurchase(purchase: Partial<Purchase>): Purchase | false {

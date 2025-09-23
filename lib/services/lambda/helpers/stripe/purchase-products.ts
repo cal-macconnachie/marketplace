@@ -1,12 +1,17 @@
 import { Organization } from "../../handlers/organizations"
 import { PaymentMethod } from "../../handlers/payment-methods"
-import { Product } from "../../handlers/products"
+import {
+  Product, PurchasedProduct 
+} from "../../handlers/products"
 import { Purchase } from '../../handlers/purchases'
 import { User } from "../../handlers/users"
+import { create } from '../dynamo-helpers/create'
 import { get } from "../dynamo-helpers/get"
+import { update } from '../dynamo-helpers/update'
 import { putEvents } from '../eventbridge/put-events'
+import { createDestinationCharge } from './create-destination-charge'
 import { manageSubscription } from "./manage-subscription"
-import { createOneTimePayment } from "./one-time-payment"
+import { createOneTimePurchase } from "./one-time-purchase"
 
 export const purchaseProducts = async ({
   userId,
@@ -127,9 +132,10 @@ export const purchaseProducts = async ({
   const oneTimeProduct = productsToPurchase.filter((prod) => !Boolean(prod.default_price_data.recurring))
   const subscriptionProducts = productsToPurchase.filter((prod) => Boolean(prod.default_price_data.recurring))
   const purchases: Purchase[] = []
+  const purchasedProducts: PurchasedProduct[] = []
   for (const product of oneTimeProduct) {
     try {
-      const paymentResponse = await createOneTimePayment({
+      const paymentResponse = await createOneTimePurchase({
         promotionCode: promoCode,
         couponId: couponId,
         paymentMethodId: paymentMethod.id,
@@ -142,9 +148,69 @@ export const purchaseProducts = async ({
       if (paymentResponse.purchase) {
         purchases.push(paymentResponse.purchase)
       }
+      if (paymentResponse.purchasedProduct) {
+        purchasedProducts.push(paymentResponse.purchasedProduct)
+      }
     } catch (error) {
       console.error(`Error creating one-time payment for product ${product.id}:`, error)
     }
+  }
+  try {
+    // summarize purchases by connected_account_id and currency to create individual destination charges for each group
+    const groupedPurchases = purchases.reduce((acc, purchase) => {
+      const key = `${purchase.connected_account_id}:${purchase.currency}`
+      if (!acc[key]) {
+        acc[key] = []
+      }
+      acc[key].push(purchase)
+      return acc
+    }, {} as Record<string, Purchase[]>)
+
+    // Create destination charges for each group
+    for (const [
+      key,
+      group
+    ] of Object.entries(groupedPurchases)) {
+      try {
+        const destinationAccountId = group[0].connected_account_id
+        if (destinationAccountId == null) throw new Error(`Destination account ID not found for group ${key}`)
+        await createDestinationCharge({
+          amount: group.reduce((sum, purchase) => sum + purchase.amount, 0),
+          currency: group[0].currency,
+          paymentMethodId: paymentMethod.id,
+          user,
+          destinationAccountId
+        })
+        // persist purchases and purchased products
+        // get corresponding purchased products for purchases
+        const purchasedProductsForGroup = purchasedProducts.filter((pp) => group.some((p) => p.id === pp.purchase_id))
+        await Promise.all([
+          update<Organization>({
+            tableName: process.env.ORGANIZATIONS_TABLE!,
+            key: { id: organization.id },
+            updates: {
+              purchased_products: [
+                ...(organization.purchased_products ?? []),
+                ...purchasedProductsForGroup
+              ]
+            }
+          }),
+          ...(group.map((purchase) => create<Purchase>({
+            tableName: process.env.PURCHASES_TABLE!,
+            key: {
+              user_id: purchase.user_id,
+              id: purchase.id
+            },
+            record: purchase,
+            returnCreated: false
+          })))
+        ])
+      } catch (error) {
+        console.error(`Error creating destination charge for group ${key}:`, error)
+      }
+    }
+  } catch (error) {
+    console.error(`Error creating one-time payment:`, error)
   }
   try {
     if (subscriptionProducts.length !== 0) {
