@@ -453,20 +453,26 @@ export const manageSubscription = async ({
         : subscription.latest_invoice.id
 
       if (latestInvoiceId) {
-        // Retrieve the invoice to get tax-inclusive totals
-        const latestInvoice = await stripe.invoices.retrieve(latestInvoiceId, {
+        // Retrieve the invoice and finalize it (to ensure taxes are computed) before setting fee
+        let latestInvoice = await stripe.invoices.retrieve(latestInvoiceId, {
           expand: ['payment_intent']
         })
 
-        const invoiceTotal = latestInvoice.total ?? 0 // total is tax-inclusive when automatic tax or manual taxes are present
+        // Finalize draft invoices to compute taxes and totals
+        if (latestInvoice.status === 'draft') {
+          latestInvoice = await stripe.invoices.finalizeInvoice(latestInvoiceId, {})
+        }
+
+        // At this point, invoice.total should include tax if automatic tax is enabled
+        const invoiceTotal = latestInvoice.total ?? 0
         const postTaxPlatformFee = await calculatePlatformFee({ amount: invoiceTotal, organizationId: organization.id })
 
-        // Set an absolute application fee amount so Stripe charges on the post-tax amount
+        // Set an absolute application fee amount so Stripe charges on the post-tax total
         await stripe.invoices.update(latestInvoiceId, {
           application_fee_amount: postTaxPlatformFee
         })
 
-        // Confirm the payment intent now that the invoice is updated
+        // Confirm the payment intent now that the invoice has been updated
         const paymentIntentId = typeof latestInvoice.payment_intent === 'string'
           ? latestInvoice.payment_intent
           : latestInvoice.payment_intent?.id
