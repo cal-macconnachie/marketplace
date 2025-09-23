@@ -1,25 +1,27 @@
-import Stripe from "stripe"
-import { Organization } from "../../handlers/organizations"
+import Stripe from 'stripe'
+import { v4 as uuidv4 } from 'uuid'
+import { Organization } from '../../handlers/organizations'
 import {
   Product, PurchasedProduct 
-} from "../../handlers/products"
-import { User } from "../../handlers/users"
-import { getStripeClient } from "./stripe-client"
-import { getPromoByCode } from "./get-promo-by-code"
-import { v4 } from "uuid"
-import { update } from "../dynamo-helpers/update"
-import {
-  addDays, addMonths, addWeeks, addYears 
-} from "date-fns"
-import { addPurchase } from "../add-purchase"
-import { Purchase } from "../../handlers/purchases"
-import {
-  calculatePlatformFee, calculateConnectedAccountAmount 
-} from './calculate-platform-fee'
-import { get } from '../dynamo-helpers/get'
+} from '../../handlers/products'
+import { User } from '../../handlers/users'
+import { Purchase } from '../../handlers/purchases'
+import { getStripeClient } from './stripe-client'
+import { getPromoByCode } from './get-promo-by-code'
+import { update } from '../dynamo-helpers/update'
+import { calculatePlatformFee } from './calculate-platform-fee'
+import { calculateTaxesWithCaching } from '../tax/calculate-taxes-with-caching'
 import { generateLocationKey } from '../tax/tax-calculation-cache'
 import { convertAddressToCodes } from '../tax/address-code-converter'
 
+type DiscountsParam = Array<{ promotion_code?: string; coupon?: string }>
+
+// Manage a subscription for a set of products. Products may span connected accounts; we
+// handle each account independently. The function creates/updates/cancels a subscription
+// per connected account, enables automatic tax, and applies platform fees via
+// application_fee_percent. Transfers are handled implicitly by using direct charges on
+// connected accounts (subscription created with stripeAccount header), so funds settle to
+// the connected account and the platform fee is collected automatically by Stripe.
 export const manageSubscription = async ({
   promotionCode,
   couponId,
@@ -28,8 +30,7 @@ export const manageSubscription = async ({
   user,
   organization,
   remove = false,
-  taxCode,
-  ipAddress
+  ipAddress,
 }: {
   promotionCode?: string
   couponId?: string
@@ -38,671 +39,396 @@ export const manageSubscription = async ({
   user: User
   organization: Organization
   remove: boolean
-  taxCode?: string
   ipAddress?: string
-}) => {
-  if (user.stripe_id == null) {
-    // not a customer return
-    return
-  }
-  // subscriptions can have many prices
-  // if there is no org subscription one must be started
-  // if we are removing a subscription product, we need to 1. ensure it is a part of the subscription and if it is the last item in a subscription we need to cancel the subscription instead of removing it from the sub
+}): Promise<Purchase[] | void> => {
+  if (!user.stripe_id) return
+
   const stripe = getStripeClient()
-  
-  // Group products by connected account and handle them separately
-  const productsByAccount = products.reduce((acc: Record<string, Product[]>, product) => {
-    if (!acc[product.account_id]) {
-      acc[product.account_id] = []
-    }
-    acc[product.account_id].push(product)
+
+  // Group products by connected account
+  const byAccount = products.reduce<Record<string, Product[]>>((acc, p) => {
+    acc[p.account_id] = acc[p.account_id] || []
+    acc[p.account_id].push(p)
     return acc
   }, {})
-  
-  const accountIds = Object.keys(productsByAccount)
-  
-  // If multiple accounts, handle each account separately
-  if (accountIds.length > 1) {
-    // Need to import the get function to refresh organization data between calls
-    let currentOrg = organization
-    
-    for (const accountId of accountIds) {
-      await manageSubscription({
-        promotionCode,
-        couponId,
-        products: productsByAccount[accountId],
-        paymentMethodId,
-        user,
-        organization: currentOrg,
-        remove
+
+  const purchases: Purchase[] = []
+  const subscriptionIds = { ...(organization.stripe_subscription_ids ?? {}) }
+  let purchasedProducts: PurchasedProduct[] = [...(organization.purchased_products ?? [])]
+
+  const distributeAmount = (total: number, qty: number): number[] => {
+    if (qty <= 0) return []
+    const base = Math.floor(total / qty)
+    let remainder = total - base * qty
+    const arr = Array(qty).fill(base)
+    for (let i = 0; i < qty; i++) {
+      if (remainder <= 0) break
+      arr[i] += 1
+      remainder -= 1
+    }
+    return arr
+  }
+
+  const resolveLocation = (): string => {
+    const fromUser = generateLocationKey(user, ipAddress)
+    if (fromUser) return fromUser
+    if (organization.address) {
+      const codes = convertAddressToCodes({
+        country: organization.address.country,
+        state: organization.address.state,
+        city: organization.address.city,
+        postal_code: organization.address.postal_code,
       })
-      
-      // Refresh organization data for next iteration
-      currentOrg = await get<Organization>({
-        tableName: process.env.ORGANIZATIONS_TABLE!,
-        key: { id: organization.id }
-      }) ?? currentOrg
+      return `${codes.country || 'US'}:${codes.state || 'unknown'}:${codes.city || 'unknown'}:${codes.postal_code || 'unknown'}`
     }
-    return
+    return 'US:unknown:unknown:unknown'
   }
-  
-  const connectedAccountId = accountIds[0]
-  
-  const discounts: Array<{promotion_code?: string, coupon?: string}> = []
-  if (promotionCode || couponId) {
+  const locationKey = resolveLocation()
+
+  const resolveDiscounts = async (accountId: string): Promise<DiscountsParam | undefined> => {
+    const d: DiscountsParam = []
     if (promotionCode) {
-      // Look up promotion code in database to get the actual Stripe promotion code ID
-      const promoRecord = await getPromoByCode(promotionCode)
-      if (!promoRecord || promoRecord.type !== 'promotion_code') {
-        throw new Error(`Promotion code ${promotionCode} not found`)
-      }
-        
-      // Use stripeId if available, fallback to id for backwards compatibility
-      const stripePromoId = promoRecord.stripeId || promoRecord.id
-        
-      // Validate promotion code exists and is active in Stripe
-      try {
-        const promoCode = await stripe.promotionCodes.retrieve(stripePromoId, {
-          stripeAccount: connectedAccountId
-        })
-        if (!promoCode.active) {
-          throw new Error(`Promotion code ${promotionCode} is not active`)
-        }
-        discounts.push({ promotion_code: stripePromoId })
-      } catch {
-        throw new Error(`Invalid promotion code: ${promotionCode}`)
-      }
+      const promo = await getPromoByCode(promotionCode)
+      if (!promo || promo.type !== 'promotion_code') throw new Error(`Promotion code ${promotionCode} not found`)
+      const promoId = promo.stripeId || promo.id
+      const pc = await stripe.promotionCodes.retrieve(promoId, { stripeAccount: accountId })
+      if (!pc.active) throw new Error(`Promotion code ${promotionCode} is not active`)
+      d.push({ promotion_code: promoId })
     }
-      
     if (couponId) {
-      // Validate coupon exists and is valid
-      try {
-        const coupon = await stripe.coupons.retrieve(couponId, {
-          stripeAccount: connectedAccountId
-        })
-        if (!coupon.valid) {
-          throw new Error(`Coupon ${couponId} is not valid`)
+      const c = await stripe.coupons.retrieve(couponId, { stripeAccount: accountId })
+      if (!c.valid) throw new Error(`Coupon ${couponId} is not valid`)
+      d.push({ coupon: couponId })
+    }
+    return d.length ? d : undefined
+  }
+
+  const fetchPriceForProduct = async (
+    accountId: string,
+    product: Product
+  ): Promise<{ priceId: string; metered: boolean; unitAmount: number; currency: string }> => {
+    if (product.price_id) {
+      const price = await stripe.prices.retrieve(product.price_id, { stripeAccount: accountId })
+      return {
+        priceId: price.id,
+        metered: price.recurring?.usage_type === 'metered',
+        unitAmount: price.unit_amount ?? 0,
+        currency: price.currency,
+      }
+    }
+    const sp = await stripe.products.retrieve(product.id, { stripeAccount: accountId })
+    const priceId = typeof sp.default_price === 'string' ? sp.default_price : sp.default_price?.id
+    if (!priceId) throw new Error(`No default price on product ${product.id}`)
+    const price = await stripe.prices.retrieve(priceId, { stripeAccount: accountId })
+    return {
+      priceId: price.id,
+      metered: price.recurring?.usage_type === 'metered',
+      unitAmount: price.unit_amount ?? 0,
+      currency: price.currency,
+    }
+  }
+
+  for (const accountId of Object.keys(byAccount)) {
+    const accountProducts = byAccount[accountId]
+    const discounts = await resolveDiscounts(accountId)
+
+    // Build desired items (aggregate quantity for non-metered)
+    const desiredItemsRaw = await Promise.all(
+      accountProducts.map(async (p) => ({
+        product: p, ...(await fetchPriceForProduct(accountId, p)) 
+      }))
+    )
+    const desiredItems = desiredItemsRaw.reduce<Record<string, { price: string; quantity?: number; meta: typeof desiredItemsRaw[number] }>>(
+      (acc, it) => {
+        const existing = acc[it.priceId]
+        if (it.metered) {
+          if (!existing) acc[it.priceId] = {
+            price: it.priceId, meta: it 
+          }
+        } else {
+          acc[it.priceId] = {
+            price: it.priceId,
+            quantity: (existing?.quantity ?? 0) + 1,
+            meta: it,
+          }
         }
-        discounts.push({ coupon: couponId })
-      } catch {
-        throw new Error(`Invalid coupon: ${couponId}`)
-      }
-    }
-  }
-  // Get current subscription ID for this connected account
-  const currentOrgSubscriptionId = organization.stripe_subscription_ids?.[connectedAccountId]
-  // Get unique product IDs to avoid duplicate Stripe calls
-  const uniqueProductIds = [...new Set(products.map(product => product.id))]
-  
-  let [
-    subscription,
-    stripeProducts
-  ] = await Promise.all([
-    currentOrgSubscriptionId ? stripe.subscriptions.retrieve(currentOrgSubscriptionId) : Promise.resolve(undefined),
-    Promise.all(uniqueProductIds.map(productId => stripe.products.retrieve(productId))),
-  ])
-  
-  // Get prices with expanded product info to check for metered billing
-  const stripePrices = await Promise.all(stripeProducts.map(stripeProduct => {
-    const priceId = typeof stripeProduct.default_price === 'string'
-      ? stripeProduct.default_price
-      : stripeProduct.default_price?.id
-    return priceId ? stripe.prices.retrieve(priceId) : Promise.resolve(null)
-  }))
-  const stripePriceMap = stripePrices.reduce<Record<string, Stripe.Price>>((acc, price) => {
-    if (price) {
-      acc[price.id] = price
-    }
-    return acc
-  }, {})
-  const priceIds = stripeProducts.reduce((acc: { [productId: string]: string }, stripeProduct) => {
-    const priceId = typeof stripeProduct.default_price === 'string'
-      ? stripeProduct.default_price
-      : stripeProduct.default_price?.id
-    if (priceId) {
-      acc[stripeProduct.id] = priceId
-    }
-    return acc
-  }, {})
-  const productKeysByPrice = stripeProducts.reduce((acc: { [priceId: string]: { group_id: string; id: string } }, stripeProduct) => {
-    const priceId = typeof stripeProduct.default_price === 'string'
-      ? stripeProduct.default_price
-      : stripeProduct.default_price?.id
-    if (priceId) {
-      acc[priceId] = {
-        group_id: stripeProduct.metadata.group_id, id: stripeProduct.id 
-      }
-    }
-    return acc
-  }, {})
+        return acc
+      },
+      {}
+    )
 
-  // Create mapping of price IDs to determine if they are metered
-  const meteredPrices = new Set<string>()
-  stripePrices.forEach((price) => {
-    if (price && price.recurring?.usage_type === 'metered') {
-      meteredPrices.add(price.id)
-    }
-  })
+    const currentSubId = subscriptionIds[accountId]
+    let subscription: Stripe.Subscription | undefined
 
-  if (Object.values(priceIds).some(priceId => !priceId)) {
-    throw new Error(`No price found for products ${products.map(product => product.id).join(', ')}`)
-  }
-  const priceItems = products.reduce((acc: { price: string; quantity?: number }[], product) => {
-    const priceId = priceIds[product.id]
-    if (!priceId) {
-      throw new Error(`No price found for product ${product.id}`)
+    if (!currentSubId && remove) {
+      throw new Error(`No subscription found for account ${accountId} to remove items`)
     }
-    
-    const isMetered = meteredPrices.has(priceId)
-    
-    if (isMetered) {
-      // For metered products, only add once regardless of duplicates in products array
-      if (!acc.find(item => item.price === priceId)) {
-        acc.push({ price: priceId })
+
+    if (!currentSubId && !remove) {
+      // Create new subscription (direct charge on connected account)
+      const items: Stripe.SubscriptionCreateParams.Item[] = Object.values(desiredItems).map((it) => ({
+        price: it.price,
+        ...(it.quantity != null ? { quantity: it.quantity } : {}),
+      }))
+
+      const createParams: Stripe.SubscriptionCreateParams = {
+        customer: user.stripe_id,
+        items,
+        ...(discounts ? { discounts } : {}),
+        collection_method: 'charge_automatically',
+        payment_behavior: 'allow_incomplete',
+        ...(paymentMethodId ? { default_payment_method: paymentMethodId } : {}),
+        automatic_tax: { enabled: true },
+        ...(organization.platform_fee_percent != null
+          ? { application_fee_percent: organization.platform_fee_percent }
+          : {}),
+      }
+
+      subscription = await stripe.subscriptions.create(createParams, { stripeAccount: accountId })
+      subscriptionIds[accountId] = subscription.id
+
+      // Calculate taxes for recording and build purchases
+      const productsHash = Object.values(desiredItems).reduce<{ [k: string]: Product }>((acc, it) => {
+        acc[`${it.meta.product.group_id}:${it.meta.product.id}`] = it.meta.product
+        return acc
+      }, {})
+      const taxItems = Object.values(desiredItems).map((it) => ({
+        group_id: it.meta.product.group_id,
+        id: it.meta.product.id,
+        organization_id: organization.id,
+        quantity: it.quantity ?? 1,
+      }))
+      const orgsHash = { [organization.id]: organization }
+      const taxCalc = await calculateTaxesWithCaching(taxItems, productsHash, orgsHash, locationKey)
+
+      for (const item of taxCalc.items) {
+        const qty = item.quantity
+        const basePer = distributeAmount(item.amount, qty)
+        const taxPer = distributeAmount(item.tax_amount, qty)
+        const product = productsHash[`${item.group_id}:${item.id}`]
+        for (let i = 0; i < qty; i++) {
+          const total = basePer[i] + taxPer[i]
+          const feeAmt = await calculatePlatformFee({
+            amount: total, organizationId: organization.id 
+          })
+          purchasedProducts.push({
+            unique_id: uuidv4(),
+            id: item.id,
+            group_id: item.group_id,
+            name: product.name,
+            metadata: product.metadata,
+            amount: total,
+            currency: item.currency,
+            user_id: user.id,
+          })
+          purchases.push({
+            id: uuidv4(),
+            user_id: user.id,
+            product_id: item.id,
+            product_name: product.name,
+            is_one_time: false,
+            is_subscription: true,
+            purchased_at: new Date().toISOString(),
+            organization_id: organization.id,
+            payment_method_id: paymentMethodId || '',
+            amount: total,
+            currency: item.currency,
+            platform_fee_amount: feeAmt,
+            connected_account_id: accountId,
+            destination_charge_id: subscription.id,
+            base_amount: basePer[i],
+            tax_amount: taxPer[i],
+          })
+        }
+      }
+      continue
+    }
+
+    // Update existing subscription
+    subscription = await stripe.subscriptions.retrieve(currentSubId!, { stripeAccount: accountId })
+    const existingItems = subscription.items.data
+
+    if (remove) {
+      for (const it of Object.values(desiredItems)) {
+        const existing = existingItems.find((si) => si.price.id === it.price)
+        if (!existing) continue
+        if (it.meta.metered || (existing.quantity ?? 1) <= (it.quantity ?? 1)) {
+          if (existingItems.length <= 1) {
+            await stripe.subscriptions.cancel(subscription.id, {
+              prorate: true, invoice_now: false 
+            }, { stripeAccount: accountId })
+            delete subscriptionIds[accountId]
+            const toRemoveIds = new Set(accountProducts.map((p) => p.id))
+            purchasedProducts = purchasedProducts.filter((pp) => !toRemoveIds.has(pp.id))
+            break
+          } else {
+            await stripe.subscriptionItems.del(existing.id, { stripeAccount: accountId })
+            // remove matching quantity of purchased products
+            let removed = 0
+            const toRemove = it.quantity ?? 1
+            purchasedProducts = purchasedProducts.filter((pp) => {
+              if (pp.id === it.meta.product.id && removed < toRemove) {
+                removed++
+                return false
+              }
+              return true
+            })
+          }
+        } else {
+          const newQty = (existing.quantity ?? 1) - (it.quantity ?? 1)
+          await stripe.subscriptionItems.update(existing.id, {
+            quantity: newQty, proration_behavior: 'create_prorations' 
+          }, { stripeAccount: accountId })
+          let removed = 0
+          const toRemove = it.quantity ?? 1
+          purchasedProducts = purchasedProducts.filter((pp) => {
+            if (pp.id === it.meta.product.id && removed < toRemove) {
+              removed++
+              return false
+            }
+            return true
+          })
+        }
       }
     } else {
-      // For non-metered products, each duplicate product increases quantity
-      const existingItem = acc.find(item => item.price === priceId)
-      if (existingItem && existingItem.quantity !== undefined) {
-        existingItem.quantity += 1
-      } else {
-        acc.push({
-          price: priceId, quantity: 1 
-        })
-      }
-    }
-    return acc
-  }, [])
-  const productChanges: {
-    added: { group_id: string; id: string }[]
-    removed: { group_id: string; id: string }[]
-  } = {
-    added: [],
-    removed: []
-  }
-  if (subscription != null) {
-    let subscriptionItems = subscription.items.data
-    // if adding its simple to add prices or items
-    // if remove we need to check we're not removing the last item if we are removing the last item we need to cancel the subscription
-    if (remove) {
-      for (const priceItem of priceItems) {
-        // can only remove items in subScriptionItems
-        const existingItem = subscriptionItems.find(item => item.price.id === priceItem.price)
-        const priceId = priceItem.price
-        const productKey = productKeysByPrice[priceId]
-        const isMetered = meteredPrices.has(priceId)
-        
-        if (existingItem) {
-          if (isMetered) {
-            // For metered products, simply remove the subscription item
-            if (subscriptionItems.length === 1) {
-              await stripe.subscriptions.cancel(currentOrgSubscriptionId!)
-            } else {
-              await stripe.subscriptionItems.del(existingItem.id)
-              subscriptionItems = subscriptionItems.filter(item => item.id !== existingItem.id)
-            }
-            if (productKey) {
-              productChanges.removed.push(productKey)
-            }
-          } else {
-            // For non-metered products, handle quantity
-            const quantityToRemove = priceItem.quantity ?? 1
-            if ((existingItem.quantity ?? 1) <= quantityToRemove) {
-              if (subscriptionItems.length === 1) {
-                await stripe.subscriptions.cancel(currentOrgSubscriptionId!)
-              } else {
-                await stripe.subscriptionItems.del(existingItem.id)
-                subscriptionItems = subscriptionItems.filter(item => item.id !== existingItem.id)
+      for (const it of Object.values(desiredItems)) {
+        const existing = existingItems.find((si) => si.price.id === it.price)
+        if (existing) {
+          if (!it.meta.metered) {
+            const newQty = (existing.quantity ?? 1) + (it.quantity ?? 1)
+            await stripe.subscriptionItems.update(existing.id, {
+              quantity: newQty, proration_behavior: 'create_prorations' 
+            }, { stripeAccount: accountId })
+            const qtyAdded = it.quantity ?? 1
+            const productsHash = { [`${it.meta.product.group_id}:${it.meta.product.id}`]: it.meta.product }
+            const taxItems = [
+              {
+                group_id: it.meta.product.group_id, id: it.meta.product.id, organization_id: organization.id, quantity: qtyAdded 
               }
-            } else {
-              await stripe.subscriptionItems.update(existingItem.id, {
-                quantity: (existingItem.quantity ?? 1) - quantityToRemove
+            ]
+            const taxCalc = await calculateTaxesWithCaching(taxItems, productsHash, { [organization.id]: organization }, locationKey)
+            const tx = taxCalc.items[0]
+            const basePer = distributeAmount(tx.amount, qtyAdded)
+            const taxPer = distributeAmount(tx.tax_amount, qtyAdded)
+            for (let i = 0; i < qtyAdded; i++) {
+              const total = basePer[i] + taxPer[i]
+              const feeAmt = await calculatePlatformFee({
+                amount: total, organizationId: organization.id 
+              })
+              purchasedProducts.push({
+                unique_id: uuidv4(),
+                id: it.meta.product.id,
+                group_id: it.meta.product.group_id,
+                name: it.meta.product.name,
+                metadata: it.meta.product.metadata,
+                amount: total,
+                currency: tx.currency,
+                user_id: user.id,
+              })
+              purchases.push({
+                id: uuidv4(),
+                user_id: user.id,
+                product_id: it.meta.product.id,
+                product_name: it.meta.product.name,
+                is_one_time: false,
+                is_subscription: true,
+                purchased_at: new Date().toISOString(),
+                organization_id: organization.id,
+                payment_method_id: paymentMethodId || '',
+                amount: total,
+                currency: tx.currency,
+                platform_fee_amount: feeAmt,
+                connected_account_id: accountId,
+                destination_charge_id: subscription.id,
+                base_amount: basePer[i],
+                tax_amount: taxPer[i],
               })
             }
-            if (productKey) {
-              for (let i = 0; i < quantityToRemove; i++) {
-                productChanges.removed.push(productKey)
-              }
-            }
-          }
-        }
-      }
-    } else {
-      for (const priceItem of priceItems) {
-        // if subscriptionItems contains a matching price then increment quantity otherwise create new subscription item
-        const existingItem = subscriptionItems.find(item => item.price.id === priceItem.price)
-        const priceId = priceItem.price
-        const productKey = productKeysByPrice[priceId]
-        const isMetered = meteredPrices.has(priceId)
-        
-        if (existingItem) {
-          if (isMetered) {
-            // For metered products, item already exists, just apply discounts if needed
-            if (discounts.length > 0) {
-              const updateParams: Stripe.SubscriptionItemUpdateParams = {
-                discounts: discounts,
-                proration_behavior: 'create_prorations'
-              }
-              await stripe.subscriptionItems.update(existingItem.id, updateParams)
-            }
-          } else {
-            // For non-metered products, update quantity
-            const quantityToAdd = priceItem.quantity ?? 1
-            const totalPrices = (existingItem.quantity ?? 1) + quantityToAdd
-            const updateParams: Stripe.SubscriptionItemUpdateParams = {
-              quantity: totalPrices,
-              proration_behavior: 'create_prorations'
-            }
-            if (discounts.length > 0) {
-              updateParams.discounts = discounts
-            }
-            await stripe.subscriptionItems.update(existingItem.id, updateParams)
           }
         } else {
-          const itemCreateParams: Stripe.SubscriptionItemCreateParams = {
-            subscription: currentOrgSubscriptionId!,
-            price: priceItem.price,
-            proration_behavior: 'create_prorations'
-          }
-          
-          // Only set quantity for non-metered products
-          if (!isMetered) {
-            itemCreateParams.quantity = priceItem.quantity
-          }
-          
-          if (discounts.length > 0) {
-            itemCreateParams.discounts = discounts
-          }
-          await stripe.subscriptionItems.create(itemCreateParams)
-        }
-        
-        if (productKey) {
-          if (isMetered) {
-            // For metered products, only add once
-            productChanges.added.push(productKey)
-          } else {
-            // For non-metered products, add based on quantity
-            const quantityToAdd = priceItem.quantity ?? 1
-            for (let i = 0; i < quantityToAdd; i++) {
-              productChanges.added.push(productKey)
+          await stripe.subscriptionItems.create(
+            {
+              subscription: subscription.id,
+              price: it.price,
+              ...(it.meta.metered ? {} : { quantity: it.quantity ?? 1 }),
+              ...(discounts ? { discounts } : {}),
+              proration_behavior: 'create_prorations',
+            },
+            { stripeAccount: accountId }
+          )
+          const qty = it.quantity ?? 1
+          const productsHash = { [`${it.meta.product.group_id}:${it.meta.product.id}`]: it.meta.product }
+          const taxItems = [
+            {
+              group_id: it.meta.product.group_id, id: it.meta.product.id, organization_id: organization.id, quantity: qty 
             }
+          ]
+          const taxCalc = await calculateTaxesWithCaching(taxItems, productsHash, { [organization.id]: organization }, locationKey)
+          const tx = taxCalc.items[0]
+          const basePer = distributeAmount(tx.amount, qty)
+          const taxPer = distributeAmount(tx.tax_amount, qty)
+          for (let i = 0; i < qty; i++) {
+            const total = basePer[i] + taxPer[i]
+            const feeAmt = await calculatePlatformFee({
+              amount: total, organizationId: organization.id 
+            })
+            purchasedProducts.push({
+              unique_id: uuidv4(),
+              id: it.meta.product.id,
+              group_id: it.meta.product.group_id,
+              name: it.meta.product.name,
+              metadata: it.meta.product.metadata,
+              amount: total,
+              currency: tx.currency,
+              user_id: user.id,
+            })
+            purchases.push({
+              id: uuidv4(),
+              user_id: user.id,
+              product_id: it.meta.product.id,
+              product_name: it.meta.product.name,
+              is_one_time: false,
+              is_subscription: true,
+              purchased_at: new Date().toISOString(),
+              organization_id: organization.id,
+              payment_method_id: paymentMethodId || '',
+              amount: total,
+              currency: tx.currency,
+              platform_fee_amount: feeAmt,
+              connected_account_id: accountId,
+              destination_charge_id: subscription.id,
+              base_amount: basePer[i],
+              tax_amount: taxPer[i],
+            })
           }
         }
       }
-      
-      // Update subscription to maintain billing cycle anchor when adding items
-      if (productChanges.added.length > 0) {
-        await stripe.subscriptions.update(currentOrgSubscriptionId!, {
-          billing_cycle_anchor: 'unchanged'
-        })
-      }
-    }
-  } else {
-    if (remove) throw new Error(`Cannot remove products from a subscription that does not exist for organization ${organization.id}`)
-    const subscriptionItems = priceItems.map(item => {
-      const subscriptionItem: Stripe.SubscriptionCreateParams.Item = {
-        price: item.price
-      }
-      // Only set quantity for non-metered products
-      if (item.quantity !== undefined) {
-        subscriptionItem.quantity = item.quantity
-      }
-      return subscriptionItem
-    })
-    
-    // Calculate platform fee for subscription items
-    let totalAmount = 0
-    const subscriptionItemsWithFees = await Promise.all(subscriptionItems.map(async (item) => {
-      if (item.quantity === 0 || item.price == null) {
-        // Skip items with zero quantity
-        return null
-      }
-      const price = await stripe.prices.retrieve(item.price)
-      const itemAmount = (price.unit_amount || 0) * (item.quantity || 1)
-      totalAmount += itemAmount
 
-      const platformFeeAmount = await calculatePlatformFee({
-        amount: itemAmount, organizationId: organization.id
-      })
-      const connectedAccountAmount = calculateConnectedAccountAmount(itemAmount, platformFeeAmount)
-      
-      return {
-        ...item,
-        metadata: {
-          platform_fee_amount: platformFeeAmount.toString(),
-          connected_account_amount: connectedAccountAmount.toString()
-        }
-      }
-    }))
-
-    const totalPlatformFee = await calculatePlatformFee({
-      amount: totalAmount, organizationId: organization.id
-    })
-    const totalConnectedAccountAmount = calculateConnectedAccountAmount(totalAmount, totalPlatformFee)
-
-    const startSubscriptionParams: Stripe.SubscriptionCreateParams = {
-      items: subscriptionItemsWithFees.filter((item) => item !== null),
-      default_payment_method: paymentMethodId,
-      expand: ['latest_invoice.payment_intent'],
-      customer: user.stripe_id,
-      transfer_data: {
-        destination: connectedAccountId // Connected account receives funds (minus application fee)
-      },
-      // We will set an exact application fee on the generated invoice to avoid tax-induced variance
-      payment_behavior: 'default_incomplete',
-      on_behalf_of: connectedAccountId, // Makes connected account settlement merchant
-      metadata: {
-        platform_fee_amount: totalPlatformFee.toString(),
-        connected_account_amount: totalConnectedAccountAmount.toString(),
-        connected_account_id: connectedAccountId,
-        customer_location: generateLocationKey(user, ipAddress),
-        ...(taxCode && { tax_code: taxCode })
-      }
-    }
-    
-    // Enable automatic tax if customer location can be determined
-    const customerLocation = generateLocationKey(user, ipAddress)
-    if (customerLocation) {
-      startSubscriptionParams.automatic_tax = {
-        enabled: true,
-        liability: {
-          type: 'account',
-          account: connectedAccountId
-        }
-      }
-
-      const customerUpdateParams: Stripe.CustomerUpdateParams = {
-        tax_exempt: 'none' // Can be 'none', 'exempt', or 'reverse'
-      }
-
-      if (user.address) {
-        const normalized = convertAddressToCodes({
-          country: user.address.country,
-          state: user.address.state,
-          city: user.address.city,
-          postal_code: user.address.postal_code
-        })
-
-        customerUpdateParams.address = {
-          line1: user.address.line_1,
-          line2: user.address.line_2 || undefined,
-          city: user.address.city,
-          state: normalized.state && normalized.state !== 'unknown'
-            ? normalized.state
-            : user.address.state,
-          country: normalized.country && normalized.country !== 'unknown'
-            ? normalized.country
-            : user.address.country,
-          postal_code: user.address.postal_code
-        }
-      }
-
-      // Update customer with tax exemption info if needed
-      await stripe.customers.update(user.stripe_id, customerUpdateParams)
-    }
-    if (discounts.length > 0) {
-      startSubscriptionParams.discounts = discounts
-    }
-    // NO stripeAccount parameter - subscription created on platform
-    subscription = await stripe.subscriptions.create(startSubscriptionParams)
-
-    // Ensure the first invoice uses an exact platform fee computed on the post-tax total
-    if (subscription.latest_invoice) {
-      const latestInvoiceId = typeof subscription.latest_invoice === 'string'
-        ? subscription.latest_invoice
-        : subscription.latest_invoice.id
-
-      if (latestInvoiceId) {
-        // Retrieve the invoice and finalize it (to ensure taxes are computed) before setting fee
-        let latestInvoice = await stripe.invoices.retrieve(latestInvoiceId, {
-          expand: ['payment_intent']
-        })
-
-        // Finalize draft invoices to compute taxes and totals
-        if (latestInvoice.status === 'draft') {
-          latestInvoice = await stripe.invoices.finalizeInvoice(latestInvoiceId, {})
-        }
-
-        // At this point, invoice.total should include tax if automatic tax is enabled
-        const invoiceTotal = latestInvoice.total ?? 0
-        const postTaxPlatformFee = await calculatePlatformFee({ amount: invoiceTotal, organizationId: organization.id })
-
-        // Set an absolute application fee amount so Stripe charges on the post-tax total
-        await stripe.invoices.update(latestInvoiceId, {
-          application_fee_amount: postTaxPlatformFee
-        })
-
-        // Confirm the payment intent now that the invoice has been updated
-        const paymentIntentId = typeof latestInvoice.payment_intent === 'string'
-          ? latestInvoice.payment_intent
-          : latestInvoice.payment_intent?.id
-        if (paymentIntentId) {
-          await stripe.paymentIntents.confirm(paymentIntentId)
-        }
-      }
-    }
-    for (const priceItem of priceItems) {
-      const priceId = priceItem.price
-      const productKey = productKeysByPrice[priceId]
-      const isMetered = meteredPrices.has(priceId)
-      
-      if (productKey) {
-        if (isMetered) {
-          // For metered products, only add once
-          productChanges.added.push(productKey)
-        } else {
-          // For non-metered products, add based on quantity
-          const quantity = priceItem.quantity ?? 1
-          for (let i = 0; i < quantity; i++) {
-            productChanges.added.push(productKey)
-          }
-        }
-      }
-    }
-  }
-  // update the org with added/removed products
-  let purchasedProducts = organization.purchased_products ?? []
-  for (const productKey of productChanges.removed) {
-    const firstIndexOfProduct = purchasedProducts.findIndex((pp) => pp.group_id === productKey.group_id && pp.id === productKey.id)
-    if (firstIndexOfProduct !== -1) {
-      purchasedProducts.splice(firstIndexOfProduct, 1)
-    }
-  }
-  const prices: { [productId: string]: { amount: number; currency: string } } = {}
-  for (const productKey of productChanges.added) {
-    const stripeProduct = stripeProducts.find((p: Stripe.Product) => p.id === productKey.id)
-    if (stripeProduct && prices[productKey.id] == null) {
-      const price = await stripe.prices.retrieve(typeof stripeProduct.default_price === 'string' ? stripeProduct.default_price : stripeProduct.default_price?.id || '')
-      prices[productKey.id] = {
-        amount: price.unit_amount ?? 0,
-        currency: price.currency
-      }
-    }
-    const purchasedProduct: PurchasedProduct = {
-      id: productKey.id,
-      group_id: productKey.group_id,
-      name: stripeProduct?.name ?? 'Unknown',
-      unique_id: v4(),
-      amount: prices[productKey.id]?.amount ?? 0,
-      currency: prices[productKey.id]?.currency ?? 'CAD',
-    }
-    if (stripeProduct?.metadata) {
-      purchasedProduct.metadata = stripeProduct.metadata
-    }
-    // set in_good_standing_until based on product recurring
-    if (stripeProduct) {
-      const ourProduct = products.find(p => p.id === productKey.id)
-      const interval = ourProduct?.default_price_data?.recurring?.interval ?? 'month' // 'day' | 'week' | 'month' | 'year'
-      const intervalCount = ourProduct?.default_price_data?.recurring?.interval_count ?? 1
-      const now = Date.now()
-      // in_good_standing_until is Unix timestamps
-      switch (interval) {
-        case 'day':
-          purchasedProduct.in_good_standing_until = Math.floor(addDays(now, intervalCount).getTime() / 1000)
-          break
-        case 'week':
-          purchasedProduct.in_good_standing_until = Math.floor(addWeeks(now, intervalCount).getTime() / 1000)
-          break
-        case 'month':
-          purchasedProduct.in_good_standing_until = Math.floor(addMonths(now, intervalCount).getTime() / 1000)
-          break
-        case 'year':
-          purchasedProduct.in_good_standing_until = Math.floor(addYears(now, intervalCount).getTime() / 1000)
-          break
-      }
-    }
-    purchasedProducts.push(purchasedProduct)
-  }
-  
-  const distributeAmount = (total: number, quantity: number) => {
-    if (!quantity || quantity <= 0) {
-      return []
-    }
-    const sign = total >= 0 ? 1 : -1
-    const absoluteTotal = Math.abs(total)
-    const base = Math.floor(absoluteTotal / quantity)
-    let remainder = absoluteTotal - base * quantity
-    const distributed: number[] = []
-    for (let i = 0; i < quantity; i++) {
-      const extra = remainder > 0 ? 1 : 0
-      distributed.push(sign * (base + extra))
-      if (remainder > 0) {
-        remainder -= 1
-      }
-    }
-    return distributed
-  }
-
-  let invoiceAmountsByProduct = new Map<string, Array<{ baseAmount: number; taxAmount: number; totalAmount: number }>>()
-
-  if (productChanges.added.length > 0 && subscription) {
-    const refreshedSubscription = await stripe.subscriptions.retrieve(subscription.id, {
-      expand: ['latest_invoice']
-    })
-
-    subscription = refreshedSubscription
-
-    const latestInvoiceId = typeof refreshedSubscription.latest_invoice === 'string'
-      ? refreshedSubscription.latest_invoice
-      : refreshedSubscription.latest_invoice?.id
-
-    if (latestInvoiceId) {
-      const latestInvoice = await stripe.invoices.retrieve(latestInvoiceId, {
-        expand: ['lines.data.taxes']
-      })
-
-      if (latestInvoice.lines?.data) {
-        const invoiceLineItems = latestInvoice.lines.data
-        invoiceAmountsByProduct = invoiceLineItems.reduce((acc, line) => {
-          const quantity = line.quantity ?? 1
-          if (!quantity) {
-            return acc
-          }
-
-          const priceDetails = line.pricing?.price_details
-
-          const priceId = priceDetails?.price
-          const productId = priceDetails?.product ?? (priceId ? productKeysByPrice[priceId]?.id : undefined)
-
-          if (!productId) {
-            return acc
-          }
-
-          const lineAmount = line.amount ?? 0
-          const taxAmount = (line.taxes ?? []).reduce((sum, tax) => sum + (tax?.amount ?? 0), 0)
-          const taxBehavior = priceId ? stripePriceMap[priceId]?.tax_behavior : undefined
-          const baseAmount = (() => {
-            if (taxBehavior === 'exclusive') {
-              return lineAmount
-            }
-            return lineAmount - taxAmount
-          })()
-          const normalizedBaseAmount = baseAmount < 0 ? 0 : baseAmount
-          const totalAmount = normalizedBaseAmount + taxAmount
-
-          const subtotalDistribution = distributeAmount(normalizedBaseAmount, quantity)
-          const taxDistribution = distributeAmount(taxAmount, quantity)
-          const totalDistribution = distributeAmount(totalAmount, quantity)
-
-          for (let i = 0; i < quantity; i++) {
-            const perItemAmounts = {
-              baseAmount: subtotalDistribution[i] ?? 0,
-              taxAmount: taxDistribution[i] ?? 0,
-              totalAmount: totalDistribution[i] ?? ((subtotalDistribution[i] ?? 0) + (taxDistribution[i] ?? 0))
-            }
-            const existing = acc.get(productId) ?? []
-            existing.push(perItemAmounts)
-            acc.set(productId, existing)
-          }
-
-          return acc
-        }, new Map<string, Array<{ baseAmount: number; taxAmount: number; totalAmount: number }>>())
-      }
+      // Keep anchor unchanged and re-apply high-level settings
+      await stripe.subscriptions.update(
+        subscription.id,
+        {
+          billing_cycle_anchor: 'unchanged',
+          automatic_tax: { enabled: true },
+          ...(organization.platform_fee_percent != null
+            ? { application_fee_percent: organization.platform_fee_percent }
+            : {}),
+          ...(discounts ? { discounts } : {}),
+        },
+        { stripeAccount: accountId }
+      )
     }
   }
 
-  // Create purchase records for each added product
-  const purchases: Purchase[] = []
-  for (const productKey of productChanges.added) {
-    const stripeProduct = stripeProducts.find((p: Stripe.Product) => p.id === productKey.id)
-    const ourProduct = products.find(p => p.id === productKey.id)
-
-    if (stripeProduct && ourProduct) {
-      const priceAmount = (prices[productKey.id]?.amount ?? ourProduct.default_price_data?.unit_amount) || 0
-      const invoiceAmounts = invoiceAmountsByProduct.get(productKey.id)
-      const perItemInvoiceAmounts = invoiceAmounts?.shift()
-      const baseAmount = perItemInvoiceAmounts?.baseAmount ?? priceAmount
-      const taxAmount = perItemInvoiceAmounts?.taxAmount ?? 0
-      const totalAmount = perItemInvoiceAmounts?.totalAmount ?? baseAmount + taxAmount
-      const platformFeeAmount = await calculatePlatformFee({
-        amount: totalAmount, // charge fee on post-tax total per item
-        organizationId: organization.id
-      })
-
-      const purchase: Purchase = {
-        id: v4(),
-        user_id: user.id,
-        product_id: productKey.id,
-        product_name: stripeProduct.name,
-        is_one_time: false,
-        is_subscription: true,
-        purchased_at: new Date().toISOString(),
-        organization_id: organization.id,
-        payment_method_id: paymentMethodId || '',
-        amount: totalAmount,
-        currency: ourProduct.default_price_data?.currency || 'CAD',
-        platform_fee_amount: platformFeeAmount,
-        connected_account_id: connectedAccountId,
-        destination_charge_id: subscription?.id,
-        base_amount: baseAmount,
-        tax_amount: taxAmount
-      }
-
-      const finalPurchase = await addPurchase(purchase, ourProduct)
-      if (finalPurchase) {
-        purchases.push(finalPurchase)
-      }
-    }
-    return purchases
-  }
-  
-  // Update subscription IDs mapping
-  const updatedSubscriptionIds = { ...organization.stripe_subscription_ids }
-  
-  if (purchasedProducts.length === 0) {
-    // Remove subscription for this account if no products remain
-    delete updatedSubscriptionIds[connectedAccountId]
-  } else if (subscription) {
-    // Set/update subscription ID for this account
-    updatedSubscriptionIds[connectedAccountId] = subscription.id
-  }
-
+  // Persist organization changes
   await update<Organization>({
     tableName: process.env.ORGANIZATIONS_TABLE!,
     key: { id: organization.id },
     updates: {
+      stripe_subscription_ids: Object.keys(byAccount).length ? subscriptionIds : organization.stripe_subscription_ids,
       purchased_products: purchasedProducts,
-      stripe_subscription_ids: updatedSubscriptionIds
-    }
+    },
   })
+
+  return purchases
 }

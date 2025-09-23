@@ -222,7 +222,6 @@ export const purchaseProducts = async ({
         user,
         organization,
         remove: false,
-        taxCode,
         ipAddress
       })
       if (manageSubscriptionResponse) {
