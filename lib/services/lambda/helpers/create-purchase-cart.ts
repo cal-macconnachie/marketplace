@@ -47,7 +47,7 @@ export async function createPurchaseCart(params: {
     userId,
     purchaseIds,
     maxAttempts = 5,
-    tableName = 'purchase-carts',
+    tableName = process.env.PURCHASE_CARTS_TABLE!,
     idLength = 10
   } = params
 
