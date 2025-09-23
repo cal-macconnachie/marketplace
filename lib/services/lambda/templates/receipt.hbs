@@ -220,7 +220,6 @@
                               <div class="muted small" style="margin-top:2px;">{{this.product_description}}</div>
                             {{/if}}
                             <div class="muted small" style="margin-top:4px;">
-                              {{#if this.product_id}}<span>ID: {{this.product_id}}</span>{{/if}}
                               {{#if this.is_subscription}}
                                 <span class="badge">Subscription{{#if this.interval_text}} • {{this.interval_text}}{{/if}}</span>
                               {{/if}}
@@ -279,9 +278,6 @@
                     <td class="muted small">
                       {{#if payment_method_brand}}Paid with {{payment_method_brand}}{{/if}}{{#if payment_method_last4}} •••• {{payment_method_last4}}{{/if}}
                       {{#if payment_method_expiry_month}} (exp {{payment_method_expiry_month}}/{{payment_method_expiry_year}}){{/if}}
-                    </td>
-                    <td class="muted small text-right">
-                      {{#if currency}}Currency: {{currency}}{{/if}}
                     </td>
                   </tr>
                 </table>

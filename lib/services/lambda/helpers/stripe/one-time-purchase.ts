@@ -144,9 +144,9 @@ export const createOneTimePurchase = async ({
   const taxAmount = taxResult.items[0]?.tax_amount || 0
   const totalAmount = finalAmount + taxAmount
 
-  // Calculate platform fee on the base amount (before tax)
+  // Calculate platform fee on the post-tax total (align with Stripe)
   const platformFeeAmount = await calculatePlatformFee({
-    amount: finalAmount, organizationId: organization.id
+    amount: totalAmount, organizationId: organization.id
   })
   const purchase = await addPurchase({
     id: v4(),

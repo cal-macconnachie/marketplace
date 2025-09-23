@@ -388,7 +388,8 @@ export const manageSubscription = async ({
       transfer_data: {
         destination: connectedAccountId // Connected account receives funds (minus application fee)
       },
-      application_fee_percent: Number(((totalPlatformFee / totalAmount) * 100).toFixed(2)), // Platform fee percentage
+      // We will set an exact application fee on the generated invoice to avoid tax-induced variance
+      payment_behavior: 'default_incomplete',
       on_behalf_of: connectedAccountId, // Makes connected account settlement merchant
       metadata: {
         platform_fee_amount: totalPlatformFee.toString(),
@@ -444,6 +445,36 @@ export const manageSubscription = async ({
     }
     // NO stripeAccount parameter - subscription created on platform
     subscription = await stripe.subscriptions.create(startSubscriptionParams)
+
+    // Ensure the first invoice uses an exact platform fee computed on the post-tax total
+    if (subscription.latest_invoice) {
+      const latestInvoiceId = typeof subscription.latest_invoice === 'string'
+        ? subscription.latest_invoice
+        : subscription.latest_invoice.id
+
+      if (latestInvoiceId) {
+        // Retrieve the invoice to get tax-inclusive totals
+        const latestInvoice = await stripe.invoices.retrieve(latestInvoiceId, {
+          expand: ['payment_intent']
+        })
+
+        const invoiceTotal = latestInvoice.total ?? 0 // total is tax-inclusive when automatic tax or manual taxes are present
+        const postTaxPlatformFee = await calculatePlatformFee({ amount: invoiceTotal, organizationId: organization.id })
+
+        // Set an absolute application fee amount so Stripe charges on the post-tax amount
+        await stripe.invoices.update(latestInvoiceId, {
+          application_fee_amount: postTaxPlatformFee
+        })
+
+        // Confirm the payment intent now that the invoice is updated
+        const paymentIntentId = typeof latestInvoice.payment_intent === 'string'
+          ? latestInvoice.payment_intent
+          : latestInvoice.payment_intent?.id
+        if (paymentIntentId) {
+          await stripe.paymentIntents.confirm(paymentIntentId)
+        }
+      }
+    }
     for (const priceItem of priceItems) {
       const priceId = priceItem.price
       const productKey = productKeysByPrice[priceId]
@@ -618,7 +649,7 @@ export const manageSubscription = async ({
       const taxAmount = perItemInvoiceAmounts?.taxAmount ?? 0
       const totalAmount = perItemInvoiceAmounts?.totalAmount ?? baseAmount + taxAmount
       const platformFeeAmount = await calculatePlatformFee({
-        amount: baseAmount,
+        amount: totalAmount, // charge fee on post-tax total per item
         organizationId: organization.id
       })
 
