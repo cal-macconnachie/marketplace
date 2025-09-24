@@ -423,7 +423,12 @@ export const manageSubscription = async ({
         subscription.id,
         {
           billing_cycle_anchor: 'unchanged',
-          automatic_tax: { enabled: true },
+          automatic_tax: {
+            enabled: true,
+            liability: {
+              type: 'account', account: accountId 
+            },
+          },
           transfer_data: { destination: accountId },
           on_behalf_of: accountId,
           ...(organization.platform_fee_percent != null
