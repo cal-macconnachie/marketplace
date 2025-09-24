@@ -9,6 +9,7 @@ import { addPurchase } from '../helpers/add-purchase'
 import { Purchase } from './purchases'
 import { v4 } from 'uuid'
 import { getStripeClient } from '../helpers/stripe/stripe-client'
+import { queryAll } from '../helpers/dynamo-helpers/query'
 
 interface CartItem {
   product_id: string
@@ -73,11 +74,16 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
       }
 
       // Find user by stripe customer ID
-      const user = await get<User>({
+      const users = await queryAll<User>({
         tableName: process.env.USERS_TABLE!,
-        key: { stripeUserId: customerId }
+        indexName: 'stripe_id-index',
+        keyConditionExpression: 'stripe_id = :stripeId',
+        expressionAttributeValues: {
+          ':stripeId': customerId
+        }
       })
-      
+      const user = users[0]
+
       if (!user) {
         console.error('No user found for stripeUserId:', customerId)
         return
