@@ -774,6 +774,16 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       batchSize: 1
     }
   },
+  {
+    name: 'purchase-carts',
+    handler: 'purchase-carts.handler',
+    description: 'Handle purchase cart updates via DynamoDB stream and send receipts when all items processed',
+    dynamoStreamEvent: {
+      tableName: 'purchase-carts',
+      enabled: true,
+      batchSize: 1
+    }
+  },
 
   // Image Processing
   {

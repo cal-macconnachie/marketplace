@@ -2,12 +2,62 @@ import { EventBridgeEvent } from 'aws-lambda'
 import Stripe from 'stripe'
 import { get } from '../helpers/dynamo-helpers/get'
 import { update } from '../helpers/dynamo-helpers/update'
+import { atomicUpdate } from '../helpers/dynamo-helpers/atomic-update'
 import { User } from './users'
 import { Organization } from './organizations'
 import { addPurchase } from '../helpers/add-purchase'
 import { Purchase } from './purchases'
 import { v4 } from 'uuid'
 import { getStripeClient } from '../helpers/stripe/stripe-client'
+
+interface CartItem {
+  product_id: string
+  group_id: string
+  processed?: boolean // undefined = not processed, true = success, false = failed
+}
+
+interface Cart {
+  user_id: string
+  id: string
+  items: CartItem[]
+  created_at: string
+  status: 'pending' | 'completed'
+}
+
+// Atomically mark a cart item as processed using DynamoDB update expressions
+const markCartItemProcessed = async (cartId: string, userId: string, productId: string, success: boolean = true) => {
+  // Get cart to find item index (we need this for the atomic update)
+  const cart = await get<Cart>({
+    tableName: process.env.PURCHASE_CARTS_TABLE!,
+    key: {
+      user_id: userId,
+      id: cartId
+    }
+  })
+
+  if (!cart) {
+    throw new Error(`Cart not found: ${cartId}`)
+  }
+
+  // Find the index of the item to update
+  const itemIndex = cart.items.findIndex(item => item.product_id === productId)
+  if (itemIndex === -1) {
+    throw new Error(`Product ${productId} not found in cart ${cartId}`)
+  }
+
+  // Use atomic update expression to set the processed flag for this specific item
+  await atomicUpdate({
+    tableName: process.env.PURCHASE_CARTS_TABLE!,
+    key: {
+      user_id: userId,
+      id: cartId
+    },
+    updateExpression: `SET items[${itemIndex}].processed = :processed`,
+    expressionAttributeValues: {
+      ':processed': success
+    }
+  })
+}
 
 export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe Event', Stripe.Event>) => {
   const type = event.detail.type
@@ -48,22 +98,23 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
         return
       }
 
-      // Handle destination charge completion
+      // Handle destination charge completion with cart-based receipt flow
       if (paymentIntent.transfer_data?.destination) {
         const connectedAccountId = paymentIntent.transfer_data.destination
-        
-        // Create purchase records from payment intent metadata or line items
-        if (paymentIntent.metadata?.product_ids) {
+        const cartId = paymentIntent.metadata?.cart_id
+
+        // Create purchase records from payment intent metadata
+        if (paymentIntent.metadata?.product_ids && cartId) {
           const productIds = JSON.parse(paymentIntent.metadata.product_ids)
           const stripe = getStripeClient()
-          
+
           for (const productId of productIds) {
             try {
               // Retrieve product from connected account
               const stripeProduct = await stripe.products.retrieve(productId, {
                 stripeAccount: typeof connectedAccountId === 'string' ? connectedAccountId : connectedAccountId.id
               })
-              
+
               const purchase: Purchase = {
                 id: v4(),
                 user_id: user.id,
@@ -76,12 +127,29 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                 payment_method_id: typeof paymentIntent.payment_method === 'string' ? paymentIntent.payment_method : paymentIntent.payment_method?.id || '',
                 amount: paymentIntent.amount,
                 currency: paymentIntent.currency,
+                cart_id: cartId,
                 seller_organization_id: stripeProduct.metadata?.organization_id
               }
-              
+
               await addPurchase(purchase)
+
+              // Atomically mark this product as processed in the cart
+              // The DynamoDB stream handler will send the receipt when all items are processed
+              try {
+                await markCartItemProcessed(cartId, user.id, productId, true)
+              } catch (error) {
+                console.error(`Failed to mark cart item as processed for product ${productId}:`, error)
+              }
             } catch (error) {
               console.error(`Failed to create purchase record for product ${productId}:`, error)
+              // Mark this item as failed in the cart
+              if (cartId) {
+                try {
+                  await markCartItemProcessed(cartId, user.id, productId, false)
+                } catch (markError) {
+                  console.error(`Failed to mark cart item as failed for product ${productId}:`, markError)
+                }
+              }
             }
           }
         }
@@ -224,15 +292,19 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
             })
           }
 
-          // Determine connected account id for direct charge
+          // Determine connected account id and cart id for direct charge
           const stripe = getStripeClient()
           let connectedAccountId: string | undefined = invoice.metadata ? (invoice.metadata as Record<string, string>)['connected_account_id'] : undefined
+          let cartId: string | undefined = invoice.metadata ? (invoice.metadata as Record<string, string>)['cart_id'] : undefined
           const subscriptionId = typeof invoice.parent?.subscription_details?.subscription === 'string' ? invoice.parent.subscription_details.subscription : invoice.parent?.subscription_details?.subscription?.id
-          if (!connectedAccountId && subscriptionId) {
+          if ((!connectedAccountId || !cartId) && subscriptionId) {
             try {
               const sub = await stripe.subscriptions.retrieve(subscriptionId)
-              const metaAccount = sub.metadata ? (sub.metadata as Record<string, string>)['connected_account_id'] : undefined
-              if (metaAccount) connectedAccountId = metaAccount
+              const metadata = sub.metadata as Record<string, string> | undefined
+              if (metadata) {
+                if (!connectedAccountId) connectedAccountId = metadata['connected_account_id']
+                if (!cartId) cartId = metadata['cart_id']
+              }
             } catch (e) {
               console.warn('Unable to retrieve subscription for connected account id lookup:', e)
             }
@@ -299,6 +371,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                 payment_method_id: typeof invoice.default_payment_method === 'string' ? invoice.default_payment_method : invoice.default_payment_method?.id || '',
                 amount: amount,
                 currency: lineItem.currency || invoice.currency || 'usd',
+                cart_id: cartId,
                 seller_organization_id: (stripeProduct.metadata as Record<string, string> | undefined)?.['organization_id'],
                 platform_fee_amount: feeShare,
                 connected_account_id: connectedAccountId,
@@ -306,8 +379,26 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
               }
 
               await addPurchase(purchase)
+
+              // Handle cart-based processing for subscriptions
+              if (cartId) {
+                // The DynamoDB stream handler will send the receipt when all items are processed
+                try {
+                  await markCartItemProcessed(cartId, user.id, productId, true)
+                } catch (error) {
+                  console.error(`Failed to mark cart item as processed for subscription product ${productId}:`, error)
+                }
+              }
             } catch (error) {
               console.error(`Failed to create purchase record for subscription product ${productId}:`, error)
+              // Mark this item as failed in the cart
+              if (cartId) {
+                try {
+                  await markCartItemProcessed(cartId, user.id, productId, false)
+                } catch (markError) {
+                  console.error(`Failed to mark cart item as failed for subscription product ${productId}:`, markError)
+                }
+              }
             }
           }
         }

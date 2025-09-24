@@ -213,6 +213,18 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
           type: 'S'
         },
         projectionType: 'ALL'
+      },
+      {
+        indexName: 'cart_id-index',
+        partitionKey: {
+          name: 'cart_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'purchased_at',
+          type: 'S'
+        },
+        projectionType: 'ALL'
       }
     ],
     billingMode: 'PAY_PER_REQUEST'
@@ -262,6 +274,7 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
       name: 'id',
       type: 'S'
     },
-    billingMode: 'PAY_PER_REQUEST'
+    billingMode: 'PAY_PER_REQUEST',
+    stream: 'NEW_AND_OLD_IMAGES'
   }
 ]

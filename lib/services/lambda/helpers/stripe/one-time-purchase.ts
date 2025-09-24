@@ -5,7 +5,6 @@ import { User } from "../../handlers/users"
 import { getPromoByCode } from "./get-promo-by-code"
 import { getStripeClient } from "./stripe-client"
 import { Organization } from "../../handlers/organizations"
-import { addPurchase } from '../add-purchase'
 import { v4 } from 'uuid'
 import {
   calculatePlatformFee, 
@@ -148,7 +147,7 @@ export const createOneTimePurchase = async ({
   const platformFeeAmount = await calculatePlatformFee({
     amount: totalAmount, organizationId: organization.id
   })
-  const purchase = await addPurchase({
+  const purchaseData = {
     id: v4(),
     user_id: user.id,
     product_id: product.id,
@@ -165,7 +164,7 @@ export const createOneTimePurchase = async ({
     tax_amount: taxAmount,
     base_amount: finalAmount, // Amount before tax
     applied_discount: appliedDiscount ? {
-      type: appliedDiscount.type === 'promotion_code' ? 'promotion_code' : 'coupon',
+      type: appliedDiscount.type === 'promotion_code' ? 'promotion_code' : 'coupon' as 'coupon' | 'promotion_code',
       code: appliedDiscount.code,
       coupon: {
         id: appliedDiscount.coupon?.id,
@@ -173,7 +172,8 @@ export const createOneTimePurchase = async ({
         percent_off: appliedDiscount.coupon?.percent_off || 0
       }
     } : undefined,
-  }, product, false)
+    seller_organization_id: product.metadata?.organization_id
+  }
 
   const purchasedProduct: PurchasedProduct = {
     id: product.id,
@@ -184,7 +184,7 @@ export const createOneTimePurchase = async ({
     user_id: user.id,
     amount: totalAmount, // Total amount including tax
     currency: product.default_price_data.currency,
-    purchase_id: purchase.id
+    purchase_id: purchaseData.id
   }
   // Calculate expiration time based on product metadata 'time' field or default to 1 hour
   const currentTime = Math.floor(Date.now() / 1000) // Use seconds to match Stripe format
@@ -204,6 +204,6 @@ export const createOneTimePurchase = async ({
   }
   return {
     purchasedProduct,
-    purchase
+    purchaseData
   }
 }

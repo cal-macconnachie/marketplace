@@ -32,6 +32,7 @@ export const manageSubscription = async ({
   organization,
   remove = false,
   ipAddress,
+  cartId,
 }: {
   promotionCode?: string
   couponId?: string
@@ -41,6 +42,7 @@ export const manageSubscription = async ({
   organization: Organization
   remove: boolean
   ipAddress?: string
+  cartId?: string
 }): Promise<Purchase[] | void> => {
   if (!user.stripe_id) return
 
@@ -184,7 +186,10 @@ export const manageSubscription = async ({
         collection_method: 'charge_automatically',
         payment_behavior: 'allow_incomplete',
         ...(paymentMethodId ? { default_payment_method: paymentMethodId } : {}),
-        metadata: { connected_account_id: accountId },
+        metadata: {
+          connected_account_id: accountId,
+          ...(cartId ? { cart_id: cartId } : {})
+        },
         automatic_tax: {
           enabled: true,
           liability: {

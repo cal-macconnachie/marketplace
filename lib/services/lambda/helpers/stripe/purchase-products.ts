@@ -1,3 +1,4 @@
+import { v4 } from 'uuid'
 import { Organization } from "../../handlers/organizations"
 import { PaymentMethod } from "../../handlers/payment-methods"
 import {
@@ -8,7 +9,6 @@ import { User } from "../../handlers/users"
 import { create } from '../dynamo-helpers/create'
 import { get } from "../dynamo-helpers/get"
 import { update } from '../dynamo-helpers/update'
-import { putEvents } from '../eventbridge/put-events'
 import { createDestinationCharge } from './create-destination-charge'
 import { manageSubscription } from "./manage-subscription"
 import { createOneTimePurchase } from "./one-time-purchase"
@@ -131,7 +131,31 @@ export const purchaseProducts = async ({
   const productsToPurchase = productKeys.map((key) => productsHash[`${key.group_id}:${key.id}`]).filter(Boolean)
   const oneTimeProduct = productsToPurchase.filter((prod) => !Boolean(prod.default_price_data.recurring))
   const subscriptionProducts = productsToPurchase.filter((prod) => Boolean(prod.default_price_data.recurring))
-  const purchases: Purchase[] = []
+  // Create a cart for this purchase session
+  const cartId = v4()
+  const cartItems = productsToPurchase.map(product => ({
+    product_id: product.id,
+    group_id: product.group_id
+    // processed is initially undefined until webhooks process the item
+  }))
+
+  await create({
+    tableName: process.env.PURCHASE_CARTS_TABLE!,
+    key: {
+      user_id: userId,
+      id: cartId
+    },
+    record: {
+      user_id: userId,
+      id: cartId,
+      items: cartItems,
+      created_at: new Date().toISOString(),
+      status: 'pending'
+    },
+    returnCreated: false
+  })
+
+  const purchaseDataList: Purchase[] = []
   const purchasedProducts: PurchasedProduct[] = []
   for (const product of oneTimeProduct) {
     try {
@@ -145,8 +169,8 @@ export const purchaseProducts = async ({
         taxCode,
         ipAddress
       })
-      if (paymentResponse.purchase) {
-        purchases.push(paymentResponse.purchase)
+      if (paymentResponse.purchaseData) {
+        purchaseDataList.push(paymentResponse.purchaseData)
       }
       if (paymentResponse.purchasedProduct) {
         purchasedProducts.push(paymentResponse.purchasedProduct)
@@ -156,13 +180,13 @@ export const purchaseProducts = async ({
     }
   }
   try {
-    // summarize purchases by connected_account_id and currency to create individual destination charges for each group
-    const groupedPurchases = purchases.reduce((acc, purchase) => {
-      const key = `${purchase.connected_account_id}:${purchase.currency}`
+    // summarize purchase data by connected_account_id and currency to create individual destination charges for each group
+    const groupedPurchaseData = purchaseDataList.reduce((acc, purchaseData) => {
+      const key = `${purchaseData.connected_account_id}:${purchaseData.currency}`
       if (!acc[key]) {
         acc[key] = []
       }
-      acc[key].push(purchase)
+      acc[key].push(purchaseData)
       return acc
     }, {} as Record<string, Purchase[]>)
 
@@ -170,22 +194,28 @@ export const purchaseProducts = async ({
     for (const [
       key,
       group
-    ] of Object.entries(groupedPurchases)) {
+    ] of Object.entries(groupedPurchaseData)) {
       try {
         const destinationAccountId = group[0].connected_account_id
         if (destinationAccountId == null) throw new Error(`Destination account ID not found for group ${key}`)
+
+        // Get product IDs for this group to pass in metadata
+        const productIds = group.map(p => p.product_id)
+
         await createDestinationCharge({
-          amount: group.reduce((sum, purchase) => sum + purchase.amount, 0),
+          amount: group.reduce((sum, purchaseData) => sum + purchaseData.amount, 0),
           currency: group[0].currency,
           paymentMethodId: paymentMethod.id,
           user,
-          destinationAccountId
+          destinationAccountId,
+          cartId, // Pass cart ID for tracking
+          productIds // Pass product IDs for metadata
         })
-        // persist purchases and purchased products
-        // get corresponding purchased products for purchases
+
+        // Update organization with purchased products (but don't create purchases yet - webhook will do that)
         const purchasedProductsForGroup = purchasedProducts.filter((pp) => group.some((p) => p.id === pp.purchase_id))
-        await Promise.all([
-          update<Organization>({
+        if (purchasedProductsForGroup.length > 0) {
+          await update<Organization>({
             tableName: process.env.ORGANIZATIONS_TABLE!,
             key: { id: organization.id },
             updates: {
@@ -194,17 +224,8 @@ export const purchaseProducts = async ({
                 ...purchasedProductsForGroup
               ]
             }
-          }),
-          ...(group.map((purchase) => create<Purchase>({
-            tableName: process.env.PURCHASES_TABLE!,
-            key: {
-              user_id: purchase.user_id,
-              id: purchase.id
-            },
-            record: purchase,
-            returnCreated: false
-          })))
-        ])
+          })
+        }
       } catch (error) {
         console.error(`Error creating destination charge for group ${key}:`, error)
       }
@@ -222,59 +243,17 @@ export const purchaseProducts = async ({
         user,
         organization,
         remove: false,
-        ipAddress
+        ipAddress,
+        cartId // Pass cart ID to subscription management
       })
       if (manageSubscriptionResponse) {
-        purchases.push(...manageSubscriptionResponse)
+        // manageSubscription will handle webhook receipt via cart tracking - no immediate purchases created
       }
     }
   } catch (error) {
     console.error(`Error managing subscription for user ${user.id}:`, error)
   }
-  if (purchases.length > 0) {
-    await putEvents({
-      events: [
-        {
-          Source: 'purchase-products',
-          DetailType: 'products-purchased',
-          Detail: JSON.stringify({
-            userId: user.id,
-            paymentMethodId: paymentMethod.id,
-            purchases: purchases.map(({
-              user_id, id 
-            }) => ({
-              user_id, id 
-            })),
-            products: Object.values(productsToPurchase.map((prod) => {
-              return {
-                group_id: prod.group_id,
-                id: prod.id
-              }
-            }).reduce((acc: {
-              [key: string]: { group_id: string; id: string; quantity: number }
-            }, curr) => {
-              acc[`${curr.group_id}:${curr.id}`] = {
-                group_id: curr.group_id,
-                id: curr.id,
-                quantity: (acc[`${curr.group_id}:${curr.id}`]?.quantity || 0) + 1
-              }
-              return acc
-            }, {}))
-          })
-        }
-      ]
-    })
-  }
-  // if purchases.length !== productsToPurchase.length we have some failures to purchase, we should check against the purchases to report failures
-  if (purchases.length !== productsToPurchase.length) {
-    let purchaseProds = purchases.map((p) => p.product_id)
-    for (const prod of productsToPurchase) {
-      const firstIndex = purchaseProds.indexOf(prod.id)
-      purchaseProds = purchaseProds.slice(firstIndex + 1, purchaseProds.length)
-    }
-    // any remaining products in purchaseProds were not purchased successfully
-    if (purchaseProds.length > 0) {
-      throw new Error(`Some products failed to purchase: ${purchaseProds.join(',')}`)
-    }
-  }
+  // Purchases will be created by webhook handlers, and receipt will be sent when all items in cart are processed
+  // Return cart ID for tracking purposes
+  return { cartId }
 }

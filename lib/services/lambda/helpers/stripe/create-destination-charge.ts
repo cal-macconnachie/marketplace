@@ -7,15 +7,28 @@ export const createDestinationCharge = async ({
   currency,
   paymentMethodId,
   user,
-  destinationAccountId
+  destinationAccountId,
+  cartId,
+  productIds
 }: {
   amount: number
   currency: string
   paymentMethodId: string
   user: User
   destinationAccountId: string
+  cartId?: string
+  productIds?: string[]
 }) => {
   const stripe = getStripeClient()
+
+  // Create metadata object with cart and product info
+  const metadata: Record<string, string> = {}
+  if (cartId) {
+    metadata.cart_id = cartId
+  }
+  if (productIds && productIds.length > 0) {
+    metadata.product_ids = JSON.stringify(productIds)
+  }
 
   // Create a new payment intent for the destination charge
   const paymentIntent = await stripe.paymentIntents.create({
@@ -34,7 +47,8 @@ export const createDestinationCharge = async ({
     automatic_payment_methods: {
       enabled: true,
       allow_redirects: 'never' as const
-    }
+    },
+    ...(Object.keys(metadata).length > 0 ? { metadata } : {})
   })
   if (!paymentIntent) {
     throw new Error('Failed to create payment intent')
