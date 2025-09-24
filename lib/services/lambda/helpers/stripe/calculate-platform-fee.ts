@@ -3,25 +3,42 @@ import { getOrganizationById } from '../organizations/get-organization-by-id'
 const organizationsCache: { [key: string]: Organization | null } = {}
 export const calculatePlatformFee = async ({
   amount,
-  organizationId
+  organizationId,
+  subscription
 }: {
-  amount: number
+  amount?: number
   organizationId?: string
+  subscription?: boolean
 }): Promise<number> => {
   // Platform fee logic: 6% + $0.30
   let percent = 0.06
   let fixedFee = 30 // $0.30 in cents 
-  if (organizationId) {
-    const org = organizationsCache[organizationId] ? organizationsCache[organizationId] : await getOrganizationById(organizationId)
-    if (org && org.platform_fee_percent) {
-      percent = org.platform_fee_percent / 100
+  if (subscription) {
+    // Subscription fees can only be percentage-based so we will be returning a whole number percent here
+    percent = 0.08
+    if (organizationId) {
+      const org = organizationsCache[organizationId] ? organizationsCache[organizationId] : await getOrganizationById(organizationId)
+      if (org && org.subscription_platform_fee_percent) {
+        percent = org.subscription_platform_fee_percent / 100
+      }
     }
-    if (org && org.platform_fee_fixed) {
-      fixedFee = org.platform_fee_fixed
+    return Number((percent * 100).toFixed(2))
+  } else {
+    if (!amount) {
+      throw new Error('Amount is required for one-time purchases')
     }
+    if (organizationId) {
+      const org = organizationsCache[organizationId] ? organizationsCache[organizationId] : await getOrganizationById(organizationId)
+      if (org && org.platform_fee_percent) {
+        percent = org.platform_fee_percent / 100
+      }
+      if (org && org.platform_fee_fixed) {
+        fixedFee = org.platform_fee_fixed
+      }
+    }
+    const percentageFee = Math.round(amount * percent)
+    return percentageFee + fixedFee
   }
-  const percentageFee = Math.round(amount * percent)
-  return percentageFee + fixedFee
 }
 
 export const calculateConnectedAccountAmount = (

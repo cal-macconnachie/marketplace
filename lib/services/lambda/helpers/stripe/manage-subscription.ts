@@ -171,7 +171,10 @@ export const manageSubscription = async ({
         price: it.price,
         ...(it.quantity != null ? { quantity: it.quantity } : {}),
       }))
-
+      const platformFeePercent = await calculatePlatformFee({
+        organizationId: organization.id,
+        subscription: true
+      })
       const createParams: Stripe.SubscriptionCreateParams = {
         customer: user.stripe_id,
         items,
@@ -187,9 +190,7 @@ export const manageSubscription = async ({
         },
         transfer_data: { destination: accountId },
         on_behalf_of: accountId,
-        ...(organization.platform_fee_percent != null
-          ? { application_fee_percent: organization.platform_fee_percent }
-          : {}),
+        application_fee_percent: platformFeePercent
       }
 
       subscription = await stripe.subscriptions.create(createParams)
@@ -419,6 +420,10 @@ export const manageSubscription = async ({
       }
 
       // Keep anchor unchanged and re-apply high-level settings
+      const platformFeePercent = await calculatePlatformFee({
+        organizationId: organization.id,
+        subscription: true
+      })
       await stripe.subscriptions.update(
         subscription.id,
         {
@@ -431,9 +436,7 @@ export const manageSubscription = async ({
           },
           transfer_data: { destination: accountId },
           on_behalf_of: accountId,
-          ...(organization.platform_fee_percent != null
-            ? { application_fee_percent: organization.platform_fee_percent }
-            : {}),
+          application_fee_percent: platformFeePercent,
           ...(discounts ? { discounts } : {}),
         },
         

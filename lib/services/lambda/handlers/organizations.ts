@@ -56,6 +56,7 @@ export interface Organization {
 
   platform_fee_percent?: number
   platform_fee_fixed?: number
+  subscription_platform_fee_percent?: number
 }
 
 // handles updating the users products
