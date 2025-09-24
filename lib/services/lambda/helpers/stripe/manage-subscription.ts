@@ -13,6 +13,7 @@ import { calculatePlatformFee } from './calculate-platform-fee'
 import { calculateTaxesWithCaching } from '../tax/calculate-taxes-with-caching'
 import { generateLocationKey } from '../tax/tax-calculation-cache'
 import { convertAddressToCodes } from '../tax/address-code-converter'
+import { addPurchase } from '../add-purchase'
 
 type DiscountsParam = Array<{ promotion_code?: string; coupon?: string }>
 
@@ -85,7 +86,7 @@ export const manageSubscription = async ({
   }
   const locationKey = resolveLocation()
 
-  const resolveDiscounts = async (_accountId: string): Promise<DiscountsParam | undefined> => {
+  const resolveDiscounts = async (): Promise<DiscountsParam | undefined> => {
     const d: DiscountsParam = []
     if (promotionCode) {
       const promo = await getPromoByCode(promotionCode)
@@ -130,7 +131,7 @@ export const manageSubscription = async ({
 
   for (const accountId of Object.keys(byAccount)) {
     const accountProducts = byAccount[accountId]
-    const discounts = await resolveDiscounts(accountId)
+    const discounts = await resolveDiscounts()
 
     // Build desired items (aggregate quantity for non-metered)
     const desiredItemsRaw = await Promise.all(
@@ -180,7 +181,9 @@ export const manageSubscription = async ({
         ...(paymentMethodId ? { default_payment_method: paymentMethodId } : {}),
         automatic_tax: {
           enabled: true,
-          liability: { type: 'account', account: accountId },
+          liability: {
+            type: 'account', account: accountId 
+          },
         },
         transfer_data: { destination: accountId },
         on_behalf_of: accountId,
@@ -226,7 +229,7 @@ export const manageSubscription = async ({
             currency: item.currency,
             user_id: user.id,
           })
-          purchases.push({
+          const purchase: Purchase = {
             id: uuidv4(),
             user_id: user.id,
             product_id: item.id,
@@ -243,7 +246,9 @@ export const manageSubscription = async ({
             destination_charge_id: subscription.id,
             base_amount: basePer[i],
             tax_amount: taxPer[i],
-          })
+          }
+          const persisted = await addPurchase(purchase, product)
+          purchases.push(persisted)
         }
       }
       continue
@@ -259,7 +264,9 @@ export const manageSubscription = async ({
         if (!existing) continue
         if (it.meta.metered || (existing.quantity ?? 1) <= (it.quantity ?? 1)) {
           if (existingItems.length <= 1) {
-            await stripe.subscriptions.cancel(subscription.id, { prorate: true, invoice_now: false })
+            await stripe.subscriptions.cancel(subscription.id, {
+              prorate: true, invoice_now: false 
+            })
             delete subscriptionIds[accountId]
             const toRemoveIds = new Set(accountProducts.map((p) => p.id))
             purchasedProducts = purchasedProducts.filter((pp) => !toRemoveIds.has(pp.id))
@@ -279,7 +286,9 @@ export const manageSubscription = async ({
           }
         } else {
           const newQty = (existing.quantity ?? 1) - (it.quantity ?? 1)
-          await stripe.subscriptionItems.update(existing.id, { quantity: newQty, proration_behavior: 'create_prorations' })
+          await stripe.subscriptionItems.update(existing.id, {
+            quantity: newQty, proration_behavior: 'create_prorations' 
+          })
           let removed = 0
           const toRemove = it.quantity ?? 1
           purchasedProducts = purchasedProducts.filter((pp) => {
@@ -297,7 +306,9 @@ export const manageSubscription = async ({
         if (existing) {
           if (!it.meta.metered) {
             const newQty = (existing.quantity ?? 1) + (it.quantity ?? 1)
-            await stripe.subscriptionItems.update(existing.id, { quantity: newQty, proration_behavior: 'create_prorations' })
+            await stripe.subscriptionItems.update(existing.id, {
+              quantity: newQty, proration_behavior: 'create_prorations' 
+            })
             const qtyAdded = it.quantity ?? 1
             const productsHash = { [`${it.meta.product.group_id}:${it.meta.product.id}`]: it.meta.product }
             const taxItems = [
@@ -324,7 +335,7 @@ export const manageSubscription = async ({
                 currency: tx.currency,
                 user_id: user.id,
               })
-              purchases.push({
+              const purchase: Purchase = {
                 id: uuidv4(),
                 user_id: user.id,
                 product_id: it.meta.product.id,
@@ -341,7 +352,9 @@ export const manageSubscription = async ({
                 destination_charge_id: subscription.id,
                 base_amount: basePer[i],
                 tax_amount: taxPer[i],
-              })
+              }
+              const persisted = await addPurchase(purchase, it.meta.product)
+              purchases.push(persisted)
             }
           }
         } else {
@@ -381,7 +394,7 @@ export const manageSubscription = async ({
               currency: tx.currency,
               user_id: user.id,
             })
-            purchases.push({
+            const purchase: Purchase = {
               id: uuidv4(),
               user_id: user.id,
               product_id: it.meta.product.id,
@@ -398,7 +411,9 @@ export const manageSubscription = async ({
               destination_charge_id: subscription.id,
               base_amount: basePer[i],
               tax_amount: taxPer[i],
-            })
+            }
+            const persisted = await addPurchase(purchase, it.meta.product)
+            purchases.push(persisted)
           }
         }
       }
@@ -408,7 +423,7 @@ export const manageSubscription = async ({
         subscription.id,
         {
           billing_cycle_anchor: 'unchanged',
-          automatic_tax: { enabled: true, liability: { type: 'account', account: accountId } },
+          automatic_tax: { enabled: true },
           transfer_data: { destination: accountId },
           on_behalf_of: accountId,
           ...(organization.platform_fee_percent != null
