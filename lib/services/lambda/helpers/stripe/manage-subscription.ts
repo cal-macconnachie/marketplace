@@ -258,6 +258,7 @@ export const manageSubscription = async ({
     // Update existing subscription
     subscription = await stripe.subscriptions.retrieve(currentSubId!)
     const existingItems = subscription.items.data
+    let didProrate = false
 
     if (remove) {
       for (const it of Object.values(desiredItems)) {
@@ -274,6 +275,7 @@ export const manageSubscription = async ({
             break
           } else {
             await stripe.subscriptionItems.del(existing.id)
+            didProrate = true
             // remove matching quantity of purchased products
             let removed = 0
             const toRemove = it.quantity ?? 1
@@ -290,6 +292,7 @@ export const manageSubscription = async ({
           await stripe.subscriptionItems.update(existing.id, {
             quantity: newQty, proration_behavior: 'create_prorations' 
           })
+          didProrate = true
           let removed = 0
           const toRemove = it.quantity ?? 1
           purchasedProducts = purchasedProducts.filter((pp) => {
@@ -310,6 +313,7 @@ export const manageSubscription = async ({
             await stripe.subscriptionItems.update(existing.id, {
               quantity: newQty, proration_behavior: 'create_prorations' 
             })
+            didProrate = true
             const qtyAdded = it.quantity ?? 1
             const productsHash = { [`${it.meta.product.group_id}:${it.meta.product.id}`]: it.meta.product }
             const taxItems = [
@@ -369,6 +373,7 @@ export const manageSubscription = async ({
             },
             
           )
+          didProrate = true
           const qty = it.quantity ?? 1
           const productsHash = { [`${it.meta.product.group_id}:${it.meta.product.id}`]: it.meta.product }
           const taxItems = [
@@ -441,6 +446,36 @@ export const manageSubscription = async ({
         },
         
       )
+
+      // If prorations were created, invoice them immediately so the
+      // upcoming invoice only contains the regular cycle amount.
+      if (didProrate) {
+        try {
+          const invoice = await stripe.invoices.create({
+            customer: user.stripe_id,
+            subscription: subscription.id,
+            collection_method: 'charge_automatically',
+            automatic_tax: {
+              enabled: true,
+              liability: {
+                type: 'account', account: accountId 
+              },
+            },
+            on_behalf_of: accountId,
+            transfer_data: { destination: accountId },
+          })
+
+          // Only attempt payment if there is something to pay
+          if ((invoice.total ?? 0) > 0 && invoice.id) {
+            const finalized = await stripe.invoices.finalizeInvoice(invoice.id)
+            if (finalized.status !== 'paid') {
+              await stripe.invoices.pay(invoice.id)
+            }
+          }
+        } catch (err) {
+          console.error('Failed to invoice prorations immediately:', err)
+        }
+      }
     }
   }
 
