@@ -303,15 +303,14 @@ export class LambdaStack extends cdk.Stack {
         const events = cdk.aws_events
         const eventsTargets = cdk.aws_events_targets
         let eventBusName = 'default'
-        if (def.eventBridgeEvent.detailType === 'Stripe Event' && envVars['STRIPE_EVENT_DESTINATION']) {
-          const stripeEventDestination = envVars['STRIPE_EVENT_DESTINATION']
-          if (stripeEventDestination) {
-            eventBusName = `aws.partner/stripe.com/${stripeEventDestination}`
-          }
-        } else if (def.eventBridgeEvent.detailType === 'Stripe Event' && envVars['STRIPE_EVENT_DESTINATION_PLATFORM']) {
-          const platformEventDestination = envVars['STRIPE_EVENT_DESTINATION_PLATFORM']
-          if (platformEventDestination) {
+        if (def.eventBridgeEvent.detailType === 'Stripe Event') {
+          // Check which Stripe event destination this handler should use based on its required environment variables
+          if (def.environment?.includes('STRIPE_EVENT_DESTINATION_PLATFORM') && envVars['STRIPE_EVENT_DESTINATION_PLATFORM']) {
+            const platformEventDestination = envVars['STRIPE_EVENT_DESTINATION_PLATFORM']
             eventBusName = `aws.partner/stripe.com/${platformEventDestination}`
+          } else if (def.environment?.includes('STRIPE_EVENT_DESTINATION') && envVars['STRIPE_EVENT_DESTINATION']) {
+            const stripeEventDestination = envVars['STRIPE_EVENT_DESTINATION']
+            eventBusName = `aws.partner/stripe.com/${stripeEventDestination}`
           }
         } else if (def.eventBridgeEvent.eventBus) {
           eventBusName = def.eventBridgeEvent.eventBus

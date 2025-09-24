@@ -718,7 +718,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
         // Platform account events for destination charges
         'detail-type': [
           'payment_intent.succeeded',
-          'payment_intent.payment_failed', 
+          'payment_intent.payment_failed',
           'transfer.created',
           'application_fee.created',
           'charge.dispute.created',
