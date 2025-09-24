@@ -132,6 +132,11 @@ export const manageSubscription = async ({
   for (const accountId of Object.keys(byAccount)) {
     const accountProducts = byAccount[accountId]
     const discounts = await resolveDiscounts()
+    // Subscription platform fee is percentage-only; compute once per account
+    const subscriptionFeePercent = await calculatePlatformFee({
+      organizationId: organization.id,
+      subscription: true,
+    })
 
     // Build desired items (aggregate quantity for non-metered)
     const desiredItemsRaw = await Promise.all(
@@ -171,10 +176,7 @@ export const manageSubscription = async ({
         price: it.price,
         ...(it.quantity != null ? { quantity: it.quantity } : {}),
       }))
-      const platformFeePercent = await calculatePlatformFee({
-        organizationId: organization.id,
-        subscription: true
-      })
+      const platformFeePercent = subscriptionFeePercent
       const createParams: Stripe.SubscriptionCreateParams = {
         customer: user.stripe_id,
         items,
@@ -182,6 +184,7 @@ export const manageSubscription = async ({
         collection_method: 'charge_automatically',
         payment_behavior: 'allow_incomplete',
         ...(paymentMethodId ? { default_payment_method: paymentMethodId } : {}),
+        metadata: { connected_account_id: accountId },
         automatic_tax: {
           enabled: true,
           liability: {
@@ -217,9 +220,6 @@ export const manageSubscription = async ({
         const product = productsHash[`${item.group_id}:${item.id}`]
         for (let i = 0; i < qty; i++) {
           const total = basePer[i] + taxPer[i]
-          const feeAmt = await calculatePlatformFee({
-            amount: total, organizationId: organization.id 
-          })
           purchasedProducts.push({
             unique_id: uuidv4(),
             id: item.id,
@@ -230,26 +230,8 @@ export const manageSubscription = async ({
             currency: item.currency,
             user_id: user.id,
           })
-          const purchase: Purchase = {
-            id: uuidv4(),
-            user_id: user.id,
-            product_id: item.id,
-            product_name: product.name,
-            is_one_time: false,
-            is_subscription: true,
-            purchased_at: new Date().toISOString(),
-            organization_id: organization.id,
-            payment_method_id: paymentMethodId || '',
-            amount: total,
-            currency: item.currency,
-            platform_fee_amount: feeAmt,
-            connected_account_id: accountId,
-            destination_charge_id: subscription.id,
-            base_amount: basePer[i],
-            tax_amount: taxPer[i],
-          }
-          const persisted = await addPurchase(purchase, product)
-          purchases.push(persisted)
+          // Defer creation of persistent purchase records to invoice webhook
+          // so we can attach the exact application fee and charge id.
         }
       }
       continue
@@ -327,9 +309,7 @@ export const manageSubscription = async ({
             const taxPer = distributeAmount(tx.tax_amount, qtyAdded)
             for (let i = 0; i < qtyAdded; i++) {
               const total = basePer[i] + taxPer[i]
-              const feeAmt = await calculatePlatformFee({
-                amount: total, organizationId: organization.id 
-              })
+              const feeAmt = Math.round(total * (subscriptionFeePercent / 100))
               purchasedProducts.push({
                 unique_id: uuidv4(),
                 id: it.meta.product.id,
@@ -363,16 +343,13 @@ export const manageSubscription = async ({
             }
           }
         } else {
-          await stripe.subscriptionItems.create(
-            {
-              subscription: subscription.id,
-              price: it.price,
-              ...(it.meta.metered ? {} : { quantity: it.quantity ?? 1 }),
-              ...(discounts ? { discounts } : {}),
-              proration_behavior: 'create_prorations',
-            },
-            
-          )
+          await stripe.subscriptionItems.create({
+            subscription: subscription.id,
+            price: it.price,
+            ...(it.meta.metered ? {} : { quantity: it.quantity ?? 1 }),
+            ...(discounts ? { discounts } : {}),
+            proration_behavior: 'create_prorations',
+          })
           didProrate = true
           const qty = it.quantity ?? 1
           const productsHash = { [`${it.meta.product.group_id}:${it.meta.product.id}`]: it.meta.product }
@@ -387,9 +364,7 @@ export const manageSubscription = async ({
           const taxPer = distributeAmount(tx.tax_amount, qty)
           for (let i = 0; i < qty; i++) {
             const total = basePer[i] + taxPer[i]
-            const feeAmt = await calculatePlatformFee({
-              amount: total, organizationId: organization.id 
-            })
+            const feeAmt = Math.round(total * (subscriptionFeePercent / 100))
             purchasedProducts.push({
               unique_id: uuidv4(),
               id: it.meta.product.id,
@@ -425,14 +400,12 @@ export const manageSubscription = async ({
       }
 
       // Keep anchor unchanged and re-apply high-level settings
-      const platformFeePercent = await calculatePlatformFee({
-        organizationId: organization.id,
-        subscription: true
-      })
+      const platformFeePercent = subscriptionFeePercent
       await stripe.subscriptions.update(
         subscription.id,
         {
           billing_cycle_anchor: 'unchanged',
+          metadata: { connected_account_id: accountId },
           automatic_tax: {
             enabled: true,
             liability: {
@@ -443,8 +416,7 @@ export const manageSubscription = async ({
           on_behalf_of: accountId,
           application_fee_percent: platformFeePercent,
           ...(discounts ? { discounts } : {}),
-        },
-        
+        }
       )
 
       // If prorations were created, invoice them immediately so the
@@ -455,11 +427,9 @@ export const manageSubscription = async ({
             customer: user.stripe_id,
             subscription: subscription.id,
             collection_method: 'charge_automatically',
+            metadata: { connected_account_id: accountId },
             automatic_tax: {
               enabled: true,
-              liability: {
-                type: 'account', account: accountId 
-              },
             },
             on_behalf_of: accountId,
             transfer_data: { destination: accountId },
@@ -470,6 +440,70 @@ export const manageSubscription = async ({
             const finalized = await stripe.invoices.finalizeInvoice(invoice.id)
             if (finalized.status !== 'paid') {
               await stripe.invoices.pay(invoice.id)
+            }
+
+            // Retrieve paid invoice's payment intent and allocate exact application fee to purchases
+            const paid = await stripe.invoices.retrieve(invoice.id)
+            let chargeId: string | undefined
+            // Look for payment_intent in the payments array
+            const invoicePayment = paid.payments?.data?.[0]
+            if (invoicePayment?.payment?.payment_intent) {
+              const paymentIntentId = typeof invoicePayment.payment.payment_intent === 'string' ? invoicePayment.payment.payment_intent : invoicePayment.payment.payment_intent.id
+              try {
+                const pi = await stripe.paymentIntents.retrieve(paymentIntentId)
+                chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id
+              } catch (e) {
+                console.warn('Unable to retrieve payment intent for proration invoice', invoice.id, e)
+              }
+            }
+            if (chargeId) {
+              const fees = await stripe.applicationFees.list({
+                charge: chargeId, limit: 100 
+              })
+              const totalFee = fees.data.reduce((sum, f) => sum + (f.amount || 0), 0)
+              // purchases created in this update path belong at the end of the array
+              const accountPurchases = purchases.filter(p => p.connected_account_id === accountId)
+              const totalPurchaseAmount = accountPurchases.reduce((s, p) => s + (p.amount || 0), 0)
+              if (totalFee > 0 && totalPurchaseAmount > 0 && accountPurchases.length > 0) {
+                // Proportional allocation with rounding guard
+                let allocated = 0
+                for (let i = 0; i < accountPurchases.length; i++) {
+                  const p = accountPurchases[i]
+                  let fee = i === accountPurchases.length - 1
+                    ? totalFee - allocated
+                    : Math.round((p.amount / totalPurchaseAmount) * totalFee)
+                  if (fee < 0) fee = 0
+                  allocated += fee
+                  try {
+                    await update<Purchase>({
+                      tableName: process.env.PURCHASES_TABLE!,
+                      key: {
+                        id: p.id, user_id: p.user_id 
+                      },
+                      updates: {
+                        platform_fee_amount: fee, destination_charge_id: chargeId 
+                      },
+                    })
+                  } catch (e) {
+                    console.error('Failed to update purchase with exact platform fee:', e)
+                  }
+                }
+              } else {
+                // Still set destination charge id
+                for (const p of accountPurchases) {
+                  try {
+                    await update<Purchase>({
+                      tableName: process.env.PURCHASES_TABLE!,
+                      key: {
+                        id: p.id, user_id: p.user_id 
+                      },
+                      updates: { destination_charge_id: chargeId },
+                    })
+                  } catch (e) {
+                    console.error('Failed to set destination_charge_id on purchase:', e)
+                  }
+                }
+              }
             }
           }
         } catch (err) {

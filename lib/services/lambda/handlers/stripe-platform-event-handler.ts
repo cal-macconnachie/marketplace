@@ -178,12 +178,16 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
         return
       }
 
-      // Check if this is a subscription-generated invoice for destination charges
-      if (invoice.billing_reason === 'subscription_cycle' && invoice.lines?.data?.length > 0) {
-        const subscriptionLineItems = invoice.lines.data.filter(item => 
-          item.period && 
-          item.pricing?.price_details?.price && 
-          item.pricing?.price_details?.product
+      // Handle subscription invoices (renewals, creation, and proration updates)
+      const billingReason = invoice.billing_reason
+      const isSubInvoice =
+        (billingReason === 'subscription_cycle' ||
+         billingReason === 'subscription_create') &&
+        invoice.lines?.data?.length > 0
+
+      if (isSubInvoice) {
+        const subscriptionLineItems = invoice.lines.data.filter(item =>
+          Boolean(item.period && item.pricing?.price_details?.price && item.pricing?.price_details?.product)
         )
         
         if (subscriptionLineItems.length > 0) {
@@ -192,7 +196,6 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
           for (const lineItem of subscriptionLineItems) {
             const periodEnd = lineItem.period?.end
             const productId = lineItem.pricing?.price_details?.product
-            
             if (periodEnd && productId) {
               const currentPeriodEnd = productPeriods.get(productId) || 0
               if (periodEnd > currentPeriodEnd) {
@@ -201,8 +204,8 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
             }
           }
           
-          // Update organization's purchased products
-          if (organization.purchased_products && productPeriods.size > 0) {
+          // Update organization's purchased products only for full cycle/creation
+          if (organization.purchased_products && productPeriods.size > 0 && (billingReason === 'subscription_cycle' || billingReason === 'subscription_create')) {
             const updatedPurchasedProducts = organization.purchased_products.map(product => {
               const newPeriodEnd = productPeriods.get(product.id)
               if (newPeriodEnd) {
@@ -219,43 +222,92 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
               key: { id: organization.id },
               updates: { purchased_products: updatedPurchasedProducts }
             })
-            
-            // Create purchase records for subscription renewals
-            const stripe = getStripeClient()
-            for (const lineItem of subscriptionLineItems) {
-              const productId = lineItem.pricing?.price_details?.product
-              if (productId) {
-                try {
-                  // For destination charges, we need to determine which connected account
-                  // This could be stored in invoice metadata or subscription metadata
-                  const connectedAccountId = invoice.metadata?.connected_account_id
-                  
-                  const stripeProduct = connectedAccountId 
-                    ? await stripe.products.retrieve(productId, { stripeAccount: connectedAccountId })
-                    : await stripe.products.retrieve(productId)
-                  
-                  const amount = lineItem.amount || 0
-                  
-                  const purchase: Purchase = {
-                    id: v4(),
-                    user_id: user.id,
-                    product_id: productId,
-                    product_name: stripeProduct.name,
-                    is_one_time: false,
-                    is_subscription: true,
-                    purchased_at: new Date().toISOString(),
-                    organization_id: organization.id,
-                    payment_method_id: typeof invoice.default_payment_method === 'string' ? invoice.default_payment_method : invoice.default_payment_method?.id || '',
-                    amount: amount,
-                    currency: lineItem.currency,
-                    seller_organization_id: stripeProduct.metadata?.organization_id
-                  }
-                  
-                  await addPurchase(purchase)
-                } catch (error) {
-                  console.error(`Failed to create purchase record for subscription product ${productId}:`, error)
-                }
+          }
+
+          // Determine connected account id for direct charge
+          const stripe = getStripeClient()
+          let connectedAccountId: string | undefined = invoice.metadata ? (invoice.metadata as Record<string, string>)['connected_account_id'] : undefined
+          const subscriptionId = typeof invoice.parent?.subscription_details?.subscription === 'string' ? invoice.parent.subscription_details.subscription : invoice.parent?.subscription_details?.subscription?.id
+          if (!connectedAccountId && subscriptionId) {
+            try {
+              const sub = await stripe.subscriptions.retrieve(subscriptionId)
+              const metaAccount = sub.metadata ? (sub.metadata as Record<string, string>)['connected_account_id'] : undefined
+              if (metaAccount) connectedAccountId = metaAccount
+            } catch (e) {
+              console.warn('Unable to retrieve subscription for connected account id lookup:', e)
+            }
+          }
+
+          // Compute exact platform fee from the charge via PaymentIntent
+          let chargeId: string | undefined
+          // Look for payment_intent in the payments array
+          const invoicePayment = invoice.payments?.data?.[0]
+          if (invoicePayment?.payment?.payment_intent) {
+            const paymentIntentId = typeof invoicePayment.payment.payment_intent === 'string' ? invoicePayment.payment.payment_intent : invoicePayment.payment.payment_intent.id
+            try {
+              const pi = await stripe.paymentIntents.retrieve(paymentIntentId)
+              chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id
+            } catch (e) {
+              console.warn('Unable to retrieve payment intent for invoice', invoice.id, e)
+            }
+          }
+          let totalFee = 0
+          if (chargeId) {
+            try {
+              const fees = await stripe.applicationFees.list({
+                charge: chargeId, limit: 100 
+              })
+              totalFee = fees.data.reduce((sum, f) => sum + (f.amount || 0), 0)
+            } catch (e) {
+              console.warn('Unable to retrieve application fee for charge', chargeId, e)
+            }
+          }
+
+          // Sum amounts across relevant line items for proportional allocation
+          const totalLinesAmount = subscriptionLineItems.reduce((s, li) => s + (li.amount || 0), 0)
+          let allocated = 0
+
+          // Create purchase records for these invoice lines
+          for (let i = 0; i < subscriptionLineItems.length; i++) {
+            const lineItem = subscriptionLineItems[i]
+            const productId = lineItem.pricing?.price_details?.product
+            if (!productId) continue
+            try {
+              const stripeProduct = connectedAccountId
+                ? await stripe.products.retrieve(productId, { stripeAccount: connectedAccountId })
+                : await stripe.products.retrieve(productId)
+
+              const amount = lineItem.amount || 0
+              let feeShare = 0
+              if (totalFee > 0 && totalLinesAmount > 0) {
+                feeShare = i === subscriptionLineItems.length - 1
+                  ? totalFee - allocated
+                  : Math.round((amount / totalLinesAmount) * totalFee)
+                if (feeShare < 0) feeShare = 0
+                allocated += feeShare
               }
+
+              const purchase: Purchase = {
+                id: v4(),
+                user_id: user.id,
+                product_id: productId,
+                product_name: stripeProduct.name,
+                is_one_time: false,
+                is_subscription: true,
+                purchased_at: new Date().toISOString(),
+                organization_id: organization.id,
+                payment_method_id: typeof invoice.default_payment_method === 'string' ? invoice.default_payment_method : invoice.default_payment_method?.id || '',
+                amount: amount,
+                currency: lineItem.currency || invoice.currency || 'usd',
+                seller_organization_id: (stripeProduct.metadata as Record<string, string> | undefined)?.['organization_id'],
+                platform_fee_amount: feeShare,
+                connected_account_id: connectedAccountId,
+                destination_charge_id: chargeId,
+              }
+
+              await addPurchase(purchase)
+            } catch (error) {
+              console.error(`Failed to create purchase record for subscription product ${productId}:`, error)
             }
           }
         }
