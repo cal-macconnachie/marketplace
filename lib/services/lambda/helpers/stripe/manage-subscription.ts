@@ -85,18 +85,18 @@ export const manageSubscription = async ({
   }
   const locationKey = resolveLocation()
 
-  const resolveDiscounts = async (accountId: string): Promise<DiscountsParam | undefined> => {
+  const resolveDiscounts = async (_accountId: string): Promise<DiscountsParam | undefined> => {
     const d: DiscountsParam = []
     if (promotionCode) {
       const promo = await getPromoByCode(promotionCode)
       if (!promo || promo.type !== 'promotion_code') throw new Error(`Promotion code ${promotionCode} not found`)
       const promoId = promo.stripeId || promo.id
-      const pc = await stripe.promotionCodes.retrieve(promoId, { stripeAccount: accountId })
+      const pc = await stripe.promotionCodes.retrieve(promoId)
       if (!pc.active) throw new Error(`Promotion code ${promotionCode} is not active`)
       d.push({ promotion_code: promoId })
     }
     if (couponId) {
-      const c = await stripe.coupons.retrieve(couponId, { stripeAccount: accountId })
+      const c = await stripe.coupons.retrieve(couponId)
       if (!c.valid) throw new Error(`Coupon ${couponId} is not valid`)
       d.push({ coupon: couponId })
     }
@@ -108,7 +108,7 @@ export const manageSubscription = async ({
     product: Product
   ): Promise<{ priceId: string; metered: boolean; unitAmount: number; currency: string }> => {
     if (product.price_id) {
-      const price = await stripe.prices.retrieve(product.price_id, { stripeAccount: accountId })
+      const price = await stripe.prices.retrieve(product.price_id)
       return {
         priceId: price.id,
         metered: price.recurring?.usage_type === 'metered',
@@ -116,10 +116,10 @@ export const manageSubscription = async ({
         currency: price.currency,
       }
     }
-    const sp = await stripe.products.retrieve(product.id, { stripeAccount: accountId })
+    const sp = await stripe.products.retrieve(product.id)
     const priceId = typeof sp.default_price === 'string' ? sp.default_price : sp.default_price?.id
     if (!priceId) throw new Error(`No default price on product ${product.id}`)
-    const price = await stripe.prices.retrieve(priceId, { stripeAccount: accountId })
+    const price = await stripe.prices.retrieve(priceId)
     return {
       priceId: price.id,
       metered: price.recurring?.usage_type === 'metered',
@@ -178,13 +178,18 @@ export const manageSubscription = async ({
         collection_method: 'charge_automatically',
         payment_behavior: 'allow_incomplete',
         ...(paymentMethodId ? { default_payment_method: paymentMethodId } : {}),
-        automatic_tax: { enabled: true },
+        automatic_tax: {
+          enabled: true,
+          liability: { type: 'account', account: accountId },
+        },
+        transfer_data: { destination: accountId },
+        on_behalf_of: accountId,
         ...(organization.platform_fee_percent != null
           ? { application_fee_percent: organization.platform_fee_percent }
           : {}),
       }
 
-      subscription = await stripe.subscriptions.create(createParams, { stripeAccount: accountId })
+      subscription = await stripe.subscriptions.create(createParams)
       subscriptionIds[accountId] = subscription.id
 
       // Calculate taxes for recording and build purchases
@@ -245,7 +250,7 @@ export const manageSubscription = async ({
     }
 
     // Update existing subscription
-    subscription = await stripe.subscriptions.retrieve(currentSubId!, { stripeAccount: accountId })
+    subscription = await stripe.subscriptions.retrieve(currentSubId!)
     const existingItems = subscription.items.data
 
     if (remove) {
@@ -254,15 +259,13 @@ export const manageSubscription = async ({
         if (!existing) continue
         if (it.meta.metered || (existing.quantity ?? 1) <= (it.quantity ?? 1)) {
           if (existingItems.length <= 1) {
-            await stripe.subscriptions.cancel(subscription.id, {
-              prorate: true, invoice_now: false 
-            }, { stripeAccount: accountId })
+            await stripe.subscriptions.cancel(subscription.id, { prorate: true, invoice_now: false })
             delete subscriptionIds[accountId]
             const toRemoveIds = new Set(accountProducts.map((p) => p.id))
             purchasedProducts = purchasedProducts.filter((pp) => !toRemoveIds.has(pp.id))
             break
           } else {
-            await stripe.subscriptionItems.del(existing.id, { stripeAccount: accountId })
+            await stripe.subscriptionItems.del(existing.id)
             // remove matching quantity of purchased products
             let removed = 0
             const toRemove = it.quantity ?? 1
@@ -276,9 +279,7 @@ export const manageSubscription = async ({
           }
         } else {
           const newQty = (existing.quantity ?? 1) - (it.quantity ?? 1)
-          await stripe.subscriptionItems.update(existing.id, {
-            quantity: newQty, proration_behavior: 'create_prorations' 
-          }, { stripeAccount: accountId })
+          await stripe.subscriptionItems.update(existing.id, { quantity: newQty, proration_behavior: 'create_prorations' })
           let removed = 0
           const toRemove = it.quantity ?? 1
           purchasedProducts = purchasedProducts.filter((pp) => {
@@ -296,9 +297,7 @@ export const manageSubscription = async ({
         if (existing) {
           if (!it.meta.metered) {
             const newQty = (existing.quantity ?? 1) + (it.quantity ?? 1)
-            await stripe.subscriptionItems.update(existing.id, {
-              quantity: newQty, proration_behavior: 'create_prorations' 
-            }, { stripeAccount: accountId })
+            await stripe.subscriptionItems.update(existing.id, { quantity: newQty, proration_behavior: 'create_prorations' })
             const qtyAdded = it.quantity ?? 1
             const productsHash = { [`${it.meta.product.group_id}:${it.meta.product.id}`]: it.meta.product }
             const taxItems = [
@@ -354,7 +353,7 @@ export const manageSubscription = async ({
               ...(discounts ? { discounts } : {}),
               proration_behavior: 'create_prorations',
             },
-            { stripeAccount: accountId }
+            
           )
           const qty = it.quantity ?? 1
           const productsHash = { [`${it.meta.product.group_id}:${it.meta.product.id}`]: it.meta.product }
@@ -409,13 +408,15 @@ export const manageSubscription = async ({
         subscription.id,
         {
           billing_cycle_anchor: 'unchanged',
-          automatic_tax: { enabled: true },
+          automatic_tax: { enabled: true, liability: { type: 'account', account: accountId } },
+          transfer_data: { destination: accountId },
+          on_behalf_of: accountId,
           ...(organization.platform_fee_percent != null
             ? { application_fee_percent: organization.platform_fee_percent }
             : {}),
           ...(discounts ? { discounts } : {}),
         },
-        { stripeAccount: accountId }
+        
       )
     }
   }
