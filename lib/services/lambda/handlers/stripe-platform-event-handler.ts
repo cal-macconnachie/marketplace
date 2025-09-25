@@ -26,7 +26,7 @@ export interface Cart {
 }
 
 // Atomically mark a cart item as processed using DynamoDB update expressions
-const markCartItemProcessed = async (cartId: string, userId: string, productId: string, success: boolean = true) => {
+export const markCartItemProcessed = async (cartId: string, userId: string, productId: string, success: boolean = true) => {
   // Get cart to find item index (we need this for the atomic update)
   const cart = await get<Cart>({
     tableName: process.env.PURCHASE_CARTS_TABLE!,

@@ -12,6 +12,7 @@ import { manageSubscription } from "./manage-subscription"
 import { createOneTimePurchase } from "./one-time-purchase"
 import { createPurchaseCart } from '../create-purchase-cart'
 import { addPurchase } from '../add-purchase'
+import { markCartItemProcessed } from '../../handlers/stripe-platform-event-handler'
 
 export const purchaseProducts = async ({
   userId,
@@ -162,7 +163,6 @@ export const purchaseProducts = async ({
         cartId
       })
       if (paymentResponse.purchaseData) {
-        await addPurchase(paymentResponse.purchaseData)
         purchaseDataList.push(paymentResponse.purchaseData)
       }
       if (paymentResponse.purchasedProduct) {
@@ -194,7 +194,6 @@ export const purchaseProducts = async ({
 
         // Get product IDs for this group to pass in metadata
         const productIds = group.map(p => p.product_id)
-
         await createDestinationCharge({
           amount: group.reduce((sum, purchaseData) => sum + purchaseData.amount, 0),
           currency: group[0].currency,
@@ -204,6 +203,14 @@ export const purchaseProducts = async ({
           cartId, // Pass cart ID for tracking
           productIds // Pass product IDs for metadata
         })
+
+        await Promise.all(group.map(async (purchase) => {
+          await Promise.all([
+            addPurchase(purchase, productsHash[`${productsHash[`${purchase.product_id}`]?.group_id}:${purchase.product_id}`]),
+            // Atomically mark cart item as processed
+            markCartItemProcessed(cartId, user.id, purchase.product_id, true)
+          ])
+        }))
 
         // Update organization with purchased products (but don't create purchases yet - webhook will do that)
         const purchasedProductsForGroup = purchasedProducts.filter((pp) => group.some((p) => p.id === pp.purchase_id))
@@ -221,6 +228,12 @@ export const purchaseProducts = async ({
         }
       } catch (error) {
         console.error(`Error creating destination charge for group ${key}:`, error)
+        await Promise.all(group.map(async (purchase) => {
+          await Promise.all([
+            // Atomically mark cart item as processed
+            markCartItemProcessed(cartId, user.id, purchase.product_id, false)
+          ])
+        }))
       }
     }
   } catch (error) {
