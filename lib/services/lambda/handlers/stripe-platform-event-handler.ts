@@ -53,9 +53,10 @@ const markCartItemProcessed = async (cartId: string, userId: string, productId: 
       user_id: userId,
       id: cartId
     },
-    updateExpression: `SET #items[${itemIndex}].processed = :processed`,
+    updateExpression: `SET #items[${itemIndex}].#processed = :processed`,
     expressionAttributeNames: {
-      '#items': 'items'
+      '#items': 'items',
+      '#processed': 'processed'
     },
     expressionAttributeValues: {
       ':processed': success
