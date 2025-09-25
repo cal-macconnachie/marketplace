@@ -42,7 +42,7 @@ export const manageSubscription = async ({
   organization: Organization
   remove: boolean
   ipAddress?: string
-  cartId?: string
+  cartId: string
 }): Promise<Purchase[] | void> => {
   if (!user.stripe_id) return
 
@@ -342,6 +342,7 @@ export const manageSubscription = async ({
                 destination_charge_id: subscription.id,
                 base_amount: basePer[i],
                 tax_amount: taxPer[i],
+                cart_id: cartId
               }
               const persisted = await addPurchase(purchase, it.meta.product)
               purchases.push(persisted)
@@ -397,6 +398,7 @@ export const manageSubscription = async ({
               destination_charge_id: subscription.id,
               base_amount: basePer[i],
               tax_amount: taxPer[i],
+              cart_id: cartId
             }
             const persisted = await addPurchase(purchase, it.meta.product)
             purchases.push(persisted)

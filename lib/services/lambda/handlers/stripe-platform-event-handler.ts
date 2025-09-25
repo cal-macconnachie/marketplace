@@ -10,6 +10,7 @@ import { Purchase } from './purchases'
 import { v4 } from 'uuid'
 import { getStripeClient } from '../helpers/stripe/stripe-client'
 import { queryAll } from '../helpers/dynamo-helpers/query'
+import { createPurchaseCart } from '../helpers/create-purchase-cart'
 
 interface CartItem {
   product_id: string
@@ -129,6 +130,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
 
               const purchase: Purchase = {
                 id: v4(),
+                cart_id: cartId,
                 user_id: user.id,
                 product_id: productId,
                 product_name: stripeProduct.name,
@@ -139,7 +141,6 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                 payment_method_id: typeof paymentIntent.payment_method === 'string' ? paymentIntent.payment_method : paymentIntent.payment_method?.id || '',
                 amount: paymentIntent.amount,
                 currency: paymentIntent.currency,
-                cart_id: cartId,
                 seller_organization_id: stripeProduct.metadata?.organization_id
               }
 
@@ -327,6 +328,16 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
             }
           }
 
+          if (cartId == null) {
+            const newCart = await createPurchaseCart({
+              userId: user.id,
+              items: [],
+              purchaseIds: [],
+              paymentMethodId: typeof invoice.default_payment_method === 'string' ? invoice.default_payment_method : invoice.default_payment_method?.id || ''
+            })
+            cartId = newCart.id
+          }
+
           // Compute exact platform fee from the charge via PaymentIntent
           let chargeId: string | undefined
           // Look for payment_intent in the payments array
@@ -374,9 +385,9 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                 if (feeShare < 0) feeShare = 0
                 allocated += feeShare
               }
-
+              const purchaseId = v4()
               const purchase: Purchase = {
-                id: v4(),
+                id: purchaseId,
                 user_id: user.id,
                 product_id: productId,
                 product_name: stripeProduct.name,

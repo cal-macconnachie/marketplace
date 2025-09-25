@@ -160,7 +160,10 @@ export const purchaseProducts = async ({
         ipAddress
       })
       if (paymentResponse.purchaseData) {
-        purchaseDataList.push(paymentResponse.purchaseData)
+        purchaseDataList.push({
+          ...paymentResponse.purchaseData,
+          cart_id: cartId
+        })
       }
       if (paymentResponse.purchasedProduct) {
         purchasedProducts.push(paymentResponse.purchasedProduct)
