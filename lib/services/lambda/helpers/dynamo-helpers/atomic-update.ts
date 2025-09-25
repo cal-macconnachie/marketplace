@@ -2,7 +2,7 @@ import {
   DynamoDBClient, UpdateItemCommand
 } from '@aws-sdk/client-dynamodb'
 import {
-  marshall, unmarshall
+  marshall
 } from '@aws-sdk/util-dynamodb'
 
 const dynamo = new DynamoDBClient({})

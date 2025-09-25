@@ -1,5 +1,4 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { create } from '../helpers/dynamo-helpers/create'
 import { update } from '../helpers/dynamo-helpers/update'
 import { get } from '../helpers/dynamo-helpers/get'
 import { query } from '../helpers/dynamo-helpers/query'
@@ -33,23 +32,6 @@ export interface Purchase {
       percent_off: number
     }
   }
-}
-
-function validatePurchase(purchase: Partial<Purchase>): Purchase | false {
-  if (
-    typeof purchase.id === 'string' &&
-    typeof purchase.user_id === 'string' &&
-    typeof purchase.product_id === 'string' &&
-    typeof purchase.product_name === 'string' &&
-    typeof purchase.is_one_time === 'boolean' &&
-    typeof purchase.is_subscription === 'boolean' &&
-    typeof purchase.purchased_at === 'string' &&
-    typeof purchase.organization_id === 'string' &&
-    typeof purchase.payment_method_id === 'string'
-  ) {
-    return purchase as Purchase
-  }
-  return false
 }
 
 interface QueryStrategy {
@@ -164,24 +146,6 @@ export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
       }
     }
     switch (purchaseType) {
-      case 'create':
-        // Handle create
-        const validatedPurchase = validatePurchase(purchase)
-        if (validatedPurchase) {
-          const pur = await create<Purchase>({
-            tableName: process.env.PURCHASES_TABLE!,
-            key: {
-              id: validatedPurchase.id,
-              user_id: validatedPurchase.user_id
-            },
-            record: validatedPurchase,
-            returnCreated: true
-          })
-          if (pur) {
-            response.body = JSON.stringify(pur)
-          }
-        }
-        break
       case 'update':
         const updatedPurchase = await update<Purchase>({
           tableName: process.env.PURCHASES_TABLE!,
