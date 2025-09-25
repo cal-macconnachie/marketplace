@@ -782,7 +782,13 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
       tableName: 'purchase-carts',
       enabled: true,
       batchSize: 1
-    }
+    },
+    iamPolicies: [
+      {
+        actions: ['events:PutEvents'],
+        resources: ['*']
+      }
+    ]
   },
 
   // Image Processing
