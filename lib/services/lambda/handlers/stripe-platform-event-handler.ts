@@ -53,7 +53,10 @@ const markCartItemProcessed = async (cartId: string, userId: string, productId: 
       user_id: userId,
       id: cartId
     },
-    updateExpression: `SET items[${itemIndex}].processed = :processed`,
+    updateExpression: `SET #items[${itemIndex}].processed = :processed`,
+    expressionAttributeNames: {
+      '#items': 'items'
+    },
     expressionAttributeValues: {
       ':processed': success
     }
@@ -356,9 +359,8 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
             const productId = lineItem.pricing?.price_details?.product
             if (!productId) continue
             try {
-              const stripeProduct = connectedAccountId
-                ? await stripe.products.retrieve(productId, { stripeAccount: connectedAccountId })
-                : await stripe.products.retrieve(productId)
+              // Subscription products always exist in the platform account, not connected accounts
+              const stripeProduct = await stripe.products.retrieve(productId)
 
               const amount = lineItem.amount || 0
               let feeShare = 0
