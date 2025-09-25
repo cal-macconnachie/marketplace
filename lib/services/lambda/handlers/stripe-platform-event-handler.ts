@@ -227,10 +227,15 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
         return
       }
 
-      const user = await get<User>({
+      const users = await queryAll<User>({
         tableName: process.env.USERS_TABLE!,
-        key: { stripeUserId: customerId }
+        indexName: 'stripe_id-index',
+        keyConditionExpression: 'stripe_id = :stripeId',
+        expressionAttributeValues: {
+          ':stripeId': customerId
+        }
       })
+      const user = users[0]
       
       if (!user) {
         console.error('No user found for stripeUserId:', customerId)
