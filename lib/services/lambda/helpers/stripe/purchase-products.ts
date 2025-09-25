@@ -11,6 +11,7 @@ import { createDestinationCharge } from './create-destination-charge'
 import { manageSubscription } from "./manage-subscription"
 import { createOneTimePurchase } from "./one-time-purchase"
 import { createPurchaseCart } from '../create-purchase-cart'
+import { addPurchase } from '../add-purchase'
 
 export const purchaseProducts = async ({
   userId,
@@ -157,13 +158,12 @@ export const purchaseProducts = async ({
         user,
         organization,
         taxCode,
-        ipAddress
+        ipAddress,
+        cartId
       })
       if (paymentResponse.purchaseData) {
-        purchaseDataList.push({
-          ...paymentResponse.purchaseData,
-          cart_id: cartId
-        })
+        await addPurchase(paymentResponse.purchaseData)
+        purchaseDataList.push(paymentResponse.purchaseData)
       }
       if (paymentResponse.purchasedProduct) {
         purchasedProducts.push(paymentResponse.purchasedProduct)

@@ -4,13 +4,10 @@ import { get } from '../helpers/dynamo-helpers/get'
 import { update } from '../helpers/dynamo-helpers/update'
 import { atomicUpdate } from '../helpers/dynamo-helpers/atomic-update'
 import { User } from './users'
-import { Organization } from './organizations'
-import { addPurchase } from '../helpers/add-purchase'
-import { Purchase } from './purchases'
-import { v4 } from 'uuid'
 import { getStripeClient } from '../helpers/stripe/stripe-client'
 import { queryAll } from '../helpers/dynamo-helpers/query'
 import { createPurchaseCart } from '../helpers/create-purchase-cart'
+import { Organization } from './organizations'
 
 interface CartItem {
   product_id: string
@@ -113,39 +110,14 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
 
       // Handle destination charge completion with cart-based receipt flow
       if (paymentIntent.transfer_data?.destination) {
-        const connectedAccountId = paymentIntent.transfer_data.destination
         const cartId = paymentIntent.metadata?.cart_id
 
         // Create purchase records from payment intent metadata
         if (paymentIntent.metadata?.product_ids && cartId) {
           const productIds = JSON.parse(paymentIntent.metadata.product_ids)
-          const stripe = getStripeClient()
 
           for (const productId of productIds) {
             try {
-              // Retrieve product from connected account
-              const stripeProduct = await stripe.products.retrieve(productId, {
-                stripeAccount: typeof connectedAccountId === 'string' ? connectedAccountId : connectedAccountId.id
-              })
-
-              const purchase: Purchase = {
-                id: v4(),
-                cart_id: cartId,
-                user_id: user.id,
-                product_id: productId,
-                product_name: stripeProduct.name,
-                is_one_time: true,
-                is_subscription: false,
-                purchased_at: new Date().toISOString(),
-                organization_id: organization.id,
-                payment_method_id: typeof paymentIntent.payment_method === 'string' ? paymentIntent.payment_method : paymentIntent.payment_method?.id || '',
-                amount: paymentIntent.amount,
-                currency: paymentIntent.currency,
-                seller_organization_id: stripeProduct.metadata?.organization_id
-              }
-
-              await addPurchase(purchase)
-
               // Atomically mark this product as processed in the cart
               // The DynamoDB stream handler will send the receipt when all items are processed
               try {
@@ -374,7 +346,6 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
             if (!productId) continue
             try {
               // Subscription products always exist in the platform account, not connected accounts
-              const stripeProduct = await stripe.products.retrieve(productId)
 
               const amount = lineItem.amount || 0
               let feeShare = 0
@@ -385,27 +356,6 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                 if (feeShare < 0) feeShare = 0
                 allocated += feeShare
               }
-              const purchaseId = v4()
-              const purchase: Purchase = {
-                id: purchaseId,
-                user_id: user.id,
-                product_id: productId,
-                product_name: stripeProduct.name,
-                is_one_time: false,
-                is_subscription: true,
-                purchased_at: new Date().toISOString(),
-                organization_id: organization.id,
-                payment_method_id: typeof invoice.default_payment_method === 'string' ? invoice.default_payment_method : invoice.default_payment_method?.id || '',
-                amount: amount,
-                currency: lineItem.currency || invoice.currency || 'usd',
-                cart_id: cartId,
-                seller_organization_id: (stripeProduct.metadata as Record<string, string> | undefined)?.['organization_id'],
-                platform_fee_amount: feeShare,
-                connected_account_id: connectedAccountId,
-                destination_charge_id: chargeId,
-              }
-
-              await addPurchase(purchase)
 
               // Handle cart-based processing for subscriptions
               if (cartId) {

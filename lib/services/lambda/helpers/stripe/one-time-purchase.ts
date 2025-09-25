@@ -13,6 +13,7 @@ import {
   calculateTaxesWithCaching, ItemsInterface 
 } from '../tax/calculate-taxes-with-caching'
 import { generateLocationKey } from '../tax/tax-calculation-cache'
+import { Purchase } from '../../handlers/purchases'
 
 export const createOneTimePurchase = async ({
   promotionCode,
@@ -22,7 +23,8 @@ export const createOneTimePurchase = async ({
   user,
   organization,
   taxCode,
-  ipAddress
+  ipAddress,
+  cartId
 }: {
   promotionCode?: string
   couponId?: string
@@ -32,6 +34,7 @@ export const createOneTimePurchase = async ({
   organization: Organization
   taxCode?: string
   ipAddress?: string
+  cartId: string
 }) => {
   const stripe = getStripeClient()
   // Implementation for creating a one-time payment using Stripe API
@@ -147,8 +150,9 @@ export const createOneTimePurchase = async ({
   const platformFeeAmount = await calculatePlatformFee({
     amount: totalAmount, organizationId: organization.id
   })
-  const purchaseData = {
+  const purchaseData: Purchase = {
     id: v4(),
+    cart_id: cartId,
     user_id: user.id,
     product_id: product.id,
     organization_id: user.organization_id,
