@@ -154,7 +154,7 @@ export const collectReceiptEmailData = async (
       tableName: process.env.USERS_TABLE!, key: { id: userId } 
     }),
     get<Cart>({
-      tableName: process.env.PAYMENT_CARTS_TABLE!,
+      tableName: process.env.PURCHASE_CARTS_TABLE!,
       key: {
         user_id: userId, id: cartId
       }
