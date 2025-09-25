@@ -1,4 +1,6 @@
-import { DynamoDBStreamEvent, DynamoDBRecord } from 'aws-lambda'
+import {
+  DynamoDBStreamEvent, DynamoDBRecord 
+} from 'aws-lambda'
 import { unmarshall } from '@aws-sdk/util-dynamodb'
 import { putEvents } from '../helpers/eventbridge/put-events'
 import { query } from '../helpers/dynamo-helpers/query'
@@ -20,7 +22,7 @@ interface Cart {
 }
 
 // Helper function to get all purchases for a cart
-const getAllPurchasesForCart = async (cartId: string): Promise<Purchase[]> => {
+export const getAllPurchasesForCart = async (cartId: string): Promise<Purchase[]> => {
   try {
     const result = await query<Purchase>({
       tableName: process.env.PURCHASES_TABLE!,
@@ -55,8 +57,10 @@ const processRecord = async (record: DynamoDBRecord) => {
   }
 
   try {
-    const newCart = unmarshall(record.dynamodb.NewImage) as Cart
-    const oldCart = unmarshall(record.dynamodb.OldImage) as Cart
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const newCart = unmarshall(record.dynamodb.NewImage as any) as Cart
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const oldCart = unmarshall(record.dynamodb.OldImage as any) as Cart
 
     // Check if any items were marked as processed (true or false)
     const hasNewProcessedItems = newCart.items.some((newItem, index) => {
@@ -74,48 +78,31 @@ const processRecord = async (record: DynamoDBRecord) => {
 
     if (allItemsProcessed && successfulItems.length > 0) {
       console.log(`All items processed for cart ${newCart.id}. ${successfulItems.length} successful, ${newCart.items.length - successfulItems.length} failed.`)
+      // Send receipt event for successful purchases only
+      await putEvents({
+        events: [
+          {
+            Source: 'purchase-carts-stream',
+            DetailType: 'products-purchased',
+            Detail: JSON.stringify({
+              userId: newCart.user_id,
+              cartId: newCart.id,
+            })
+          }
+        ]
+      })
 
-      // Get all purchases for this cart (only successful ones will exist)
-      const allPurchases = await getAllPurchasesForCart(newCart.id)
+      console.log(`Receipt sent for cart ${newCart.id}`)
 
-      if (allPurchases.length > 0) {
-        // Send receipt event for successful purchases only
-        await putEvents({
-          events: [
-            {
-              Source: 'purchase-carts-stream',
-              DetailType: 'products-purchased',
-              Detail: JSON.stringify({
-                userId: newCart.user_id,
-                paymentMethodId: allPurchases[0]?.payment_method_id || '',
-                purchases: allPurchases.map(p => ({
-                  user_id: p.user_id,
-                  id: p.id
-                })),
-                products: successfulItems.map((item: CartItem) => ({
-                  group_id: item.group_id,
-                  id: item.product_id,
-                  quantity: 1
-                }))
-              })
-            }
-          ]
-        })
-
-        console.log(`Receipt sent for cart ${newCart.id} with ${allPurchases.length} purchases`)
-
-        // Mark cart as completed
-        await update({
-          tableName: process.env.PURCHASE_CARTS_TABLE!,
-          key: {
-            user_id: newCart.user_id,
-            id: newCart.id
-          },
-          updates: { status: 'completed' }
-        })
-      } else {
-        console.log(`No purchases found for cart ${newCart.id}, skipping receipt`)
-      }
+      // Mark cart as completed
+      await update({
+        tableName: process.env.PURCHASE_CARTS_TABLE!,
+        key: {
+          user_id: newCart.user_id,
+          id: newCart.id
+        },
+        updates: { status: 'completed' }
+      })
     } else if (allItemsProcessed && successfulItems.length === 0) {
       console.log(`All items failed for cart ${newCart.id}, marking as completed without sending receipt`)
 

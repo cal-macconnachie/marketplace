@@ -3,6 +3,7 @@ import {
 } from '@aws-sdk/client-dynamodb'
 import { marshall } from '@aws-sdk/util-dynamodb'
 import { randomBytes } from 'crypto'
+import { Cart } from '../handlers/stripe-platform-event-handler'
 
 const dynamo = new DynamoDBClient({})
 
@@ -30,25 +31,26 @@ export function generateShortId(len = 10): string {
   return out
 }
 
-export type PurchaseCart = {
-  user_id: string
-  id: string
-  purchases: string[]
-}
-
 export async function createPurchaseCart(params: {
   userId: string
   purchaseIds: string[]
+  items: {
+    product_id: string;
+    group_id: string;
+}[]
   maxAttempts?: number
   tableName?: string
   idLength?: number
-}): Promise<PurchaseCart> {
+  paymentMethodId: string
+}): Promise<Cart> {
   const {
     userId,
     purchaseIds,
     maxAttempts = 5,
     tableName = process.env.PURCHASE_CARTS_TABLE!,
-    idLength = 10
+    idLength = 10,
+    paymentMethodId,
+    items: cartItems
   } = params
 
   let attempts = 0
@@ -56,8 +58,14 @@ export async function createPurchaseCart(params: {
   while (true) {
     attempts += 1
     const id = generateShortId(idLength)
-    const cart: PurchaseCart = {
-      user_id: userId, id, purchases: purchaseIds 
+    const cart: Cart = {
+      user_id: userId,
+      id,
+      purchases: purchaseIds,
+      items: cartItems,
+      payment_method_id: paymentMethodId,
+      status: 'pending',
+      created_at: new Date().toISOString()
     }
 
     try {

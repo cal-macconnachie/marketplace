@@ -4,20 +4,14 @@ import { sendEmail } from './send-email'
 
 export const sendReceiptEmail = async ({
   userId,
-  paymentMethodId,
-  purchases,
-  products
+  cartId
 }: {
   userId: string
-  paymentMethodId: string
-  purchases: { user_id: string; id: string }[]
-  products: { group_id: string; id: string; quantity: number }[]
+  cartId: string
 }) => {
   const ctx = await collectReceiptEmailData({
     userId,
-    paymentMethodId,
-    purchases,
-    products
+    cartId
   })
   if (ctx.opt_out) {
     return

@@ -1,4 +1,3 @@
-import { v4 } from 'uuid'
 import { Organization } from "../../handlers/organizations"
 import { PaymentMethod } from "../../handlers/payment-methods"
 import {
@@ -6,12 +5,12 @@ import {
 } from "../../handlers/products"
 import { Purchase } from '../../handlers/purchases'
 import { User } from "../../handlers/users"
-import { create } from '../dynamo-helpers/create'
 import { get } from "../dynamo-helpers/get"
 import { update } from '../dynamo-helpers/update'
 import { createDestinationCharge } from './create-destination-charge'
 import { manageSubscription } from "./manage-subscription"
 import { createOneTimePurchase } from "./one-time-purchase"
+import { createPurchaseCart } from '../create-purchase-cart'
 
 export const purchaseProducts = async ({
   userId,
@@ -132,28 +131,19 @@ export const purchaseProducts = async ({
   const oneTimeProduct = productsToPurchase.filter((prod) => !Boolean(prod.default_price_data.recurring))
   const subscriptionProducts = productsToPurchase.filter((prod) => Boolean(prod.default_price_data.recurring))
   // Create a cart for this purchase session
-  const cartId = v4()
   const cartItems = productsToPurchase.map(product => ({
     product_id: product.id,
     group_id: product.group_id
     // processed is initially undefined until webhooks process the item
   }))
 
-  await create({
-    tableName: process.env.PURCHASE_CARTS_TABLE!,
-    key: {
-      user_id: userId,
-      id: cartId
-    },
-    record: {
-      user_id: userId,
-      id: cartId,
-      items: cartItems,
-      created_at: new Date().toISOString(),
-      status: 'pending'
-    },
-    returnCreated: false
+  const cart = await createPurchaseCart({
+    userId,
+    items: cartItems,
+    paymentMethodId: paymentMethod.id,
+    purchaseIds: []
   })
+  const cartId = cart.id
 
   const purchaseDataList: Purchase[] = []
   const purchasedProducts: PurchasedProduct[] = []

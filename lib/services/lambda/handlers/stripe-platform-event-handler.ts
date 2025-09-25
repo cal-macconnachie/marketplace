@@ -17,10 +17,12 @@ interface CartItem {
   processed?: boolean // undefined = not processed, true = success, false = failed
 }
 
-interface Cart {
+export interface Cart {
   user_id: string
   id: string
   items: CartItem[]
+  purchases: string[]
+  payment_method_id: string
   created_at: string
   status: 'pending' | 'completed'
 }

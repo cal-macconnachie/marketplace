@@ -4,7 +4,8 @@ import { PaymentMethod } from "../../handlers/payment-methods"
 import { Product } from "../../handlers/products"
 import { Purchase } from "../../handlers/purchases"
 import { User } from "../../handlers/users"
-import { createPurchaseCart } from '../create-purchase-cart'
+import { Cart } from '../../handlers/stripe-platform-event-handler'
+import { getAllPurchasesForCart } from '../../handlers/purchase-carts'
 
 export interface ReceiptLineItem {
   product_id: string
@@ -93,9 +94,7 @@ export interface ReceiptEmailContext {
 
 type ProductsPurchasedEventDetail = {
   userId: string
-  paymentMethodId: string
-  purchases: { user_id: string; id: string }[]
-  products: { group_id: string; id: string; quantity: number }[]
+  cartId: string
 }
 
 const formatCurrency = (amountMinor: number, currency: string): string => {
@@ -142,26 +141,34 @@ export const collectReceiptEmailData = async (
 ): Promise<ReceiptEmailContext> => {
   const {
     userId,
-    paymentMethodId,
-    purchases: purchaseKeys,
-    products: purchasedProducts
+    cartId
   } = detail
 
   // Load core records
   const [
     user,
-    paymentMethod
+    cart,
+    purchases
   ] = await Promise.all([
     get<User>({
       tableName: process.env.USERS_TABLE!, key: { id: userId } 
     }),
-    get<PaymentMethod>({
-      tableName: process.env.PAYMENT_METHODS_TABLE!,
+    get<Cart>({
+      tableName: process.env.PAYMENT_CARTS_TABLE!,
       key: {
-        user_id: userId, id: paymentMethodId 
+        user_id: userId, id: cartId
       }
-    })
+    }),
+    getAllPurchasesForCart(cartId)
   ])
+  if (!cart) throw new Error(`Cart not found: ${cartId}`)
+
+  const paymentMethod = await get<PaymentMethod>({
+    tableName: process.env.PAYMENT_METHODS_TABLE!,
+    key: {
+      user_id: userId, id: cart.payment_method_id
+    }
+  })
 
   if (!user) throw new Error(`User not found: ${userId}`)
   if (user.receipt_opt_out) {
@@ -182,17 +189,6 @@ export const collectReceiptEmailData = async (
     }
   }
 
-  // Load purchases by key
-  const purchases = (await Promise.all(
-    purchaseKeys.map((k) =>
-      get<Purchase>({
-        tableName: process.env.PURCHASES_TABLE!, key: {
-          id: k.id, user_id: k.user_id 
-        } 
-      })
-    )
-  )).filter(Boolean) as Purchase[]
-
   if (purchases.length === 0) {
     throw new Error("No purchases found for receipt generation")
   }
@@ -200,9 +196,9 @@ export const collectReceiptEmailData = async (
   // Load products for descriptions/recurrence
   // Build a lookup to fetch Product (for descriptions/interval) using event detail for group_id
   const productKeyById: Record<string, { id: string; group_id: string }> = {}
-  for (const p of purchasedProducts) {
-    productKeyById[p.id] = {
-      id: p.id, group_id: p.group_id 
+  for (const p of cart.items) {
+    productKeyById[p.product_id] = {
+      id: p.product_id, group_id: p.group_id
     }
   }
 
@@ -392,14 +388,9 @@ export const collectReceiptEmailData = async (
       }
     })
     : undefined
-  // Create purchase cart with collision-safe short id (conditional put + retry)
-  const purchaseCart = await createPurchaseCart({
-    userId: user.id,
-    purchaseIds: purchaseKeys.map(({ id }) => id)
-  })
   const context: ReceiptEmailContext = {
     preheader: `Your receipt for ${line_items.length} item(s) – ${summary.total_formatted}`,
-    receipt_number: purchaseCart.id,
+    receipt_number: cart.id,
     purchase_datetime,
     currency,
     header_brand: headerBrand,
