@@ -119,7 +119,16 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
         // Create purchase records from payment intent metadata
         if (paymentIntent.metadata?.product_ids && cartId) {
           const productIds = JSON.parse(paymentIntent.metadata.product_ids)
+          const purchaseDetails = paymentIntent.metadata?.purchase_details
+            ? JSON.parse(paymentIntent.metadata.purchase_details)
+            : null
           const stripe = getStripeClient()
+
+          // Get the charge ID for tracking
+          let chargeId: string | undefined
+          if (paymentIntent.latest_charge) {
+            chargeId = typeof paymentIntent.latest_charge === 'string' ? paymentIntent.latest_charge : paymentIntent.latest_charge.id
+          }
 
           for (const productId of productIds) {
             try {
@@ -127,6 +136,25 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
               const stripeProduct = await stripe.products.retrieve(productId, {
                 stripeAccount: typeof connectedAccountId === 'string' ? connectedAccountId : connectedAccountId.id
               })
+
+              // Get detailed purchase information from metadata, with fallback to basic calculation
+              let baseAmount = 0
+              let taxAmount = 0
+              let platformFeeAmount = 0
+
+              if (purchaseDetails && purchaseDetails[productId]) {
+                baseAmount = purchaseDetails[productId].baseAmount || 0
+                taxAmount = purchaseDetails[productId].taxAmount || 0
+                platformFeeAmount = purchaseDetails[productId].platformFeeAmount || 0
+              } else {
+                // Fallback: distribute total amount evenly (though this shouldn't happen with new flow)
+                const numProducts = productIds.length
+                baseAmount = Math.floor(paymentIntent.amount / numProducts)
+                taxAmount = 0 // Can't determine without metadata
+                platformFeeAmount = 0 // Can't determine without metadata
+              }
+
+              const totalAmount = baseAmount + taxAmount
 
               const purchase: Purchase = {
                 id: v4(),
@@ -139,8 +167,13 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                 purchased_at: new Date().toISOString(),
                 organization_id: organization.id,
                 payment_method_id: typeof paymentIntent.payment_method === 'string' ? paymentIntent.payment_method : paymentIntent.payment_method?.id || '',
-                amount: paymentIntent.amount,
+                amount: totalAmount,
                 currency: paymentIntent.currency,
+                base_amount: baseAmount,
+                tax_amount: taxAmount,
+                platform_fee_amount: platformFeeAmount,
+                connected_account_id: typeof connectedAccountId === 'string' ? connectedAccountId : connectedAccountId.id,
+                destination_charge_id: chargeId,
                 seller_organization_id: stripeProduct.metadata?.organization_id
               }
 

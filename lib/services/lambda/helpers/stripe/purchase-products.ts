@@ -195,6 +195,21 @@ export const purchaseProducts = async ({
         // Get product IDs for this group to pass in metadata
         const productIds = group.map(p => p.product_id)
 
+        // Build detailed purchase information for each product
+        const purchaseDetailsPerProduct: Record<string, {
+          baseAmount: number
+          taxAmount: number
+          platformFeeAmount: number
+        }> = {}
+
+        for (const purchase of group) {
+          purchaseDetailsPerProduct[purchase.product_id] = {
+            baseAmount: purchase.base_amount || 0,
+            taxAmount: purchase.tax_amount || 0,
+            platformFeeAmount: purchase.platform_fee_amount || 0
+          }
+        }
+
         await createDestinationCharge({
           amount: group.reduce((sum, purchaseData) => sum + purchaseData.amount, 0),
           currency: group[0].currency,
@@ -202,7 +217,8 @@ export const purchaseProducts = async ({
           user,
           destinationAccountId,
           cartId, // Pass cart ID for tracking
-          productIds // Pass product IDs for metadata
+          productIds, // Pass product IDs for metadata
+          purchaseDetailsPerProduct // Pass detailed tax and fee breakdown
         })
 
         // Update organization with purchased products (but don't create purchases yet - webhook will do that)
