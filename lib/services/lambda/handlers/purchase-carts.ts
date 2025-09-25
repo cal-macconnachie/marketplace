@@ -3,42 +3,10 @@ import {
 } from 'aws-lambda'
 import { unmarshall } from '@aws-sdk/util-dynamodb'
 import { putEvents } from '../helpers/eventbridge/put-events'
-import { query } from '../helpers/dynamo-helpers/query'
 import { update } from '../helpers/dynamo-helpers/update'
-import { Purchase } from './purchases'
-
-interface CartItem {
-  product_id: string
-  group_id: string
-  processed: boolean
-}
-
-interface Cart {
-  user_id: string
-  id: string
-  items: CartItem[]
-  created_at: string
-  status: 'pending' | 'completed'
-}
+import { Cart } from './stripe-platform-event-handler'
 
 // Helper function to get all purchases for a cart
-export const getAllPurchasesForCart = async (cartId: string): Promise<Purchase[]> => {
-  try {
-    const result = await query<Purchase>({
-      tableName: process.env.PURCHASES_TABLE!,
-      indexName: 'cart_id-index',
-      keyConditionExpression: 'cart_id = :cart_id',
-      expressionAttributeValues: {
-        ':cart_id': cartId
-      }
-    })
-
-    return result.items || []
-  } catch (error) {
-    console.error(`Failed to get purchases for cart ${cartId}:`, error)
-    return []
-  }
-}
 
 export const handler = async (event: DynamoDBStreamEvent) => {
   for (const record of event.Records) {

@@ -33,11 +33,7 @@ export function generateShortId(len = 10): string {
 
 export async function createPurchaseCart(params: {
   userId: string
-  purchaseIds: string[]
-  items: {
-    product_id: string;
-    group_id: string;
-}[]
+  purchases: { [purchaseId: string]: 'pending' | 'completed' | 'failed' }
   maxAttempts?: number
   tableName?: string
   idLength?: number
@@ -45,24 +41,22 @@ export async function createPurchaseCart(params: {
 }): Promise<Cart> {
   const {
     userId,
-    purchaseIds,
+    purchases,
     maxAttempts = 5,
     tableName = process.env.PURCHASE_CARTS_TABLE!,
     idLength = 10,
-    paymentMethodId,
-    items: cartItems
+    paymentMethodId
   } = params
 
   let attempts = 0
-   
+
   while (true) {
     attempts += 1
     const id = generateShortId(idLength)
     const cart: Cart = {
       user_id: userId,
       id,
-      purchases: purchaseIds,
-      items: cartItems,
+      purchases,
       payment_method_id: paymentMethodId,
       status: 'pending',
       created_at: new Date().toISOString()

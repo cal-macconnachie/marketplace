@@ -2,66 +2,18 @@ import { EventBridgeEvent } from 'aws-lambda'
 import Stripe from 'stripe'
 import { get } from '../helpers/dynamo-helpers/get'
 import { update } from '../helpers/dynamo-helpers/update'
-import { atomicUpdate } from '../helpers/dynamo-helpers/atomic-update'
 import { User } from './users'
 import { getStripeClient } from '../helpers/stripe/stripe-client'
 import { queryAll } from '../helpers/dynamo-helpers/query'
 import { createPurchaseCart } from '../helpers/create-purchase-cart'
 import { Organization } from './organizations'
-
-interface CartItem {
-  product_id: string
-  group_id: string
-  processed?: boolean // undefined = not processed, true = success, false = failed
-}
-
 export interface Cart {
   user_id: string
   id: string
-  items: CartItem[]
-  purchases: string[]
+  purchases: { [purchaseId: string]: string }
   payment_method_id: string
   created_at: string
   status: 'pending' | 'completed'
-}
-
-// Atomically mark a cart item as processed using DynamoDB update expressions
-export const markCartItemProcessed = async (cartId: string, userId: string, productId: string, success: boolean = true) => {
-  // Get cart to find item index (we need this for the atomic update)
-  const cart = await get<Cart>({
-    tableName: process.env.PURCHASE_CARTS_TABLE!,
-    key: {
-      user_id: userId,
-      id: cartId
-    }
-  })
-
-  if (!cart) {
-    throw new Error(`Cart not found: ${cartId}`)
-  }
-
-  // Find the index of the item to update
-  const itemIndex = cart.items.findIndex(item => item.product_id === productId)
-  if (itemIndex === -1) {
-    throw new Error(`Product ${productId} not found in cart ${cartId}`)
-  }
-
-  // Use atomic update expression to set the processed flag for this specific item
-  await atomicUpdate({
-    tableName: process.env.PURCHASE_CARTS_TABLE!,
-    key: {
-      user_id: userId,
-      id: cartId
-    },
-    updateExpression: `SET #items[${itemIndex}].#processed = :processed`,
-    expressionAttributeNames: {
-      '#items': 'items',
-      '#processed': 'processed'
-    },
-    expressionAttributeValues: {
-      ':processed': success
-    }
-  })
 }
 
 export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe Event', Stripe.Event>) => {

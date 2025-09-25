@@ -12,7 +12,6 @@ import { manageSubscription } from "./manage-subscription"
 import { createOneTimePurchase } from "./one-time-purchase"
 import { createPurchaseCart } from '../create-purchase-cart'
 import { addPurchase } from '../add-purchase'
-import { markCartItemProcessed } from '../../handlers/stripe-platform-event-handler'
 
 export const purchaseProducts = async ({
   userId,

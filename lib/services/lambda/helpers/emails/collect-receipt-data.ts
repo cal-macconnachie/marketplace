@@ -5,7 +5,7 @@ import { Product } from "../../handlers/products"
 import { Purchase } from "../../handlers/purchases"
 import { User } from "../../handlers/users"
 import { Cart } from '../../handlers/stripe-platform-event-handler'
-import { getAllPurchasesForCart } from '../../handlers/purchase-carts'
+import { getAllPurchasesForCart } from '../carts/get-all-purchases-for-cart'
 
 export interface ReceiptLineItem {
   product_id: string
