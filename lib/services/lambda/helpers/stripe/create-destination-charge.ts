@@ -9,8 +9,7 @@ export const createDestinationCharge = async ({
   user,
   destinationAccountId,
   cartId,
-  productIds,
-  purchaseDetailsPerProduct
+  productIds
 }: {
   amount: number
   currency: string
@@ -19,24 +18,16 @@ export const createDestinationCharge = async ({
   destinationAccountId: string
   cartId?: string
   productIds?: string[]
-  purchaseDetailsPerProduct?: Record<string, {
-    baseAmount: number
-    taxAmount: number
-    platformFeeAmount: number
-  }>
 }) => {
   const stripe = getStripeClient()
 
-  // Create metadata object with cart, product info, and detailed purchase breakdown
+  // Create metadata object with cart and product info
   const metadata: Record<string, string> = {}
   if (cartId) {
     metadata.cart_id = cartId
   }
   if (productIds && productIds.length > 0) {
     metadata.product_ids = JSON.stringify(productIds)
-  }
-  if (purchaseDetailsPerProduct) {
-    metadata.purchase_details = JSON.stringify(purchaseDetailsPerProduct)
   }
 
   // Create a new payment intent for the destination charge
