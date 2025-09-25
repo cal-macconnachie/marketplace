@@ -241,7 +241,7 @@ export const purchaseProducts = async ({
   }
   try {
     if (subscriptionProducts.length !== 0) {
-      const manageSubscriptionResponse = await manageSubscription({
+      await manageSubscription({
         promotionCode: promoCode,
         couponId: couponId,
         paymentMethodId: paymentMethod.id,
@@ -252,9 +252,6 @@ export const purchaseProducts = async ({
         ipAddress,
         cartId // Pass cart ID to subscription management
       })
-      if (manageSubscriptionResponse) {
-        // manageSubscription will handle webhook receipt via cart tracking - no immediate purchases created
-      }
     }
   } catch (error) {
     console.error(`Error managing subscription for user ${user.id}:`, error)

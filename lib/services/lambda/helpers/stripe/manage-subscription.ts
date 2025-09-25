@@ -43,8 +43,8 @@ export const manageSubscription = async ({
   remove: boolean
   ipAddress?: string
   cartId: string
-}): Promise<Purchase[] | void> => {
-  if (!user.stripe_id) return
+}): Promise<Purchase[]> => {
+  if (!user.stripe_id) return []
 
   const stripe = getStripeClient()
 
@@ -225,6 +225,7 @@ export const manageSubscription = async ({
         const product = productsHash[`${item.group_id}:${item.id}`]
         for (let i = 0; i < qty; i++) {
           const total = basePer[i] + taxPer[i]
+          const feeAmt = Math.round(total * (subscriptionFeePercent / 100))
           purchasedProducts.push({
             unique_id: uuidv4(),
             id: item.id,
@@ -235,8 +236,28 @@ export const manageSubscription = async ({
             currency: item.currency,
             user_id: user.id,
           })
-          // Defer creation of persistent purchase records to invoice webhook
-          // so we can attach the exact application fee and charge id.
+
+          const purchase: Purchase = {
+            id: uuidv4(),
+            user_id: user.id,
+            product_id: item.id,
+            product_name: product.name,
+            is_one_time: false,
+            is_subscription: true,
+            purchased_at: new Date().toISOString(),
+            organization_id: organization.id,
+            payment_method_id: paymentMethodId || '',
+            amount: total,
+            currency: item.currency,
+            platform_fee_amount: feeAmt,
+            connected_account_id: accountId,
+            destination_charge_id: subscription.id,
+            base_amount: basePer[i],
+            tax_amount: taxPer[i],
+            cart_id: cartId
+          }
+          const persisted = await addPurchase(purchase, product)
+          purchases.push(persisted)
         }
       }
       continue
