@@ -6,7 +6,6 @@ import { getStripeClient } from './stripe-client'
 import { batchGet } from '../dynamo-helpers/batch-get'
 import { Product } from '../../handlers/products'
 import { getProductPriceId } from './get-product-price-id'
-import { calculatePlatformFee } from './calculate-platform-fee'
 import { update } from '../dynamo-helpers/update'
 import { Organization } from '../../handlers/organizations'
 
@@ -73,11 +72,8 @@ export const handleSubscription = async ({
     return acc
   }, {}))
   let amount = purchases.reduce((sum, p) => sum + p.amount, 0)
-  const platformFeePercent = await calculatePlatformFee({
-    amount,
-    organizationId: organization.id,
-    subscription: true
-  })
+  const platformFee = purchases.reduce((sum, p) => sum + (p.platform_fee_amount ?? 0), 0)
+  const platformFeePercent = Number(((platformFee / amount) * 100).toFixed(2))
 
   const subscriptionId = organization.stripe_subscription_ids?.[destinationAccountId]
   let subscription: Stripe.Subscription | undefined
