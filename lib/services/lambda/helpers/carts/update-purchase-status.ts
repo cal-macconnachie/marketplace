@@ -1,17 +1,28 @@
 import { TransactWriteItem } from '@aws-sdk/client-dynamodb'
+import { transactWrite } from '../dynamo-helpers/transact-write'
 
 export const updatePurchaseStatus = async ({
   cartId,
   userId,
   purchaseId,
-  status
+  status,
+  destinationChargeId
 }: {
   cartId?: string
   userId: string
   purchaseId: string
   status: 'pending' | 'completed' | 'failed'
+  destinationChargeId?: string
 }) => {
   const transactions: TransactWriteItem[] = []
+  const updateExpression = destinationChargeId
+    ? 'SET #status = :status, #destinationChargeId = :destinationChargeId'
+    : 'SET #status = :status'
+
+  const conditionExpression = (status === 'completed' || status === 'failed')
+    ? '#status = :pendingStatus'
+    : undefined
+
   transactions.push({
     Update: {
       TableName: process.env.PURCHASES_TABLE!,
@@ -19,12 +30,16 @@ export const updatePurchaseStatus = async ({
         user_id: { S: userId },
         id: { S: purchaseId }
       },
-      UpdateExpression: 'SET #status = :status',
+      UpdateExpression: updateExpression,
+      ...(conditionExpression && { ConditionExpression: conditionExpression }),
       ExpressionAttributeNames: {
-        '#status': 'status'
+        '#status': 'status',
+        ...destinationChargeId ? { '#destinationChargeId': 'destination_charge_id' } : {}
       },
       ExpressionAttributeValues: {
-        ':status': { S: status }
+        ':status': { S: status },
+        ...destinationChargeId ? { ':destinationChargeId': { S: destinationChargeId } } : {},
+        ...(conditionExpression && { ':pendingStatus': { S: 'pending' } })
       }
     }
   })
@@ -46,4 +61,5 @@ export const updatePurchaseStatus = async ({
       }
     })
   }
+  await transactWrite({ items: transactions })
 }

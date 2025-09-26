@@ -227,7 +227,8 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
         projectionType: 'ALL'
       }
     ],
-    billingMode: 'PAY_PER_REQUEST'
+    billingMode: 'PAY_PER_REQUEST',
+    stream: 'NEW_AND_OLD_IMAGES'
   },
   {
     tableName: 'tax-calculations',

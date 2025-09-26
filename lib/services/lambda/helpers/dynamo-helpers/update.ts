@@ -1,5 +1,6 @@
 import {
-  DynamoDBClient, UpdateItemCommand 
+  AttributeValue,
+  DynamoDBClient, TransactWriteItem, TransactWriteItemsCommand, UpdateItemCommand 
 } from '@aws-sdk/client-dynamodb'
 import {
   marshall, unmarshall 
@@ -88,4 +89,69 @@ export async function update<T>({
   if (returnUpdated && result.Attributes) {
     return unmarshall(result.Attributes) as T
   }
+}
+
+export function updateTransaction<T>(params: {
+  tableName: string
+  key: Record<string, unknown>
+  updates: { [K in keyof T]?: T[K] | '' }
+}): TransactWriteItem {
+  const command = new TransactWriteItemsCommand({
+    TransactItems: [
+      {
+        Update: {
+          TableName: params.tableName,
+          Key: marshall(params.key, { removeUndefinedValues: true }),
+          UpdateExpression: buildUpdateExpression(params.updates),
+          ExpressionAttributeNames: buildExpressionAttributeNames(params.updates),
+          ExpressionAttributeValues: buildExpressionAttributeValues(params.updates)
+        }
+      }
+    ]
+  })
+  return command.input.TransactItems![0]
+}
+
+function buildUpdateExpression<T>(updates: { [K in keyof T]?: T[K] | '' }): string {
+  const set: string[] = []
+  const remove: string[] = []
+  for (const [
+    key,
+    value
+  ] of Object.entries(updates)) {
+    if (value === '') {
+      remove.push(`#${key}`)
+    } else {
+      set.push(`#${key} = :${key}`)
+    }
+  }
+  const expressions = []
+  if (set.length > 0) {
+    expressions.push(`SET ${set.join(', ')}`)
+  }
+  if (remove.length > 0) {
+    expressions.push(`REMOVE ${remove.join(', ')}`)
+  }
+  return expressions.join(' ')
+}
+
+function buildExpressionAttributeNames<T>(updates: { [K in keyof T]?: T[K] | '' }): Record<string, string> {
+  const names: Record<string, string> = {}
+  for (const key of Object.keys(updates)) {
+    names[`#${key}`] = key
+  }
+  return names
+}
+
+function buildExpressionAttributeValues<T>(updates: { [K in keyof T]?: T[K] | '' }): Record<string, AttributeValue> {
+  const values: Record<string, AttributeValue> = {}
+  for (const [
+    key,
+    value
+  ] of Object.entries(updates)) {
+    if (value !== '') {
+      values[`:${key}`] = marshall({ v: value }, { removeUndefinedValues: true }).v
+    }
+  }
+  return values
 }

@@ -58,7 +58,6 @@ export async function createPurchaseCart(params: {
       id,
       purchases,
       payment_method_id: paymentMethodId,
-      status: 'pending',
       created_at: new Date().toISOString()
     }
 

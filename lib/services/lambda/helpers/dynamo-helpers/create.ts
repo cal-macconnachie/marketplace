@@ -1,5 +1,7 @@
 import {
-  DynamoDBClient, PutItemCommand 
+  DynamoDBClient, PutItemCommand, 
+  TransactWriteItem,
+  TransactWriteItemsCommand
 } from '@aws-sdk/client-dynamodb'
 import { marshall } from '@aws-sdk/util-dynamodb'
 
@@ -47,4 +49,21 @@ export async function create<T>({
     // Since PutItem does not return the new item, return the input item
     return item as T
   }
+}
+
+export function createTransaction<T>(params: {
+  tableName: string
+  record: T
+}): TransactWriteItem {
+  const command = new TransactWriteItemsCommand({
+    TransactItems: [
+      {
+        Put: {
+          TableName: params.tableName,
+          Item: marshall(params.record)
+        }
+      }
+    ]
+  })
+  return command.input.TransactItems![0]
 }

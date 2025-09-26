@@ -1,17 +1,15 @@
 import { Organization } from "../../handlers/organizations"
 import { PaymentMethod } from "../../handlers/payment-methods"
 import {
-  Product, PurchasedProduct 
+  Product 
 } from "../../handlers/products"
 import { Purchase } from '../../handlers/purchases'
 import { User } from "../../handlers/users"
 import { get } from "../dynamo-helpers/get"
-import { update } from '../dynamo-helpers/update'
-import { createDestinationCharge } from './create-destination-charge'
-import { manageSubscription } from "./manage-subscription"
 import { createOneTimePurchase } from "./one-time-purchase"
 import { createPurchaseCart } from '../create-purchase-cart'
-import { addPurchase } from '../add-purchase'
+import { setCartPurchases } from '../add-purchase'
+import { createSubscriptionPurchase } from './create-subscription-purchase'
 
 export const purchaseProducts = async ({
   userId,
@@ -19,7 +17,6 @@ export const purchaseProducts = async ({
   productKeys,
   promoCode,
   couponId,
-  taxCode,
   ipAddress
 }: {
   userId: string,
@@ -30,7 +27,6 @@ export const purchaseProducts = async ({
   })[]
   promoCode?: string
   couponId?: string
-  taxCode?: string
   ipAddress?: string
 }) => {
   const uniqueProductKeys = productKeys.reduce((acc: string[], product) => {
@@ -122,6 +118,12 @@ export const purchaseProducts = async ({
   if (paymentMethod == null) {
     throw new Error(`Payment method not found for organization: ${user.organization_id}`)
   }
+  const cart = await createPurchaseCart({
+    userId,
+    purchases: {},
+    paymentMethodId: paymentMethod.id
+  })
+  const cartId = cart.id
   const productsHash = products.filter(Boolean).reduce((acc: { [hash: string]: Product }, product) => {
     if (product) {
       acc[`${product.group_id}:${product.id}`] = product
@@ -131,23 +133,8 @@ export const purchaseProducts = async ({
   const productsToPurchase = productKeys.map((key) => productsHash[`${key.group_id}:${key.id}`]).filter(Boolean)
   const oneTimeProduct = productsToPurchase.filter((prod) => !Boolean(prod.default_price_data.recurring))
   const subscriptionProducts = productsToPurchase.filter((prod) => Boolean(prod.default_price_data.recurring))
-  // Create a cart for this purchase session
-  const cartItems = productsToPurchase.map(product => ({
-    product_id: product.id,
-    group_id: product.group_id
-    // processed is initially undefined until webhooks process the item
-  }))
-
-  const cart = await createPurchaseCart({
-    userId,
-    items: cartItems,
-    paymentMethodId: paymentMethod.id,
-    purchaseIds: []
-  })
-  const cartId = cart.id
 
   const purchaseDataList: Purchase[] = []
-  const purchasedProducts: PurchasedProduct[] = []
   for (const product of oneTimeProduct) {
     try {
       const paymentResponse = await createOneTimePurchase({
@@ -157,105 +144,38 @@ export const purchaseProducts = async ({
         product,
         user,
         organization,
-        taxCode,
         ipAddress,
         cartId
       })
-      if (paymentResponse.purchaseData) {
-        purchaseDataList.push(paymentResponse.purchaseData)
-      }
-      if (paymentResponse.purchasedProduct) {
-        purchasedProducts.push(paymentResponse.purchasedProduct)
+      if (paymentResponse) {
+        purchaseDataList.push(paymentResponse)
       }
     } catch (error) {
       console.error(`Error creating one-time payment for product ${product.id}:`, error)
     }
   }
-  try {
-    // summarize purchase data by connected_account_id and currency to create individual destination charges for each group
-    const groupedPurchaseData = purchaseDataList.reduce((acc, purchaseData) => {
-      const key = `${purchaseData.connected_account_id}:${purchaseData.currency}`
-      if (!acc[key]) {
-        acc[key] = []
-      }
-      acc[key].push(purchaseData)
-      return acc
-    }, {} as Record<string, Purchase[]>)
-
-    // Create destination charges for each group
-    for (const [
-      key,
-      group
-    ] of Object.entries(groupedPurchaseData)) {
-      try {
-        const destinationAccountId = group[0].connected_account_id
-        if (destinationAccountId == null) throw new Error(`Destination account ID not found for group ${key}`)
-
-        // Get product IDs for this group to pass in metadata
-        const productIds = group.map(p => p.product_id)
-        await createDestinationCharge({
-          amount: group.reduce((sum, purchaseData) => sum + purchaseData.amount, 0),
-          currency: group[0].currency,
-          paymentMethodId: paymentMethod.id,
-          user,
-          destinationAccountId,
-          cartId, // Pass cart ID for tracking
-          productIds // Pass product IDs for metadata
-        })
-
-        await Promise.all(group.map(async (purchase) => {
-          await Promise.all([
-            addPurchase(purchase, productsHash[`${productsHash[`${purchase.product_id}`]?.group_id}:${purchase.product_id}`]),
-            // Atomically mark cart item as processed
-            markCartItemProcessed(cartId, user.id, purchase.product_id, true)
-          ])
-        }))
-
-        // Update organization with purchased products (but don't create purchases yet - webhook will do that)
-        const purchasedProductsForGroup = purchasedProducts.filter((pp) => group.some((p) => p.id === pp.purchase_id))
-        if (purchasedProductsForGroup.length > 0) {
-          await update<Organization>({
-            tableName: process.env.ORGANIZATIONS_TABLE!,
-            key: { id: organization.id },
-            updates: {
-              purchased_products: [
-                ...(organization.purchased_products ?? []),
-                ...purchasedProductsForGroup
-              ]
-            }
-          })
-        }
-      } catch (error) {
-        console.error(`Error creating destination charge for group ${key}:`, error)
-        await Promise.all(group.map(async (purchase) => {
-          await Promise.all([
-            // Atomically mark cart item as processed
-            markCartItemProcessed(cartId, user.id, purchase.product_id, false)
-          ])
-        }))
-      }
-    }
-  } catch (error) {
-    console.error(`Error creating one-time payment:`, error)
-  }
+  // TODO SUBSCRIPTION PURCHASE CREATION
   try {
     if (subscriptionProducts.length !== 0) {
-      await manageSubscription({
-        promotionCode: promoCode,
-        couponId: couponId,
-        paymentMethodId: paymentMethod.id,
-        products: subscriptionProducts,
-        user,
-        organization,
-        remove: false,
-        ipAddress,
-        cartId // Pass cart ID to subscription management
-      })
+      for (const product of subscriptionProducts) {
+        const subscriptionResponse = await createSubscriptionPurchase({
+          promotionCode: promoCode,
+          couponId: couponId,
+          paymentMethodId: paymentMethod.id,
+          product,
+          user,
+          organization,
+          ipAddress,
+          cartId
+        })
+        if (subscriptionResponse) {
+          purchaseDataList.push(subscriptionResponse)
+        }
+      }
     }
   } catch (error) {
     console.error(`Error managing subscription for user ${user.id}:`, error)
   }
-  // Purchases will be created by webhook handlers, and receipt will be sent when all items in cart are processed
-  // Return cart ID for tracking purposes
+  await setCartPurchases({ purchases: purchaseDataList })
   return { cartId }
 }

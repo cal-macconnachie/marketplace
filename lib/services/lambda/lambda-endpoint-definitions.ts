@@ -433,7 +433,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
   },
   {
     name: 'purchases',
-    handler: 'purchases.purchasesCrud',
+    handler: 'payments/purchases-crud.purchasesCrud',
     description: 'operations for purchases',
     environment: ['STRIPE_SECRET_KEY'],
     apiGw: {
@@ -697,7 +697,11 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
         // source starts with aws.partner/stripe.com
         source: [{ prefix: 'aws.partner/stripe.com' }],
         // Connected account events only
-        'detail-type': ['account.updated']
+        'detail-type': [
+          'account.updated',
+          'invoice.paid',
+          'invoice.payment_failed'
+        ]
       }
     }
   },
@@ -726,6 +730,16 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
           'invoice.payment_failed'
         ]
       }
+    }
+  },
+  {
+    name: 'handlePurchase',
+    handler: 'purchases.handlePurchase',
+    description: 'Handle purchase events originating from DynamoDB stream',
+    environment: ['STRIPE_SECRET_KEY'],
+    eventBridgeEvent: {
+      detailType: 'pending-purchases-added',
+      enabled: true
     }
   },
 
@@ -780,6 +794,22 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     description: 'Handle purchase cart updates via DynamoDB stream and send receipts when all items processed',
     dynamoStreamEvent: {
       tableName: 'purchase-carts',
+      enabled: true,
+      batchSize: 1
+    },
+    iamPolicies: [
+      {
+        actions: ['events:PutEvents'],
+        resources: ['*']
+      }
+    ]
+  },
+  {
+    name: 'purchasesStream',
+    handler: 'purchases.purchases',
+    description: 'Handle purchase events via DynamoDB stream',
+    dynamoStreamEvent: {
+      tableName: 'purchases',
       enabled: true,
       batchSize: 1
     },

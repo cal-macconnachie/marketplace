@@ -24,7 +24,7 @@ export interface Organization {
   updated_at?: string
 
   // stripe fields
-  stripe_subscription_ids?: Record<string, string>, // Map of account_id -> subscription_id
+  stripe_subscription_ids?: { [accountId: string]: string } // Map of account_id -> subscription_id
   default_payment_method?: {
     user_id: string
     id: string

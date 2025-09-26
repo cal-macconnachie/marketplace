@@ -4,16 +4,19 @@ import { User } from '../users'
 import { Organization } from '../organizations'
 import { getStripeClient } from '../../helpers/stripe/stripe-client'
 import { update } from '../../helpers/dynamo-helpers/update'
+import { PurchasedProduct } from '../products'
 
 export async function cancelSubscription(event: APIGatewayProxyEvent) {
   try {
     const { body } = event
     const {
       user_id: userId,
-      subscription_id: subscriptionId
+      subscription_id: subscriptionId,
+      purchased_product,
     } : {
       user_id: string,
-      subscription_id: string
+      subscription_id: string,
+      purchased_product?: PurchasedProduct
     } = JSON.parse(body ?? '{}')
     // ensure this user is an organization admin for the subscription
     const user = await get<User>({
@@ -55,23 +58,49 @@ export async function cancelSubscription(event: APIGatewayProxyEvent) {
     }
     
     const stripe = getStripeClient()
-    
+    if (purchased_product == null) {
     // Cancel subscription with connected account context
-    await stripe.subscriptions.cancel(subscriptionId, {}, {
-      stripeAccount: accountId
-    })
+      await stripe.subscriptions.cancel(subscriptionId)
     
-    // Update organization to remove this subscription
-    const updatedSubscriptionIds = { ...subscriptionIds }
-    delete updatedSubscriptionIds[accountId]
+      // Update organization to remove this subscription
+      const updatedSubscriptionIds = { ...subscriptionIds }
+      delete updatedSubscriptionIds[accountId]
     
-    await update<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
-      key: { id: user.organization_id },
-      updates: {
-        stripe_subscription_ids: updatedSubscriptionIds
+      await update<Organization>({
+        tableName: process.env.ORGANIZATIONS_TABLE!,
+        key: { id: user.organization_id },
+        updates: {
+          stripe_subscription_ids: updatedSubscriptionIds
+        }
+      })
+    } else {
+      if (purchased_product.subscription_id !== subscriptionId) {
+        throw new Error(`Purchased product subscription ID ${purchased_product.subscription_id} does not match subscription ID ${subscriptionId}`)
       }
-    })
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+      // find existing item
+      const items = subscription.items.data
+      const existingItem = items.find(item => item.id === purchased_product.subscription_item_id)
+      if (!existingItem) {
+        throw new Error(`Subscription item ID ${purchased_product.subscription_item_id} not found in subscription ${subscriptionId}`)
+      }
+      // will decrementing the quantity leave quantity at zero?
+      const newQuantity = (existingItem.quantity ?? 1) - 1
+      if (newQuantity === 0) {
+        // If quantity is zero, does removing this item leave the subscription empty?
+        const isEmpty = items.length === 1
+        if (isEmpty) {
+          await stripe.subscriptions.cancel(subscriptionId)
+        } else {
+          await stripe.subscriptionItems.del(existingItem.id)
+        }
+      } else {
+        // Otherwise, just update the quantity
+        await stripe.subscriptionItems.update(existingItem.id, {
+          quantity: newQuantity
+        })
+      }
+    }
     return {
       statusCode: 200,
       body: JSON.stringify({ success: true }),

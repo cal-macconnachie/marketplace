@@ -9,7 +9,7 @@ export const createDestinationCharge = async ({
   user,
   destinationAccountId,
   cartId,
-  productIds
+  purchaseIds
 }: {
   amount: number
   currency: string
@@ -17,7 +17,7 @@ export const createDestinationCharge = async ({
   user: User
   destinationAccountId: string
   cartId?: string
-  productIds?: string[]
+  purchaseIds?: string[]
 }) => {
   const stripe = getStripeClient()
 
@@ -26,9 +26,10 @@ export const createDestinationCharge = async ({
   if (cartId) {
     metadata.cart_id = cartId
   }
-  if (productIds && productIds.length > 0) {
-    metadata.product_ids = JSON.stringify(productIds)
+  if (purchaseIds && purchaseIds.length > 0) {
+    metadata.purchase_ids = JSON.stringify(purchaseIds)
   }
+  metadata.user_id = user.id
 
   // Create a new payment intent for the destination charge
   const paymentIntent = await stripe.paymentIntents.create({
