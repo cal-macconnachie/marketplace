@@ -60,7 +60,7 @@ export function createTransaction<T>(params: {
       {
         Put: {
           TableName: params.tableName,
-          Item: marshall(params.record)
+          Item: marshall(params.record, { removeUndefinedValues: true })
         }
       }
     ]
