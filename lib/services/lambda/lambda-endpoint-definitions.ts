@@ -734,7 +734,7 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
   },
   {
     name: 'handlePurchase',
-    handler: 'purchases.handlePurchase',
+    handler: 'stripe/handle-purchase.handlePurchase',
     description: 'Handle purchase events originating from DynamoDB stream',
     environment: ['STRIPE_SECRET_KEY'],
     eventBridgeEvent: {
