@@ -2,6 +2,10 @@ import { EventBridgeEvent } from 'aws-lambda'
 import Stripe from 'stripe'
 import { getUserByStripeId } from '../helpers/users/get-user-by-stripe-id'
 import { updatePurchaseStatus } from '../helpers/carts/update-purchase-status'
+import { PurchasedProduct } from './products'
+import { createPurchasedProductFromPurchase } from '../helpers/carts/create-purchased-product-from-purchase'
+import { atomicUpdate } from '../helpers/dynamo-helpers/atomic-update'
+import { getStripeClient } from '../helpers/stripe/stripe-client'
 export interface Cart {
   user_id: string
   id: string
@@ -22,6 +26,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
       const user = await getUserByStripeId(customerId!)
 
       const purchaseIds = paymentIntent.metadata?.purchase_ids ? JSON.parse(paymentIntent.metadata.purchase_ids) : []
+      const purchasedProducts: PurchasedProduct[] = []
       for (const purchaseId of purchaseIds) {
         if (user) {
           await updatePurchaseStatus({
@@ -30,8 +35,23 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
             purchaseId,
             status: 'completed'
           })
+          purchasedProducts.push(await createPurchasedProductFromPurchase({
+            purchaseKey: {
+              userId: user.id, purchaseId 
+            } 
+          }))
         }
       }
+      // atomic update users org to add purchased products to purchased_products array
+      await atomicUpdate({
+        tableName: process.env.ORGANIZATIONS_TABLE!,
+        key: { id: user?.organization_id },
+        updateExpression: 'SET purchased_products = list_append(if_not_exists(purchased_products, :empty_list), :new_products)',
+        expressionAttributeValues: {
+          ':new_products': purchasedProducts,
+          ':empty_list': []
+        }
+      })
       console.log(`PaymentIntent succeeded for customer ${customerId}, amount: ${paymentIntent.amount} ${paymentIntent.currency}`)
       break
     }
@@ -96,16 +116,15 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
       if (customerId) {
         const user = await getUserByStripeId(customerId)
         if (user && invoice.parent?.type === 'subscription_details') {
+          const purchasedProducts: PurchasedProduct[] = []
+          const stripe = getStripeClient()
+          const invoiceItems = invoice.lines.data
           const subscriptionMetadata = invoice.parent.subscription_details?.metadata
-          const purchasesString = subscriptionMetadata?.purchases
           const cartId = subscriptionMetadata?.cart_id
-
-          if (purchasesString) {
-            try {
-              const purchaseIds = JSON.parse(purchasesString) as string[]
-              console.log(`Marking ${purchaseIds.length} purchases as completed for user ${user.id}`)
-
-              // Update all purchases to completed status
+          for (const item of invoiceItems) {
+            if (item.parent?.subscription_item_details?.subscription_item) {
+              const subscriptionItem = await stripe.subscriptionItems.retrieve(item.parent?.subscription_item_details?.subscription_item)
+              const purchaseIds = JSON.parse(subscriptionItem.metadata?.purchase_ids ?? '[]')
               for (const purchaseId of purchaseIds) {
                 await updatePurchaseStatus({
                   cartId,
@@ -113,13 +132,25 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                   purchaseId,
                   status: 'completed'
                 })
-              }
 
-              console.log(`Successfully updated ${purchaseIds.length} purchases to completed`)
-            } catch (error) {
-              console.error('Error parsing purchase IDs from subscription metadata:', error)
+                purchasedProducts.push(await createPurchasedProductFromPurchase({
+                  purchaseKey: {
+                    userId: user.id, purchaseId 
+                  },
+                  subscriptionItem
+                }))
+              }
             }
           }
+          await atomicUpdate({
+            tableName: process.env.ORGANIZATIONS_TABLE!,
+            key: { id: user?.organization_id },
+            updateExpression: 'SET purchased_products = list_append(if_not_exists(purchased_products, :empty_list), :new_products)',
+            expressionAttributeValues: {
+              ':new_products': purchasedProducts,
+              ':empty_list': []
+            }
+          })
         }
       }
 

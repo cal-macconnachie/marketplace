@@ -53,11 +53,21 @@ export const handleSubscription = async ({
     if (acc[key] == null) {
       acc[key] = {
         price: pricesHash[key] || '',
-        quantity: 0
+        quantity: 0,
+        metadata: {
+          purchases: JSON.stringify([])
+        }
       }
     }
     if (acc[key] != null && acc[key].quantity != null) {
       acc[key].quantity += 1
+    }
+    // add purchase id to metadata
+    if (acc[key] != null && acc[key].metadata != null) {
+      acc[key].metadata.purchases = JSON.stringify([
+        ...JSON.parse(`${acc[key].metadata.purchases}`),
+        p.id
+      ])
     }
     return acc
   }, {}))
