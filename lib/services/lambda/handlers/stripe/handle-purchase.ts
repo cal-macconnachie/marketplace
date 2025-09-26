@@ -83,7 +83,8 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
           cartId: group[0].cart_id,
           purchaseIds: group.map(p => p.id)
         })
-      } catch {
+      } catch (e){
+        console.error('Error creating destination charge:', e)
         for (const purchase of group) {
           try {
             await updatePurchaseStatus({
@@ -115,7 +116,8 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
           purchases: group,
           user
         })
-      } catch {
+      } catch (e) {
+        console.error('Error handling subscription:', e)
         for (const purchase of group) {
           try {
             await updatePurchaseStatus({

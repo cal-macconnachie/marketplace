@@ -130,7 +130,8 @@ export function convertAddressToCodes(address: AddressInput): AddressCodes {
   } else {
     try {
       countryCode = countryToAlpha2(address.country) || address.country
-    } catch {
+    } catch (e) {
+      console.error('Error converting country name to code:', e)
       countryCode = address.country
     }
   }
