@@ -1,6 +1,7 @@
 import { EventBridgeEvent } from 'aws-lambda'
 import Stripe from 'stripe'
 import { getUserByStripeId } from '../helpers/users/get-user-by-stripe-id'
+import { getStripeClient } from '../helpers/stripe/stripe-client'
 export interface Cart {
   user_id: string
   id: string
@@ -11,6 +12,7 @@ export interface Cart {
 
 export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe Event', Stripe.Event>) => {
   const type = event.detail.type
+  const stripe = getStripeClient()
   console.log(JSON.stringify(event.detail))
 
   switch (type) {
@@ -69,7 +71,10 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
       if (customerId) {
         const user = await getUserByStripeId(customerId)
         const items = invoice.lines.data
-        console.log(user?.id, JSON.stringify(items))
+        for (const item of items) {
+          const stripeItem = await stripe.invoiceItems.retrieve(item.id)
+          console.log(user?.id, JSON.stringify(stripeItem))
+        }
       }
 
       console.log(`Invoice paid for customer ${customerId}, amount: ${invoice.amount_paid} ${invoice.currency}`)

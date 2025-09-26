@@ -109,7 +109,7 @@ export const handleSubscription = async ({
     if (customer == null) {
       throw new Error('Customer not found on user record')
     }
-    // const cartId = purchases[0].cart_id
+    const cartId = purchases[0].cart_id
     const paymentMethodId = purchases[0].payment_method_id
     const createParams: Stripe.SubscriptionCreateParams = {
       customer,
@@ -117,6 +117,10 @@ export const handleSubscription = async ({
       collection_method: 'charge_automatically',
       payment_behavior: 'allow_incomplete',
       ...(paymentMethodId ? { default_payment_method: paymentMethodId } : {}),
+      metadata: {
+        connected_account_id: destinationAccountId,
+        ...(cartId ? { cart_id: cartId } : {})
+      },
       automatic_tax: {
         enabled: true,
         liability: {
