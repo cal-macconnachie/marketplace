@@ -15,117 +15,123 @@ interface PurchaseEventDetail {
 }
 export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent', PurchaseEventDetail>) => {
   // Your implementation here
-  const {
-    purchase_keys
-  } = event.detail
-  const purchases = await batchGet<Purchase>({
-    tableName: process.env.PURCHASES_TABLE!,
-    keys: purchase_keys.map(({
-      user_id,
-      id
-    }) => ({
-      user_id,
-      id
-    }))
-  })
-  const user = await get<User>({
-    tableName: process.env.USERS_TABLE!,
-    key: {
-      id: purchases[0].user_id
-    }
-  })
-  if (!user) {
-    throw new Error(`User not found`)
-  }
-
-  // organize payments into one-time or recurring and group by currency/ connected_account_id
-  const oneTimePurchases = purchases.filter(p => p.is_one_time)
-  const oneTimeGroups = oneTimePurchases.reduce((acc: { [key:string]: Purchase[]}, curr) => {
-    const key = `${curr.currency}:${curr.connected_account_id}`
-    if (!acc[key]) {
-      acc[key] = []
-    }
-    acc[key].push(curr)
-    return acc
-  }, {})
-  const recurringPurchases = purchases.filter(p => p.is_subscription)
-  const recurringGroups = recurringPurchases.reduce((acc: { [key:string]: Purchase[]}, curr) => {
-    const key = `${curr.currency}:${curr.connected_account_id}`
-    if (!acc[key]) {
-      acc[key] = []
-    }
-    acc[key].push(curr)
-    return acc
-  }, {})
-
-  // each one time group creates a single destination charge then updates all purchases
-  for (const [
-    ,
-    group
-  ] of Object.entries(oneTimeGroups)) {
-    if (group.length === 0) {
-      continue
-    }
-    const destinationAccountId = group[0].connected_account_id
-    try {
-      if (!destinationAccountId) {
-        throw new Error(`Destination account ID not found`)
+  try {
+    const {
+      purchase_keys
+    } = event.detail
+    const purchases = await batchGet<Purchase>({
+      tableName: process.env.PURCHASES_TABLE!,
+      keys: purchase_keys.map(({
+        user_id,
+        id
+      }) => ({
+        user_id,
+        id
+      }))
+    })
+    const user = await get<User>({
+      tableName: process.env.USERS_TABLE!,
+      key: {
+        id: purchases[0].user_id
       }
-      await createDestinationCharge({
-        amount: group.reduce((sum, p) => sum + p.amount, 0),
-        currency: group[0].currency,
-        paymentMethodId: group[0].payment_method_id,
-        user,
-        destinationAccountId,
-        cartId: group[0].cart_id,
-        purchaseIds: group.map(p => p.id)
-      })
-    } catch {
-      for (const purchase of group) {
-        try {
-          await updatePurchaseStatus({
-            cartId: purchase.cart_id,
-            userId: purchase.user_id,
-            purchaseId: purchase.id,
-            status: 'failed'
-          })
-        } catch (error) {
-          console.error(`Failed to update purchase status for purchase ${purchase.id}:`, error)
+    })
+    if (!user) {
+      throw new Error(`User not found`)
+    }
+
+    // organize payments into one-time or recurring and group by currency/ connected_account_id
+    const oneTimePurchases = purchases.filter(p => p.is_one_time)
+    console.log('One-time purchases:', oneTimePurchases)
+    const oneTimeGroups = oneTimePurchases.reduce((acc: { [key:string]: Purchase[]}, curr) => {
+      const key = `${curr.currency}:${curr.connected_account_id}`
+      if (!acc[key]) {
+        acc[key] = []
+      }
+      acc[key].push(curr)
+      return acc
+    }, {})
+    const recurringPurchases = purchases.filter(p => p.is_subscription)
+    console.log('Recurring purchases:', recurringPurchases)
+    const recurringGroups = recurringPurchases.reduce((acc: { [key:string]: Purchase[]}, curr) => {
+      const key = `${curr.currency}:${curr.connected_account_id}`
+      if (!acc[key]) {
+        acc[key] = []
+      }
+      acc[key].push(curr)
+      return acc
+    }, {})
+
+    // each one time group creates a single destination charge then updates all purchases
+    for (const [
+      ,
+      group
+    ] of Object.entries(oneTimeGroups)) {
+      if (group.length === 0) {
+        continue
+      }
+      const destinationAccountId = group[0].connected_account_id
+      try {
+        if (!destinationAccountId) {
+          throw new Error(`Destination account ID not found`)
+        }
+        await createDestinationCharge({
+          amount: group.reduce((sum, p) => sum + p.amount, 0),
+          currency: group[0].currency,
+          paymentMethodId: group[0].payment_method_id,
+          user,
+          destinationAccountId,
+          cartId: group[0].cart_id,
+          purchaseIds: group.map(p => p.id)
+        })
+      } catch {
+        for (const purchase of group) {
+          try {
+            await updatePurchaseStatus({
+              cartId: purchase.cart_id,
+              userId: purchase.user_id,
+              purchaseId: purchase.id,
+              status: 'failed'
+            })
+          } catch (error) {
+            console.error(`Failed to update purchase status for purchase ${purchase.id}:`, error)
           // fallthrough
+          }
         }
       }
     }
-  }
-  // each group of recurring products creates creates or updates one subscription on stripe/ the users organization,
-  for (const [
-    , group
-  ] of Object.entries(recurringGroups)) {
-    if (group.length === 0) {
-      continue
-    }
-    const destinationAccountId = group[0].connected_account_id
-    try {
-      if (!destinationAccountId) {
-        throw new Error(`Destination account ID not found`)
+    // each group of recurring products creates creates or updates one subscription on stripe/ the users organization,
+    for (const [
+      , group
+    ] of Object.entries(recurringGroups)) {
+      if (group.length === 0) {
+        continue
       }
-      await handleSubscription({
-        purchases: group,
-        user
-      })
-    } catch {
-      for (const purchase of group) {
-        try {
-          await updatePurchaseStatus({
-            cartId: purchase.cart_id,
-            userId: purchase.user_id,
-            purchaseId: purchase.id,
-            status: 'failed'
-          })
-        } catch (error) {
-          console.error(`Failed to update purchase status for purchase ${purchase.id}:`, error)
+      const destinationAccountId = group[0].connected_account_id
+      try {
+        if (!destinationAccountId) {
+          throw new Error(`Destination account ID not found`)
+        }
+        await handleSubscription({
+          purchases: group,
+          user
+        })
+      } catch {
+        for (const purchase of group) {
+          try {
+            await updatePurchaseStatus({
+              cartId: purchase.cart_id,
+              userId: purchase.user_id,
+              purchaseId: purchase.id,
+              status: 'failed'
+            })
+          } catch (error) {
+            console.error(`Failed to update purchase status for purchase ${purchase.id}:`, error)
           // fallthrough
+          }
         }
       }
     }
+  } catch (error) {
+    console.error('Error handling purchase event:', error)
   }
 }
