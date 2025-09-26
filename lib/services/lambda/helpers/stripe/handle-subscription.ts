@@ -127,7 +127,7 @@ export const handleSubscription = async ({
       on_behalf_of: destinationAccountId,
       application_fee_percent: platformFeePercent
     }
-
+    console.log(`Creating subscription for organization ${organization.id} with params:`, JSON.stringify(createParams))
     subscription = await stripe.subscriptions.create(createParams)
   }
   // add subscription id to organization if it was created
