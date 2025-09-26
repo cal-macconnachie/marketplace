@@ -16,9 +16,22 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
 
   switch (type) {
     case 'payment_intent.succeeded': {
+      // one time payments
       const paymentIntent = event.detail.data.object as Stripe.PaymentIntent
       const customerId = typeof paymentIntent.customer === 'string' ? paymentIntent.customer : paymentIntent.customer?.id
+      const user = await getUserByStripeId(customerId!)
 
+      const purchaseIds = paymentIntent.metadata?.purchase_ids ? JSON.parse(paymentIntent.metadata.purchase_ids) : []
+      for (const purchaseId of purchaseIds) {
+        if (user) {
+          await updatePurchaseStatus({
+            cartId: paymentIntent.metadata?.cart_id,
+            userId: user.id,
+            purchaseId,
+            status: 'completed'
+          })
+        }
+      }
       console.log(`PaymentIntent succeeded for customer ${customerId}, amount: ${paymentIntent.amount} ${paymentIntent.currency}`)
       break
     }
@@ -26,6 +39,19 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
     case 'payment_intent.payment_failed': {
       const paymentIntent = event.detail.data.object as Stripe.PaymentIntent
       const customerId = typeof paymentIntent.customer === 'string' ? paymentIntent.customer : paymentIntent.customer?.id
+      const user = await getUserByStripeId(customerId!)
+
+      const purchaseIds = paymentIntent.metadata?.purchase_ids ? JSON.parse(paymentIntent.metadata.purchase_ids) : []
+      for (const purchaseId of purchaseIds) {
+        if (user) {
+          await updatePurchaseStatus({
+            cartId: paymentIntent.metadata?.cart_id,
+            userId: user.id,
+            purchaseId,
+            status: 'failed'
+          })
+        }
+      }
 
       console.log(`PaymentIntent failed for customer ${customerId}, amount: ${paymentIntent.amount} ${paymentIntent.currency}`)
       break
