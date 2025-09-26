@@ -196,9 +196,9 @@ export const collectReceiptEmailData = async (
   // Load products for descriptions/recurrence
   // Build a lookup to fetch Product (for descriptions/interval) using event detail for group_id
   const productKeyById: Record<string, { id: string; group_id: string }> = {}
-  for (const p of cart.items) {
+  for (const p of purchases) {
     productKeyById[p.product_id] = {
-      id: p.product_id, group_id: p.group_id
+      id: p.product_id, group_id: p.product_group_id
     }
   }
 
