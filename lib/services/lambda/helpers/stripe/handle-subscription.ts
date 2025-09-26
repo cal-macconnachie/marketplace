@@ -53,21 +53,11 @@ export const handleSubscription = async ({
     if (acc[key] == null) {
       acc[key] = {
         price: pricesHash[key] || '',
-        quantity: 0,
-        metadata: {
-          purchases: JSON.stringify([])
-        }
+        quantity: 0
       }
     }
     if (acc[key] != null && acc[key].quantity != null) {
       acc[key].quantity += 1
-    }
-    // add purchase id to metadata
-    if (acc[key] != null && acc[key].metadata != null) {
-      acc[key].metadata.purchases = JSON.stringify([
-        ...JSON.parse(`${acc[key].metadata.purchases}`),
-        p.id
-      ])
     }
     return acc
   }, {}))
@@ -115,7 +105,8 @@ export const handleSubscription = async ({
       ...(paymentMethodId ? { default_payment_method: paymentMethodId } : {}),
       metadata: {
         connected_account_id: destinationAccountId,
-        ...(cartId ? { cart_id: cartId } : {})
+        ...(cartId ? { cart_id: cartId } : {}),
+        purchases: JSON.stringify(purchases.map(p => p.id))
       },
       automatic_tax: {
         enabled: true,
