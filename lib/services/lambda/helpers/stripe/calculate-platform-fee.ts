@@ -6,7 +6,7 @@ export const calculatePlatformFee = async ({
   organizationId,
   subscription
 }: {
-  amount?: number
+  amount: number
   organizationId?: string
   subscription?: boolean
 }): Promise<number> => {
@@ -15,12 +15,19 @@ export const calculatePlatformFee = async ({
   let fixedFee = 30 // $0.30 in cents 
   if (subscription) {
     // Subscription fees can only be percentage-based so we will be returning a whole number percent here
-    percent = 0.08
     if (organizationId) {
       const org = organizationsCache[organizationId] ? organizationsCache[organizationId] : await getOrganizationById(organizationId)
       if (org && org.subscription_platform_fee_percent) {
         percent = org.subscription_platform_fee_percent / 100
       }
+    }
+    // assume stripes international 3.9% + 0.30
+    // we need to ensure we're charging more than that
+    const stripeAmount = (amount * 0.039 + 30)
+    let ourAmount = amount * percent
+    while (ourAmount < stripeAmount + 30) {
+      percent += 0.005
+      ourAmount = amount * percent
     }
     return Number((percent * 100).toFixed(2))
   } else {

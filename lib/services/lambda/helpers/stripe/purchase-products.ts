@@ -154,7 +154,6 @@ export const purchaseProducts = async ({
       console.error(`Error creating one-time payment for product ${product.id}:`, error)
     }
   }
-  // TODO SUBSCRIPTION PURCHASE CREATION
   try {
     if (subscriptionProducts.length !== 0) {
       for (const product of subscriptionProducts) {

@@ -6,7 +6,7 @@ import { query } from '../helpers/dynamo-helpers/query'
 
 export const stripeEventHandler = async (event: EventBridgeEvent<'Stripe Event', Stripe.Event>) => {
   const type = event.detail.type
-  console.log(event.detail)
+  console.log(JSON.stringify(event.detail))
   // Handle connected account events only (platform events handled by stripe-platform-event-handler)
   switch (type) {
     case 'account.updated': {

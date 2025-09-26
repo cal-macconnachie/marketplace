@@ -10,8 +10,8 @@ export interface Cart {
 
 export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe Event', Stripe.Event>) => {
   const type = event.detail.type
-  console.log(event.detail)
-  
+  console.log(JSON.stringify(event.detail))
+
   switch (type) {
     case 'payment_intent.succeeded': {
       const paymentIntent = event.detail.data.object as Stripe.PaymentIntent

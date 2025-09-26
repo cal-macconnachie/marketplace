@@ -700,7 +700,8 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
         'detail-type': [
           'account.updated',
           'invoice.paid',
-          'invoice.payment_failed'
+          'invoice.payment_failed',
+          'payment_intent.succeeded'
         ]
       }
     }

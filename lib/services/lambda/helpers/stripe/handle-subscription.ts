@@ -63,7 +63,9 @@ export const handleSubscription = async ({
     acc[key].quantity += 1
     return acc
   }, {}))
+  let amount = purchases.reduce((sum, p) => sum + p.amount, 0)
   const platformFeePercent = await calculatePlatformFee({
+    amount,
     organizationId: organization.id,
     subscription: true
   })
