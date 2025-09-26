@@ -27,7 +27,7 @@ export const calculatePlatformFee = async ({
     const stripeAmount = (amount * 0.039 + 30)
     let ourAmount = amount * percent
     while (ourAmount < stripeAmount + (fixedFee + amount * fixedPercent)) {
-      percent += 0.005
+      percent += 0.0001
       ourAmount = amount * percent
     }
     return Number((percent * 100).toFixed(2))
