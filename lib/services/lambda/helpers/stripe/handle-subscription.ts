@@ -49,18 +49,27 @@ export const handleSubscription = async ({
   const stripe = getStripeClient()
   // creates subscription with items if none exists for organization
   // adds items to current subscription if it exists for organization
-  const items = Object.values(purchases.reduce((acc: { [key: string]: {
-    price: string
-    quantity: number
-  } }, p) => {
+  const items: Stripe.SubscriptionCreateParams.Item[] = Object.values(purchases.reduce((acc: { [key: string]: Stripe.SubscriptionCreateParams.Item }, p) => {
     const key = `${p.product_group_id}:${p.product_id}`
     if (acc[key] == null) {
       acc[key] = {
         price: pricesHash[key] || '',
-        quantity: 0
+        quantity: 0,
+        metadata: {
+          purchases: JSON.stringify([])
+        }
       }
     }
-    acc[key].quantity += 1
+    if (acc[key] != null && acc[key].quantity != null) {
+      acc[key].quantity += 1
+    }
+    // add purchase id to metadata
+    if (acc[key] != null && acc[key].metadata != null) {
+      acc[key].metadata.purchases = JSON.stringify([
+        ...JSON.parse(`${acc[key].metadata.purchases}`),
+        p.id
+      ])
+    }
     return acc
   }, {}))
   let amount = purchases.reduce((sum, p) => sum + p.amount, 0)
@@ -81,7 +90,7 @@ export const handleSubscription = async ({
       const matchingItem = subscriptionItems.find(i => i.price.id === item.price)
       if (matchingItem) {
         // update item with new quantity
-        const newQuantity = (matchingItem.quantity ?? 1) + item.quantity
+        const newQuantity = (matchingItem.quantity ?? 1) + (item.quantity ?? 1)
         await stripe.subscriptionItems.update(matchingItem.id, {
           quantity: newQuantity
         })

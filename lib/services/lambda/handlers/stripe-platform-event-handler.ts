@@ -1,5 +1,6 @@
 import { EventBridgeEvent } from 'aws-lambda'
 import Stripe from 'stripe'
+import { getUserByStripeId } from '../helpers/users/get-user-by-stripe-id'
 export interface Cart {
   user_id: string
   id: string
@@ -65,6 +66,11 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
       // Handle subscription payments that are destination charges
       const invoice = event.detail.data.object as Stripe.Invoice
       const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id
+      if (customerId) {
+        const user = await getUserByStripeId(customerId)
+        const items = invoice.lines.data
+        console.log(user?.id, JSON.stringify(items))
+      }
 
       console.log(`Invoice paid for customer ${customerId}, amount: ${invoice.amount_paid} ${invoice.currency}`)
       break

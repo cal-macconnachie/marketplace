@@ -13,6 +13,7 @@ export const calculatePlatformFee = async ({
   // Platform fee logic: 6% + $0.30
   let percent = 0.06
   let fixedFee = 30 // $0.30 in cents 
+  const fixedPercent = percent
   if (subscription) {
     // Subscription fees can only be percentage-based so we will be returning a whole number percent here
     if (organizationId) {
@@ -25,7 +26,7 @@ export const calculatePlatformFee = async ({
     // we need to ensure we're charging more than that
     const stripeAmount = (amount * 0.039 + 30)
     let ourAmount = amount * percent
-    while (ourAmount < stripeAmount + 30) {
+    while (ourAmount < stripeAmount + (fixedFee + amount * fixedPercent)) {
       percent += 0.005
       ourAmount = amount * percent
     }
