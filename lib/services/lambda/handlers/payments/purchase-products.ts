@@ -18,7 +18,6 @@ export const purchaseProducts = async (event: APIGatewayProxyEvent) => {
       productKeys,
       promoCode,
       couponId,
-      taxCode
     } : {
       userId: string,
       paymentMethodId?: string,
@@ -36,7 +35,6 @@ export const purchaseProducts = async (event: APIGatewayProxyEvent) => {
       productKeys,
       promoCode,
       couponId,
-      taxCode,
       ipAddress
     })
     return {
@@ -48,10 +46,11 @@ export const purchaseProducts = async (event: APIGatewayProxyEvent) => {
         'Content-Type': 'application/json'
       }
     }
-  } catch {
+  } catch (error) {
+    console.error('Error purchasing products:', error)
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Failed to purchase products' }),
+      body: JSON.stringify({ error: (error as Error).message }),
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,
