@@ -124,6 +124,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
           for (const item of invoiceItems) {
             if (item.parent?.subscription_item_details?.subscription_item) {
               const subscriptionItem = await stripe.subscriptionItems.retrieve(item.parent?.subscription_item_details?.subscription_item)
+              console.log(JSON.stringify(subscriptionItem))
               const purchaseIds = JSON.parse(subscriptionItem.metadata?.purchase_ids ?? '[]')
               for (const purchaseId of purchaseIds) {
                 await updatePurchaseStatus({
