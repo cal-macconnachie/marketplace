@@ -84,7 +84,7 @@ export async function calculateTaxWithStripe(
     }
     
     const calculation = await stripe.tax.calculations.create(calculationParams, 
-      params.stripeAccountId ? { stripeAccount: params.stripeAccountId } : {}
+      params.stripeAccountId ? { stripeAccount: params.stripeAccountId } : undefined
     )
     
     const lineItem = calculation.line_items?.data?.[0]

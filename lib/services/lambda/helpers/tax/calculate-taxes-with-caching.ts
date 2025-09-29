@@ -64,10 +64,10 @@ export async function calculateTaxesWithCaching(
 
     // Calculate item total amount
     const itemAmount = product.default_price_data.unit_amount * item.quantity
-    const organization = orgsHash[item.organization_id]
+    const sellerOrganization = orgsHash[product.organization_id]
     const requiresShipping = product.metadata?.shipping_required === 'true'
-    const shipFromOrg = requiresShipping ? organization : undefined
-    const taxCacheKey = generateTaxCacheKey(product.tax_code || 'txcd_99999999', shipFromOrg)
+    const shipFromOrg = requiresShipping ? sellerOrganization : undefined
+    const taxCacheKey = generateTaxCacheKey(product.tax_code || 'txcd_99999999', product.account_id, shipFromOrg)
     
     // Try to get cached tax rate
     let taxAmount = 0
@@ -89,7 +89,7 @@ export async function calculateTaxesWithCaching(
           reference: `${product.name} (sample for rate)`,
           location,
           shipFromOrg,
-          stripeAccountId: organization?.stripe_account_id
+          stripeAccountId: sellerOrganization?.stripe_account_id
         })
         
         taxRate = taxCalculation.tax_rate
@@ -112,7 +112,7 @@ export async function calculateTaxesWithCaching(
         reference: `${product.name} (sample for rate)`,
         location,
         shipFromOrg,
-        stripeAccountId: organization?.stripe_account_id
+        stripeAccountId: sellerOrganization?.stripe_account_id
       })
       
       taxRate = taxCalculation.tax_rate

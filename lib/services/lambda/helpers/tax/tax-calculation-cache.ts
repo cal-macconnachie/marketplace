@@ -38,10 +38,12 @@ export function generateLocationKey(user?: User, ipAddress?: string): string {
 // Helper function to generate tax calculation cache key (without amount for rate-based caching)
 export function generateTaxCacheKey(
   taxCode: string,
+  accountId: string,
   shipFromOrg?: Organization
 ): string {
-  let baseKey = taxCode
-  
+  // Include account_id to maintain uniqueness across different connected accounts
+  let baseKey = `${taxCode}:${accountId}`
+
   // Include ship-from organization location if shipping is required for origin-based taxation
   if (shipFromOrg?.address) {
     // Convert organization address names to codes for consistency
@@ -51,11 +53,11 @@ export function generateTaxCacheKey(
       city: shipFromOrg.address.city,
       postal_code: shipFromOrg.address.postal_code
     })
-    
+
     const shipFromLocation = `${orgAddressCodes.country}:${orgAddressCodes.state}:${orgAddressCodes.city}:${orgAddressCodes.postal_code}`
     baseKey += `:ship_from:${shipFromLocation}`
   }
-  
+
   return baseKey
 }
 
