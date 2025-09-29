@@ -1,7 +1,5 @@
 import { unmarshall } from "@aws-sdk/util-dynamodb"
 import { DynamoDBStreamEvent } from "aws-lambda"
-import { PurchasedProduct } from "./products"
-import { clearOrganizationProducts } from "../helpers/organizations/clear-organization-products"
 import { allocateOrganizationProducts } from "../helpers/organizations/allocate-organization-products"
 import isEqual from "lodash.isequal"
 import { setInGoodStanding } from "../helpers/organizations/set-in-good-standing"
@@ -29,7 +27,6 @@ export interface Organization {
     user_id: string
     id: string
   }
-  purchased_products?: PurchasedProduct[]
 
   // auth/ fields
   in_good_standing_until?: number
@@ -84,11 +81,6 @@ export const organizations = async (event: DynamoDBStreamEvent) => {
         break
       case "MODIFY":
         if (newOrg == null || oldOrg == null) throw new Error("organization data is missing in the record")
-        // handle updated organization if purchasedProducts is different
-        if (!isEqual(newOrg.purchased_products, oldOrg.purchased_products)) {
-          await clearOrganizationProducts(oldOrg.purchased_products ?? [])
-          await allocateOrganizationProducts(newOrg)
-        }
         if (!isEqual(newOrg.in_good_standing_until, oldOrg.in_good_standing_until)) {
           await setInGoodStanding({
             organizationId: newOrg.id,
@@ -99,7 +91,6 @@ export const organizations = async (event: DynamoDBStreamEvent) => {
       case "REMOVE":
         // handle removed organization
         if (oldOrg == null) throw new Error("Old organization data is missing in the record")
-        await clearOrganizationProducts(oldOrg.purchased_products ?? [])
         break
     }
   }

@@ -2,7 +2,7 @@ import { APIGatewayProxyEvent } from 'aws-lambda'
 import { getOrganizationById } from '../../helpers/organizations/get-organization-by-id'
 import { PurchasedProduct } from '../products'
 import { update } from '../../helpers/dynamo-helpers/update'
-import { Organization } from '../organizations'
+import { queryAll } from '../../helpers/dynamo-helpers/query'
 
 export const assignProducts = async (event: APIGatewayProxyEvent) => {
   try {
@@ -43,7 +43,13 @@ export const assignProducts = async (event: APIGatewayProxyEvent) => {
         }
       }
     }
-    const purchasedProducts = organization.purchased_products ?? []
+    const purchasedProducts = await queryAll<PurchasedProduct>({
+      tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+      keyConditionExpression: 'organization_id = :orgId',
+      expressionAttributeValues: {
+        ':orgId': organizationId
+      }
+    })
     const newPurchasedProducts: PurchasedProduct[] = []
     for (const pp of purchasedProducts) {
       const uniqueId = pp.unique_id
@@ -52,25 +58,20 @@ export const assignProducts = async (event: APIGatewayProxyEvent) => {
         newPurchasedProducts.push(pp)
         continue
       }
-      const newPP: PurchasedProduct = {
-        ...pp,
-        ...(assignment?.user_id == null ? {} : { user_id: assignment?.user_id })
-      }
-      newPurchasedProducts.push(newPP)
-    } 
-    const newOrg = await update<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
-      key: {
-        id: organizationId
-      },
-      updates: {
-        purchased_products: newPurchasedProducts
-      },
-      returnUpdated: true
-    })
+      await update<PurchasedProduct>({
+        tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+        key: {
+          organization_id: organizationId,
+          id: pp.id
+        },
+        updates: {
+          user_id: assignment.user_id
+        }
+      })
+    }
     return {
       statusCode: 200,
-      body: JSON.stringify(newOrg),
+      body: JSON.stringify(organization),
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,

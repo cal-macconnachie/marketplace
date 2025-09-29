@@ -4,8 +4,8 @@ import { getUserByStripeId } from '../helpers/users/get-user-by-stripe-id'
 import { updatePurchaseStatus } from '../helpers/carts/update-purchase-status'
 import { PurchasedProduct } from './products'
 import { createPurchasedProductFromPurchase } from '../helpers/carts/create-purchased-product-from-purchase'
-import { atomicUpdate } from '../helpers/dynamo-helpers/atomic-update'
 import { getStripeClient } from '../helpers/stripe/stripe-client'
+import { create } from '../helpers/dynamo-helpers/create'
 export interface Cart {
   user_id: string
   id: string
@@ -43,15 +43,15 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
         }
       }
       // atomic update users org to add purchased products to purchased_products array
-      await atomicUpdate({
-        tableName: process.env.ORGANIZATIONS_TABLE!,
-        key: { id: user?.organization_id },
-        updateExpression: 'SET purchased_products = list_append(if_not_exists(purchased_products, :empty_list), :new_products)',
-        expressionAttributeValues: {
-          ':new_products': purchasedProducts,
-          ':empty_list': []
-        }
-      })
+      const createPromises = purchasedProducts.map(product => create({
+        tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+        key: {
+          organization_id: user?.organization_id,
+          id: product.id
+        },
+        record: product
+      }))
+      await Promise.all(createPromises)
       console.log(`PaymentIntent succeeded for customer ${customerId}, amount: ${paymentIntent.amount} ${paymentIntent.currency}`)
       break
     }
@@ -143,15 +143,15 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
               }
             }
           }
-          await atomicUpdate({
-            tableName: process.env.ORGANIZATIONS_TABLE!,
-            key: { id: user?.organization_id },
-            updateExpression: 'SET purchased_products = list_append(if_not_exists(purchased_products, :empty_list), :new_products)',
-            expressionAttributeValues: {
-              ':new_products': purchasedProducts,
-              ':empty_list': []
-            }
-          })
+          const createPromises = purchasedProducts.map(product => create({
+            tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+            key: {
+              organization_id: user?.organization_id,
+              id: product.id
+            },
+            record: product
+          }))
+          await Promise.all(createPromises)
         }
       }
 

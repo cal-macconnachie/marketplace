@@ -1,5 +1,7 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { getOrganizationById } from '../../helpers/organizations/get-organization-by-id'
+import { queryAll } from '../../helpers/dynamo-helpers/query'
+import { PurchasedProduct } from '../products'
 
 export const publicGetOrganization = async (event: APIGatewayProxyEvent) => {
   const { id } = event.pathParameters ?? {}
@@ -57,7 +59,20 @@ export const getOrganization = async (event: APIGatewayProxyEvent) => {
       }
     }
   }
-  const org = await getOrganizationById(id)
+  const [
+    org,
+    purchasedProducts
+  ] = await Promise.all([
+    getOrganizationById(id),
+    queryAll<PurchasedProduct>({
+      tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+      keyConditionExpression: 'organization_id = :orgId',
+      expressionAttributeValues: {
+        ':orgId': id
+      }
+    })
+  ])
+
   if (!org) {
     return {
       statusCode: 404,
@@ -71,7 +86,10 @@ export const getOrganization = async (event: APIGatewayProxyEvent) => {
   }
   return {
     statusCode: 200,
-    body: JSON.stringify(org),
+    body: JSON.stringify({
+      ...org,
+      purchased_products: purchasedProducts ?? []
+    }),
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Credentials': true,
