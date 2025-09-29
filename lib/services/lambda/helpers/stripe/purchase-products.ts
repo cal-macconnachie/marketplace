@@ -134,6 +134,32 @@ export const purchaseProducts = async ({
   const oneTimeProduct = productsToPurchase.filter((prod) => !Boolean(prod.default_price_data.recurring))
   const subscriptionProducts = productsToPurchase.filter((prod) => Boolean(prod.default_price_data.recurring))
 
+  // Batch fetch all unique seller organizations upfront
+  const uniqueSellerOrgIds = [...new Set(productsToPurchase.map(p => p.organization_id))]
+  const sellerOrganizations = await Promise.all(
+    uniqueSellerOrgIds.map(orgId =>
+      get<Organization>({
+        tableName: process.env.ORGANIZATIONS_TABLE!,
+        key: { id: orgId }
+      })
+    )
+  )
+
+  // Create hash map for quick lookup
+  const sellerOrgsHash = sellerOrganizations.reduce((acc, org) => {
+    if (org) {
+      acc[org.id] = org
+    }
+    return acc
+  }, {} as { [id: string]: Organization })
+
+  // Validate all seller orgs were found
+  for (const product of productsToPurchase) {
+    if (!sellerOrgsHash[product.organization_id]) {
+      throw new Error(`Seller organization not found: ${product.organization_id}`)
+    }
+  }
+
   const purchaseDataList: Purchase[] = []
   for (const product of oneTimeProduct) {
     try {
@@ -144,6 +170,7 @@ export const purchaseProducts = async ({
         product,
         user,
         organization,
+        sellerOrganization: sellerOrgsHash[product.organization_id],
         ipAddress,
         cartId
       })
@@ -164,6 +191,7 @@ export const purchaseProducts = async ({
           product,
           user,
           organization,
+          sellerOrganization: sellerOrgsHash[product.organization_id],
           ipAddress,
           cartId
         })

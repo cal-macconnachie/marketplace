@@ -18,6 +18,7 @@ export const createSubscriptionPurchase = async ({
   paymentMethodId,
   user,
   organization,
+  sellerOrganization,
   taxCode,
   ipAddress,
   cartId
@@ -28,6 +29,7 @@ export const createSubscriptionPurchase = async ({
   product: Product
   user: User
   organization: Organization
+  sellerOrganization: Organization
   taxCode?: string
   ipAddress?: string
   cartId: string
@@ -167,18 +169,8 @@ export const createSubscriptionPurchase = async ({
     [`${product.group_id}:${product.id}`]: modifiedProduct
   }
 
-  // Fetch seller organization for tax calculation
-  const sellerOrg = await get<Organization>({
-    tableName: process.env.ORGANIZATIONS_TABLE!,
-    key: { id: product.organization_id }
-  })
-
-  if (!sellerOrg) {
-    throw new Error(`Seller organization not found: ${product.organization_id}`)
-  }
-
   const orgsHash = {
-    [sellerOrg.id]: sellerOrg
+    [sellerOrganization.id]: sellerOrganization
   }
 
   const taxResult = await calculateTaxesWithCaching(
