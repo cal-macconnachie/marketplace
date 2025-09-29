@@ -61,7 +61,8 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
       return acc
     }, {})
 
-    // each one time group creates a single destination charge then updates all purchases
+    // each one time group creates a single destination charge
+    // Status updates happen via payment_intent.succeeded or payment_intent.payment_failed webhooks
     for (const [
       ,
       group
@@ -83,8 +84,10 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
           cartId: group[0].cart_id,
           purchaseIds: group.map(p => p.id)
         })
+        // Payment intent status will be updated via webhook (payment_intent.succeeded or payment_intent.payment_failed)
       } catch (e){
         console.error('Error creating destination charge:', e)
+        // Mark purchases as failed if we couldn't even create the payment intent
         for (const purchase of group) {
           try {
             await updatePurchaseStatus({

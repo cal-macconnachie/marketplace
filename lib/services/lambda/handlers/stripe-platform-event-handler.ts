@@ -115,15 +115,16 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
       const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id
       if (customerId) {
         const user = await getUserByStripeId(customerId)
-        if (user && invoice.parent?.type === 'subscription_details') {
+        const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id
+        if (user && subscriptionId) {
           const purchasedProducts: PurchasedProduct[] = []
           const stripe = getStripeClient()
-          const invoiceItems = invoice.lines.data
-          const subscriptionMetadata = invoice.parent.subscription_details?.metadata
-          const cartId = subscriptionMetadata?.cart_id
-          for (const item of invoiceItems) {
-            if (item.parent?.subscription_item_details?.subscription_item) {
-              const subscriptionItem = await stripe.subscriptionItems.retrieve(item.parent?.subscription_item_details?.subscription_item)
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+          const cartId = subscription.metadata?.cart_id
+
+          for (const item of invoice.lines.data) {
+            if (item.subscription_item) {
+              const subscriptionItem = await stripe.subscriptionItems.retrieve(item.subscription_item)
               console.log(JSON.stringify(subscriptionItem))
               const purchaseIds = JSON.parse(subscriptionItem.metadata?.purchase_ids ?? '[]')
               for (const purchaseId of purchaseIds) {
@@ -132,11 +133,13 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                   userId: user.id,
                   purchaseId,
                   status: 'completed'
+                }).catch(error => {
+                  console.error(`Failed to update purchase status for purchase ${purchaseId}:`, error)
                 })
 
                 purchasedProducts.push(await createPurchasedProductFromPurchase({
                   purchaseKey: {
-                    userId: user.id, purchaseId 
+                    userId: user.id, purchaseId
                   },
                   subscriptionItem
                 }))
@@ -156,6 +159,41 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
       }
 
       console.log(`Invoice paid for customer ${customerId}, amount: ${invoice.amount_paid} ${invoice.currency}`)
+      break
+    }
+
+    case 'invoice.payment_failed': {
+      // Handle failed subscription payments
+      const invoice = event.detail.data.object as Stripe.Invoice
+      const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id
+      if (customerId) {
+        const user = await getUserByStripeId(customerId)
+        const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id
+        if (user && subscriptionId) {
+          const stripe = getStripeClient()
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+          const cartId = subscription.metadata?.cart_id
+
+          for (const item of invoice.lines.data) {
+            if (item.subscription_item) {
+              const subscriptionItem = await stripe.subscriptionItems.retrieve(item.subscription_item)
+              const purchaseIds = JSON.parse(subscriptionItem.metadata?.purchase_ids ?? '[]')
+              for (const purchaseId of purchaseIds) {
+                await updatePurchaseStatus({
+                  cartId,
+                  userId: user.id,
+                  purchaseId,
+                  status: 'failed'
+                }).catch(error => {
+                  console.error(`Failed to update purchase status for purchase ${purchaseId}:`, error)
+                })
+              }
+            }
+          }
+        }
+      }
+
+      console.log(`Invoice payment failed for customer ${customerId}, amount: ${invoice.amount_due} ${invoice.currency}`)
       break
     }
     default: {

@@ -139,9 +139,12 @@ export const handleSubscription = async ({
       updates: {
         stripe_subscription_ids: {
           ...organization.stripe_subscription_ids,
-          [destinationAccountId]: subscription.id 
+          [destinationAccountId]: subscription.id
         }
       }
     })
   }
+
+  // Status will be updated to 'completed' via invoice.paid webhook
+  // Status will be updated to 'failed' via invoice.payment_failed webhook
 }
