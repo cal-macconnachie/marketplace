@@ -50,7 +50,7 @@ export const addUserToOrganization = async ({
     2. if new org does have a stripe set up we need to cancel the old subscription
   */
   const oldOrgHasSubscriptions = oldOrg && oldOrg.stripe_subscription_ids && Object.keys(oldOrg.stripe_subscription_ids).length > 0
-  const userHasActiveSubscription = oldOrgHasSubscriptions && user.stripe_id && oldOrg.purchased_products != null && oldOrg.purchased_products.length > 0 && oldOrg.default_payment_method != null && oldOrg.default_payment_method.user_id === userId
+  const userHasActiveSubscription = oldOrgHasSubscriptions && user.stripe_id && oldOrg.default_payment_method != null && oldOrg.default_payment_method.user_id === userId
   
   const newOrgHasSubscriptions = newOrg.stripe_subscription_ids && Object.keys(newOrg.stripe_subscription_ids).length > 0
   
@@ -61,8 +61,7 @@ export const addUserToOrganization = async ({
       key: { id: oldOrg.id },
       updates: {
         stripe_subscription_ids: {},
-        default_payment_method: '',
-        purchased_products: ''
+        default_payment_method: ''
       }
     })
     await update<Organization>({
@@ -70,8 +69,7 @@ export const addUserToOrganization = async ({
       key: { id: organizationId },
       updates: {
         stripe_subscription_ids: oldOrg.stripe_subscription_ids || {},
-        default_payment_method: oldOrg.default_payment_method,
-        purchased_products: oldOrg.purchased_products
+        default_payment_method: oldOrg.default_payment_method
       }
     })
   }
@@ -81,12 +79,10 @@ export const addUserToOrganization = async ({
     // Cancel all subscriptions from old org
     if (oldOrg.stripe_subscription_ids) {
       for (const [
-        accountId,
+        ,
         subscriptionId
       ] of Object.entries(oldOrg.stripe_subscription_ids)) {
-        await stripe.subscriptions.cancel(subscriptionId, {}, {
-          stripeAccount: accountId
-        })
+        await stripe.subscriptions.cancel(subscriptionId)
       }
     }
     
@@ -95,8 +91,7 @@ export const addUserToOrganization = async ({
       key: { id: oldOrg.id },
       updates: {
         stripe_subscription_ids: {},
-        default_payment_method: '',
-        purchased_products: ''
+        default_payment_method: ''
       }
     })
   }

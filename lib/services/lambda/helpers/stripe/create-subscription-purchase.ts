@@ -48,9 +48,7 @@ export const createSubscriptionPurchase = async ({
   if (existingSubscriptionId) {
     try {
       // Get existing subscription details to calculate prorated amount
-      const existingSubscription = await stripe.subscriptions.retrieve(existingSubscriptionId, {
-        stripeAccount: product.account_id
-      })
+      const existingSubscription = await stripe.subscriptions.retrieve(existingSubscriptionId)
 
       if (existingSubscription.status === 'active' || existingSubscription.status === 'trialing') {
         isAddingToExistingSubscription = true
