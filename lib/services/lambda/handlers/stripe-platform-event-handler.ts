@@ -170,7 +170,6 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
 
                 // Calculate per-item amounts from invoice line item
                 const quantity = item.quantity || 1
-                console.log('ITEM AMOUNTS', item.amount, item.taxes)
                 const totalAmount = item.amount + (item.taxes?.reduce((sum, tax) => sum + tax.amount, 0) ?? 0)
                 const perItemTotal = Math.abs(Math.round((totalAmount) / quantity))
 
@@ -210,6 +209,19 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                   } catch (error) {
                     // Purchase may already be completed - this is expected for webhook retries
                     console.log(`Purchase ${purchaseId} already completed or failed to update:`, error)
+                  }
+                }
+
+                // Remove completed purchase IDs from subscription item metadata
+                if (subscriptionItemId && purchaseIds.length > 0) {
+                  try {
+                    await stripe.subscriptionItems.update(subscriptionItemId, {
+                      metadata: {
+                        purchase_ids: JSON.stringify([])
+                      }
+                    })
+                  } catch (error) {
+                    console.log(`Failed to clear purchase_ids from subscription item ${subscriptionItemId}:`, error)
                   }
                 }
               }
