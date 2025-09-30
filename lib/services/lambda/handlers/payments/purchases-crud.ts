@@ -95,7 +95,10 @@ export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
         }
       }
     }
-    if (purchaseType == null || !['read'].includes(purchaseType)) {
+    if (purchaseType == null || ![
+      'read',
+      'update'
+    ].includes(purchaseType)) {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'Invalid purchase type' }),
@@ -117,6 +120,96 @@ export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
     }
     switch (purchaseType) {
       case 'update':
+        // currently only allow updating status to failed if from pending
+        if (purchase.status == null) {
+          return {
+            statusCode: 400,
+            body: JSON.stringify({ error: 'Missing status for update' }),
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Credentials': true,
+              'Content-Type': 'application/json'
+            }
+          }
+        }
+        const currentPurchase = await get<Purchase>({
+          tableName: process.env.PURCHASES_TABLE!,
+          key: {
+            id: purchase.id!,
+            user_id: purchase.user_id!
+          }
+        })
+        if (currentPurchase == null) {
+          return {
+            statusCode: 404,
+            body: JSON.stringify({ error: 'Purchase not found' }),
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Credentials': true,
+              'Content-Type': 'application/json'
+            }
+          }
+        }
+        if (currentPurchase.status === 'completed') {
+          return {
+            statusCode: 400,
+            body: JSON.stringify({ error: 'Cannot update a completed purchase' }),
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Credentials': true,
+              'Content-Type': 'application/json'
+            }
+          }
+        }
+        // ensure the only thing being changed is the status
+        if (Object.keys(purchase).some(key => ![
+          'status',
+          'id',
+          'user_id'
+        ].includes(key))) {
+          return {
+            statusCode: 400,
+            body: JSON.stringify({ error: 'Can only update status of purchase' }),
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Credentials': true,
+              'Content-Type': 'application/json'
+            }
+          }
+        }
+        if (currentPurchase.status === purchase.status) {
+          return {
+            statusCode: 400,
+            body: JSON.stringify({ error: `Purchase is already in status ${purchase.status}` }),
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Credentials': true,
+              'Content-Type': 'application/json'
+            }
+          }
+        }
+        if (currentPurchase.status === 'failed') {
+          return {
+            statusCode: 400,
+            body: JSON.stringify({ error: 'Cannot update a failed purchase' }),
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Credentials': true,
+              'Content-Type': 'application/json'
+            }
+          }
+        }
+        if (purchase.status !== 'failed') {
+          return {
+            statusCode: 400,
+            body: JSON.stringify({ error: 'Can only update status to failed' }),
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Credentials': true,
+              'Content-Type': 'application/json'
+            }
+          }
+        }
         const updatedPurchase = await update<Purchase>({
           tableName: process.env.PURCHASES_TABLE!,
           key: {
