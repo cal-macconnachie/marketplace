@@ -12,6 +12,7 @@ import { batchGet } from '../helpers/dynamo-helpers/batch-get'
 import { Product } from './products'
 import { get } from '../helpers/dynamo-helpers/get'
 import { Organization } from './organizations'
+import { adjustPurchaseAmount } from '../helpers/purchases/adjust-purchase-amount'
 export interface Cart {
   user_id: string
   id: string
@@ -167,8 +168,30 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                 const subscriptionItem = await stripe.subscriptionItems.retrieve(subscriptionItemId)
                 const purchaseIds = JSON.parse(subscriptionItem.metadata?.purchase_ids ?? '[]')
 
+                // Calculate per-item amounts from invoice line item
+                const quantity = item.quantity || 1
+                const totalAmount = item.amount
+                const perItemTotal = Math.round(totalAmount / quantity)
+
                 for (const purchaseId of purchaseIds) {
                   try {
+                    // Get the purchase to adjust amounts
+                    const purchase = await get<Purchase>({
+                      tableName: process.env.PURCHASES_TABLE!,
+                      key: {
+                        user_id: user.id,
+                        id: purchaseId
+                      }
+                    })
+
+                    if (purchase) {
+                      // Adjust purchase amount to match Stripe's calculation
+                      await adjustPurchaseAmount({
+                        purchase,
+                        correctAmount: perItemTotal
+                      })
+                    }
+
                     await updatePurchaseStatus({
                       cartId,
                       userId: user.id,

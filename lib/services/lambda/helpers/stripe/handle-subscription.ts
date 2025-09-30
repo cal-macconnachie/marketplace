@@ -89,7 +89,7 @@ export const handleSubscription = async ({
         const newQuantity = (matchingItem.quantity ?? 1) + (item.quantity ?? 1)
         await stripe.subscriptionItems.update(matchingItem.id, {
           quantity: newQuantity,
-          proration_behavior: 'none',
+          proration_behavior: 'always_invoice',
           metadata: {
             purchase_ids: JSON.stringify([
               ...JSON.parse(matchingItem.metadata?.purchase_ids ?? '[]'),
@@ -103,7 +103,7 @@ export const handleSubscription = async ({
           subscription: subscription.id,
           price: item.price,
           quantity: item.quantity,
-          proration_behavior: 'none',
+          proration_behavior: 'always_invoice',
           metadata: item.metadata
         })
       }
