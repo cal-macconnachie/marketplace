@@ -37,7 +37,7 @@ export interface Product {
 }
 
 export type PurchasedProduct = Pick<Product, 'id' | 'group_id' | 'name' | 'metadata'> & {
-  unique_id: string
+  product_id: string
   user_id?: string
   in_good_standing_until?: number
   amount: number

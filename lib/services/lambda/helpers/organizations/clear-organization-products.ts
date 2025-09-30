@@ -14,7 +14,7 @@ export const clearOrganizationProducts = async (purchasedProducts: (PurchasedPro
         tableName: process.env.USERS_TABLE!,
         key: { id: user.id },
         updates: {
-          products: (user.products ?? []).filter(p => p.unique_id !== product.unique_id)
+          products: (user.products ?? []).filter(p => p.id !== product.id)
         }
       })
     }

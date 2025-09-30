@@ -12,7 +12,7 @@ export const assignProducts = async (event: APIGatewayProxyEvent) => {
     }: {
       organization_id: string
       assignments: Array<{
-        unique_id: string
+        id: string
         user_id: string
       }>
     } = JSON.parse(event.body || '{}')
@@ -52,8 +52,7 @@ export const assignProducts = async (event: APIGatewayProxyEvent) => {
     })
     const newPurchasedProducts: PurchasedProduct[] = []
     for (const pp of purchasedProducts) {
-      const uniqueId = pp.unique_id
-      const assignment = assignments.find(a => a.unique_id === uniqueId)
+      const assignment = assignments.find(a => a.id === pp.id)
       if (assignment == null) {
         newPurchasedProducts.push(pp)
         continue

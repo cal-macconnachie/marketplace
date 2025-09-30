@@ -25,7 +25,8 @@ export const createPurchasedProductFromPurchase = async ({
     throw new Error(`Purchase not found: ${purchaseKey.purchaseId}`)
   }
   const purchasedProduct: PurchasedProduct = {
-    id: purchase.product_id,
+    id: v4(),
+    product_id: purchase.product_id,
     group_id: purchase.product_group_id,
     name: purchase.product_name,
     amount: purchase.amount,
@@ -33,8 +34,7 @@ export const createPurchasedProductFromPurchase = async ({
     purchase_id: purchase.id,
     subscription_id: subscriptionItem?.subscription,
     subscription_item_id: subscriptionItem?.id,
-    in_good_standing_until: subscriptionItem?.current_period_end,
-    unique_id: v4()
+    in_good_standing_until: subscriptionItem?.current_period_end
   }
   return purchasedProduct
 }
