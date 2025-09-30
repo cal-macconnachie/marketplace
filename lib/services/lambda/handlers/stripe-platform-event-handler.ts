@@ -12,7 +12,6 @@ import { batchGet } from '../helpers/dynamo-helpers/batch-get'
 import { Product } from './products'
 import { get } from '../helpers/dynamo-helpers/get'
 import { Organization } from './organizations'
-import { adjustPurchaseAmount } from '../helpers/purchases/adjust-purchase-amount'
 export interface Cart {
   user_id: string
   id: string
@@ -23,7 +22,6 @@ export interface Cart {
 
 export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe Event', Stripe.Event>) => {
   const type = event.detail.type
-  console.log(JSON.stringify(event.detail))
 
   switch (type) {
     case 'payment_intent.succeeded': {
@@ -35,31 +33,9 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
       const purchaseIds = paymentIntent.metadata?.purchase_ids ? JSON.parse(paymentIntent.metadata.purchase_ids) : []
       const purchasedProducts: PurchasedProduct[] = []
 
-      // Calculate correct amount per purchase
-      const correctAmountPerPurchase = purchaseIds.length > 0
-        ? Math.round(paymentIntent.amount / purchaseIds.length)
-        : 0
-
       for (const purchaseId of purchaseIds) {
         if (user) {
           try {
-            // Get the purchase to check if amount adjustment is needed
-            const purchase = await get<Purchase>({
-              tableName: process.env.PURCHASES_TABLE!,
-              key: {
-                user_id: user.id,
-                id: purchaseId
-              }
-            })
-
-            if (purchase && purchase.amount !== correctAmountPerPurchase) {
-              console.log(`Adjusting purchase ${purchaseId} from ${purchase.amount} to ${correctAmountPerPurchase}`)
-              await adjustPurchaseAmount({
-                purchase,
-                correctAmount: correctAmountPerPurchase
-              })
-            }
-
             await updatePurchaseStatus({
               cartId: paymentIntent.metadata?.cart_id,
               userId: user.id,
@@ -153,7 +129,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
     
     case 'invoice.paid': {
       // Handle subscription payments that are destination charges
-      const invoice = event.detail.data.object as Stripe.Invoice
+      const invoice = event.detail.data.object
       const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id
       if (customerId) {
         const user = await getUserByStripeId(customerId)
@@ -189,7 +165,6 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
               const subscriptionItemId = item.parent?.subscription_item_details?.subscription_item
               if (subscriptionItemId) {
                 const subscriptionItem = await stripe.subscriptionItems.retrieve(subscriptionItemId)
-                console.log(JSON.stringify(subscriptionItem))
                 const purchaseIds = JSON.parse(subscriptionItem.metadata?.purchase_ids ?? '[]')
 
                 for (const purchaseId of purchaseIds) {
