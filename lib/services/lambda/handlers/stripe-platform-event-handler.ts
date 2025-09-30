@@ -29,29 +29,36 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
       const purchasedProducts: PurchasedProduct[] = []
       for (const purchaseId of purchaseIds) {
         if (user) {
-          await updatePurchaseStatus({
-            cartId: paymentIntent.metadata?.cart_id,
-            userId: user.id,
-            purchaseId,
-            status: 'completed'
-          })
-          purchasedProducts.push(await createPurchasedProductFromPurchase({
-            purchaseKey: {
-              userId: user.id, purchaseId 
-            } 
-          }))
+          try {
+            await updatePurchaseStatus({
+              cartId: paymentIntent.metadata?.cart_id,
+              userId: user.id,
+              purchaseId,
+              status: 'completed'
+            })
+            purchasedProducts.push(await createPurchasedProductFromPurchase({
+              purchaseKey: {
+                userId: user.id, purchaseId
+              }
+            }))
+          } catch (error) {
+            // Purchase may already be completed - this is expected for webhook retries
+            console.log(`Purchase ${purchaseId} already completed or failed to update:`, error)
+          }
         }
       }
       // atomic update users org to add purchased products to purchased_products array
-      const createPromises = purchasedProducts.map(product => create({
-        tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
-        key: {
-          organization_id: user?.organization_id,
-          id: product.id
-        },
-        record: product
-      }))
-      await Promise.all(createPromises)
+      if (purchasedProducts.length > 0) {
+        const createPromises = purchasedProducts.map(product => create({
+          tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+          key: {
+            organization_id: user?.organization_id,
+            id: product.id
+          },
+          record: product
+        }))
+        await Promise.all(createPromises)
+      }
       console.log(`PaymentIntent succeeded for customer ${customerId}, amount: ${paymentIntent.amount} ${paymentIntent.currency}`)
       break
     }
@@ -64,12 +71,17 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
       const purchaseIds = paymentIntent.metadata?.purchase_ids ? JSON.parse(paymentIntent.metadata.purchase_ids) : []
       for (const purchaseId of purchaseIds) {
         if (user) {
-          await updatePurchaseStatus({
-            cartId: paymentIntent.metadata?.cart_id,
-            userId: user.id,
-            purchaseId,
-            status: 'failed'
-          })
+          try {
+            await updatePurchaseStatus({
+              cartId: paymentIntent.metadata?.cart_id,
+              userId: user.id,
+              purchaseId,
+              status: 'failed'
+            })
+          } catch (error) {
+            // Purchase may already be failed/completed - this is expected for webhook retries
+            console.log(`Purchase ${purchaseId} already updated or failed to update:`, error)
+          }
         }
       }
 
@@ -128,33 +140,37 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
               console.log(JSON.stringify(subscriptionItem))
               const purchaseIds = JSON.parse(subscriptionItem.metadata?.purchase_ids ?? '[]')
               for (const purchaseId of purchaseIds) {
-                await updatePurchaseStatus({
-                  cartId,
-                  userId: user.id,
-                  purchaseId,
-                  status: 'completed'
-                }).catch(error => {
-                  console.error(`Failed to update purchase status for purchase ${purchaseId}:`, error)
-                })
-
-                purchasedProducts.push(await createPurchasedProductFromPurchase({
-                  purchaseKey: {
-                    userId: user.id, purchaseId
-                  },
-                  subscriptionItem
-                }))
+                try {
+                  await updatePurchaseStatus({
+                    cartId,
+                    userId: user.id,
+                    purchaseId,
+                    status: 'completed'
+                  })
+                  purchasedProducts.push(await createPurchasedProductFromPurchase({
+                    purchaseKey: {
+                      userId: user.id, purchaseId
+                    },
+                    subscriptionItem
+                  }))
+                } catch (error) {
+                  // Purchase may already be completed - this is expected for webhook retries
+                  console.log(`Purchase ${purchaseId} already completed or failed to update:`, error)
+                }
               }
             }
           }
-          const createPromises = purchasedProducts.map(product => create({
-            tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
-            key: {
-              organization_id: user?.organization_id,
-              id: product.id
-            },
-            record: product
-          }))
-          await Promise.all(createPromises)
+          if (purchasedProducts.length > 0) {
+            const createPromises = purchasedProducts.map(product => create({
+              tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+              key: {
+                organization_id: user?.organization_id,
+                id: product.id
+              },
+              record: product
+            }))
+            await Promise.all(createPromises)
+          }
         }
       }
 
@@ -179,14 +195,17 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
               const subscriptionItem = await stripe.subscriptionItems.retrieve(item.subscription_item)
               const purchaseIds = JSON.parse(subscriptionItem.metadata?.purchase_ids ?? '[]')
               for (const purchaseId of purchaseIds) {
-                await updatePurchaseStatus({
-                  cartId,
-                  userId: user.id,
-                  purchaseId,
-                  status: 'failed'
-                }).catch(error => {
-                  console.error(`Failed to update purchase status for purchase ${purchaseId}:`, error)
-                })
+                try {
+                  await updatePurchaseStatus({
+                    cartId,
+                    userId: user.id,
+                    purchaseId,
+                    status: 'failed'
+                  })
+                } catch (error) {
+                  // Purchase may already be failed/completed - this is expected for webhook retries
+                  console.log(`Purchase ${purchaseId} already updated or failed to update:`, error)
+                }
               }
             }
           }
