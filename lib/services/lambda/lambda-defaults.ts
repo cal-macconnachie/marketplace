@@ -16,6 +16,11 @@ export function createDefaultNodejsFunction(scope: Construct, id: string, props:
     memorySize: 256,
     timeout: cdk.Duration.seconds(29),
     handler: 'handler',
+    bundling: {
+      sourceMap: true,
+      banner: "require('source-map-support').install();",
+      ...props.bundling
+    },
     ...props
   })
 }
@@ -25,24 +30,28 @@ export function createDefaultNodejsFunction(scope: Construct, id: string, props:
  * Use this when your Lambda requires native binaries like Sharp, Canvas, etc.
  */
 export function createNodejsFunctionWithNativeDeps(
-  scope: Construct, 
-  id: string, 
+  scope: Construct,
+  id: string,
   props: NodejsFunctionProps & { nativeBundling: BundlingOptions }
 ) {
   if (!props.entry) {
     throw new Error('Lambda function "entry" (path) is required')
   }
-  
+
   const {
-    nativeBundling, ...functionProps 
+    nativeBundling, ...functionProps
   } = props
-  
+
   return new NodejsFunction(scope, id, {
     runtime: Runtime.NODEJS_22_X,
     memorySize: 512, // Higher memory for native deps
     timeout: cdk.Duration.seconds(60), // Longer timeout for processing
     handler: 'handler',
-    bundling: nativeBundling,
+    bundling: {
+      sourceMap: true,
+      banner: "require('source-map-support').install();",
+      ...nativeBundling
+    },
     ...functionProps
   })
 }

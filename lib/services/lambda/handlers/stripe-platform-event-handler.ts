@@ -170,8 +170,9 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
 
                 // Calculate per-item amounts from invoice line item
                 const quantity = item.quantity || 1
+                console.log('ITEM AMOUNTS', item.amount, item.taxes)
                 const totalAmount = item.amount + (item.taxes?.reduce((sum, tax) => sum + tax.amount, 0) ?? 0)
-                const perItemTotal = Math.round(totalAmount / quantity)
+                const perItemTotal = Math.abs(Math.round((totalAmount) / quantity))
 
                 for (const purchaseId of purchaseIds) {
                   try {
