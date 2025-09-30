@@ -19,6 +19,7 @@ export function createDefaultNodejsFunction(scope: Construct, id: string, props:
     bundling: {
       sourceMap: true,
       banner: "require('source-map-support').install();",
+      nodeModules: ['source-map-support'],
       ...props.bundling
     },
     ...props
@@ -50,6 +51,7 @@ export function createNodejsFunctionWithNativeDeps(
     bundling: {
       sourceMap: true,
       banner: "require('source-map-support').install();",
+      nodeModules: ['source-map-support'],
       ...nativeBundling
     },
     ...functionProps
