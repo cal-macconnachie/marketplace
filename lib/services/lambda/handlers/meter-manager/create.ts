@@ -42,21 +42,6 @@ export const createMeter = async (
       }
     }
 
-    // Validate account_id for connected account operations
-    if (!body.account_id) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          error: 'account_id is required for meter creation'
-        }),
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Credentials': true,
-          'Content-Type': 'application/json'
-        }
-      }
-    }
-
     // Create the billing meter in Stripe using connected account
     const meterParams: Stripe.Billing.MeterCreateParams = {
       display_name: body.display_name,
@@ -66,9 +51,7 @@ export const createMeter = async (
       }
     }
 
-    const stripeMeter = await stripe.billing.meters.create(meterParams, {
-      stripeAccount: body.account_id
-    })
+    const stripeMeter = await stripe.billing.meters.create(meterParams)
 
     // Convert Stripe response to our format
     const createdMeter: BillingMeter = {
@@ -80,8 +63,7 @@ export const createMeter = async (
       },
       status: stripeMeter.status as 'active' | 'inactive',
       created: stripeMeter.created,
-      updated: stripeMeter.updated,
-      account_id: body.account_id
+      updated: stripeMeter.updated
     }
 
     return {
