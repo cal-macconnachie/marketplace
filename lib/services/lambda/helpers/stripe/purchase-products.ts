@@ -118,6 +118,7 @@ export const purchaseProducts = async ({
   if (paymentMethod == null) {
     throw new Error(`Payment method not found for organization: ${user.organization_id}`)
   }
+  // Create a new cart for this purchase request
   const cart = await createPurchaseCart({
     userId,
     purchases: {},

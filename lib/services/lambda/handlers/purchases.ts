@@ -19,6 +19,7 @@ export interface Purchase {
   currency: string
   cart_id?: string
   platform_fee_amount?: number
+  original_platform_fee_amount?: number
   connected_account_id?: string
   destination_charge_id?: string
   transfer_id?: string

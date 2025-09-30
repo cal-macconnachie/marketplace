@@ -192,8 +192,10 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                       })
                     }
 
+                    // Use the purchase's cart_id instead of subscription metadata
+                    // (items added to existing subscriptions have different cart_ids)
                     await updatePurchaseStatus({
-                      cartId,
+                      cartId: purchase?.cart_id || cartId,
                       userId: user.id,
                       purchaseId,
                       status: 'completed'
@@ -352,8 +354,19 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                 const purchaseIds = JSON.parse(subscriptionItem.metadata?.purchase_ids ?? '[]')
                 for (const purchaseId of purchaseIds) {
                   try {
+                    // Get the purchase to use its cart_id
+                    const purchase = await get<Purchase>({
+                      tableName: process.env.PURCHASES_TABLE!,
+                      key: {
+                        user_id: user.id,
+                        id: purchaseId
+                      }
+                    })
+
+                    // Use the purchase's cart_id instead of subscription metadata
+                    // (items added to existing subscriptions have different cart_ids)
                     await updatePurchaseStatus({
-                      cartId,
+                      cartId: purchase?.cart_id || cartId,
                       userId: user.id,
                       purchaseId,
                       status: 'failed'

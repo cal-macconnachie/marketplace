@@ -18,6 +18,7 @@ export const adjustPurchaseAmount = async ({
   const originalTotal = purchase.amount
   const originalBaseAmount = purchase.base_amount ?? (purchase.amount - (purchase.tax_amount ?? 0))
   const originalTaxAmount = purchase.tax_amount ?? 0
+  const originalPlatformFeeAmount = purchase.platform_fee_amount ?? 0
   const originalTaxRate = originalTotal > 0 ? originalTaxAmount / originalTotal : 0
 
   // Calculate new tax and base amounts maintaining the same tax ratio
@@ -37,7 +38,9 @@ export const adjustPurchaseAmount = async ({
       base_amount: newBaseAmount,
       original_base_amount: purchase.original_base_amount ?? originalBaseAmount,
       tax_amount: newTaxAmount,
-      original_tax_amount: purchase.original_tax_amount ?? originalTaxAmount
+      original_tax_amount: purchase.original_tax_amount ?? originalTaxAmount,
+      platform_fee_amount: originalPlatformFeeAmount > 0 ? Math.round(correctAmount * (originalPlatformFeeAmount / originalTotal)) : undefined,
+      original_platform_fee_amount: originalPlatformFeeAmount
     },
     returnUpdated: true
   })
