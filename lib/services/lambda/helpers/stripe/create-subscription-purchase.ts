@@ -65,7 +65,7 @@ export const createSubscriptionPurchase = async ({
 
           if (remainingPeriodLength > 0 && totalPeriodLength > 0) {
             const proratedFactor = remainingPeriodLength / totalPeriodLength
-            proratedAmount = Math.round(product.default_price_data.unit_amount * proratedFactor)
+            proratedAmount = Math.floor(product.default_price_data.unit_amount * proratedFactor)
           }
         }
       }

@@ -79,7 +79,8 @@ export async function calculateTaxesWithCaching(
       if (cachedTax) {
         // Use cached tax rate to calculate tax amount manually
         taxRate = cachedTax.tax_rate
-        taxAmount = Math.round(itemAmount * (taxRate / 100))
+        const totalWithTax = Math.round(itemAmount * (1 + taxRate / 100))
+        taxAmount = totalWithTax - itemAmount
       } else {
         // Calculate tax using Stripe with a sample amount to get the rate
         const taxCalculation = await calculateTaxWithStripe(stripe, {
@@ -93,8 +94,9 @@ export async function calculateTaxesWithCaching(
         })
         
         taxRate = taxCalculation.tax_rate
-        taxAmount = Math.round(itemAmount * (taxRate / 100))
-        
+        const totalWithTax = Math.round(itemAmount * (1 + taxRate / 100))
+        taxAmount = totalWithTax - itemAmount
+
         // Cache the tax rate (not amount-specific)
         await cacheTaxCalculation(
           location,
@@ -116,9 +118,10 @@ export async function calculateTaxesWithCaching(
       })
       
       taxRate = taxCalculation.tax_rate
-      taxAmount = Math.round(itemAmount * (taxRate / 100))
+      const totalWithTax = Math.round(itemAmount * (1 + taxRate / 100))
+      taxAmount = totalWithTax - itemAmount
     }
-    
+
     taxCalculations.push({
       id: item.id,
       group_id: item.group_id,
