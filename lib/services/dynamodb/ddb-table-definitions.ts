@@ -300,6 +300,18 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
           type: 'S'
         },
         projectionType: 'ALL'
+      },
+      {
+        indexName: 'product_id-index',
+        partitionKey: {
+          name: 'product_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'id',
+          type: 'S'
+        },
+        projectionType: 'ALL'
       }
     ],
     billingMode: 'PAY_PER_REQUEST',

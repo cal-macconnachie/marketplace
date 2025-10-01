@@ -8,6 +8,7 @@ export const getPurchasedProducts = async (event: APIGatewayProxyEvent) => {
     const {
       organization_id: organizationId,
       user_id: userId,
+      product_id: productId,
       id,
       subscription_id: subscriptionId,
       limit = 30,
@@ -37,6 +38,17 @@ export const getPurchasedProducts = async (event: APIGatewayProxyEvent) => {
             id
           }
         })
+      } else if (productId != null) {
+        const res = await query<PurchasedProduct>({
+          tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+          indexName: 'product_id-index',
+          keyConditionExpression: 'product_id = :productId and id = :id',
+          expressionAttributeValues: {
+            ':productId': productId,
+            ':id': id
+          }
+        })
+        purchasedProduct = res.items?.[0]
       } else {
         return {
           statusCode: 400,
@@ -104,6 +116,23 @@ export const getPurchasedProducts = async (event: APIGatewayProxyEvent) => {
         keyConditionExpression: 'user_id = :userId',
         expressionAttributeValues: {
           ':userId': userId,
+          ...expressionAttributeValues
+        },
+        ...(filterExpression != null ? { filterExpression } : {}),
+        limit: limit,
+        exclusiveStartKey: lastEvaluatedKey,
+        scanIndexForward: sortOrder === 'asc' ? true : false,
+      })
+      purchasedProducts = res.items
+    }
+    if (productId != null) {
+      // get all by product
+      const res = await query<PurchasedProduct>({
+        tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+        indexName: 'product_id-index',
+        keyConditionExpression: 'product_id = :productId',
+        expressionAttributeValues: {
+          ':productId': productId,
           ...expressionAttributeValues
         },
         ...(filterExpression != null ? { filterExpression } : {}),

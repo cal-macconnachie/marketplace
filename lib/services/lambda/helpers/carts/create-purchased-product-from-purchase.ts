@@ -34,7 +34,11 @@ export const createPurchasedProductFromPurchase = async ({
     purchase_id: purchase.id,
     subscription_id: subscriptionItem?.subscription,
     subscription_item_id: subscriptionItem?.id,
-    in_good_standing_until: subscriptionItem?.current_period_end
+    in_good_standing_until: subscriptionItem?.current_period_end,
+    organization_id: purchase.organization_id,
+    user_id: purchase.user_id,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   }
   return purchasedProduct
 }

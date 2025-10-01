@@ -36,7 +36,9 @@ export interface Product {
   account_id: string // ID of the Stripe account associated with the product
 }
 
-export type PurchasedProduct = Pick<Product, 'id' | 'group_id' | 'name' | 'metadata'> & {
+export type PurchasedProduct = Pick<Product, 'group_id' | 'name' | 'metadata'> & {
+  id: string
+  organization_id: string
   product_id: string
   user_id?: string
   in_good_standing_until?: number
@@ -45,6 +47,8 @@ export type PurchasedProduct = Pick<Product, 'id' | 'group_id' | 'name' | 'metad
   purchase_id: string
   subscription_id?: string
   subscription_item_id?: string
+  created_at: string
+  updated_at: string
 }
 
 let stripe: Stripe | undefined
