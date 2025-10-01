@@ -444,6 +444,18 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     }
   },
   {
+    name: 'getPurchasedProducts',
+    handler: 'organizations/get-purchased-products.getPurchasedProducts',
+    description: 'Get Purchased Products',
+    environment: ['PURCHASED_PRODUCTS_TABLE'],
+    apiGw: {
+      path: 'organizations/purchased-products',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
     name: 'calculateTaxes',
     handler: 'payments/calculate-taxes.calculateTaxes',
     description: 'Calculate Taxes',

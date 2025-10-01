@@ -62,7 +62,12 @@ function main() {
     console.log(`\n✅ Successfully deployed ${fullFunctionName}`);
   } catch (error) {
     console.error(`\n❌ Deployment failed for ${fullFunctionName}`);
+    console.log('\n🧹 Cleaning up build artifacts...');
+    execSync('yarn clean', { stdio: 'inherit' });
     process.exit(1);
+  } finally {
+    console.log('\n🧹 Cleaning up build artifacts...');
+    execSync('yarn clean', { stdio: 'inherit' });
   }
 }
 
