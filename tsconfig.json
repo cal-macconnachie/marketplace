@@ -19,6 +19,9 @@
     "sourceMap": true,
     "experimentalDecorators": true,
     "strictPropertyInitialization": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "typeRoots": [
       "./node_modules/@types"
     ]

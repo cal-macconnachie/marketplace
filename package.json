@@ -11,8 +11,7 @@
     "test": "jest",
     "cdk": "cdk",
     "lint": "eslint \"lib/**/*.ts\"",
-    "clean": "find ./bin ./lib ./test -type f \\( -name '*.js' -o -name '*.d.ts' -o -name '*.js.map' \\) -delete",
-    "deploy-lambda": "ts-node scripts/deploy-lambda.ts"
+    "clean": "find ./bin ./lib ./test -type f \\( -name '*.js' -o -name '*.d.ts' -o -name '*.js.map' \\) -delete"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.152",
