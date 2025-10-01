@@ -47,6 +47,7 @@ export type PurchasedProduct = Pick<Product, 'group_id' | 'name' | 'metadata'> &
   purchase_id: string
   subscription_id?: string
   subscription_item_id?: string
+  cancelled?: boolean
   created_at: string
   updated_at: string
 }

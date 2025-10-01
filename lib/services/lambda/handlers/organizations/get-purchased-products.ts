@@ -13,7 +13,8 @@ export const getPurchasedProducts = async (event: APIGatewayProxyEvent) => {
       subscription_id: subscriptionId,
       limit = 30,
       last_evaluated_key: lastEvaluatedKey,
-      sort_order: sortOrder = 'desc'
+      sort_order: sortOrder = 'desc',
+      include_cancelled: includeCancelled = false
     } = JSON.parse(event.body ?? '{}')
     let purchasedProduct: PurchasedProduct | undefined
     if (id != null) {
@@ -83,15 +84,22 @@ export const getPurchasedProducts = async (event: APIGatewayProxyEvent) => {
     }
 
     let purchasedProducts: PurchasedProduct[] | undefined
-    let filterExpression: string | undefined
+    let filterExpressions: string[] = []
     let expressionAttributeValues: Record<string, unknown> = {}
-    //
+
+    // Filter by subscription if provided
     if (subscriptionId != null) {
-      filterExpression = 'subscription_id = :subscriptionId'
-      expressionAttributeValues = {
-        ':subscriptionId': subscriptionId
-      }
+      filterExpressions.push('subscription_id = :subscriptionId')
+      expressionAttributeValues[':subscriptionId'] = subscriptionId
     }
+
+    // Filter out cancelled items by default
+    if (!includeCancelled) {
+      filterExpressions.push('attribute_not_exists(cancelled) OR cancelled <> :cancelled')
+      expressionAttributeValues[':cancelled'] = true
+    }
+
+    const filterExpression = filterExpressions.length > 0 ? filterExpressions.join(' AND ') : undefined
     if (organizationId != null) {
       // get all by organization
       const res = await query<PurchasedProduct>({

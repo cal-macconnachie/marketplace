@@ -5,19 +5,29 @@ import { Organization } from '../organizations'
 import { getStripeClient } from '../../helpers/stripe/stripe-client'
 import { update } from '../../helpers/dynamo-helpers/update'
 import { PurchasedProduct } from '../products'
+import { query } from '../../helpers/dynamo-helpers/query'
 
 export async function cancelSubscription(event: APIGatewayProxyEvent) {
   try {
     const { body } = event
     const {
       user_id: userId,
-      subscription_id: subscriptionId,
       purchased_product,
     } : {
       user_id: string,
-      subscription_id: string,
       purchased_product?: PurchasedProduct
     } = JSON.parse(body ?? '{}')
+    const subscriptionId = purchased_product?.subscription_id
+    if (!userId || !subscriptionId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Missing user_id or subscription_id' }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true
+        }
+      }
+    }
     // ensure this user is an organization admin for the subscription
     const user = await get<User>({
       tableName: process.env.USERS_TABLE!,
@@ -61,11 +71,11 @@ export async function cancelSubscription(event: APIGatewayProxyEvent) {
     if (purchased_product == null) {
     // Cancel subscription with connected account context
       await stripe.subscriptions.cancel(subscriptionId)
-    
+
       // Update organization to remove this subscription
       const updatedSubscriptionIds = { ...subscriptionIds }
       delete updatedSubscriptionIds[accountId]
-    
+
       await update<Organization>({
         tableName: process.env.ORGANIZATIONS_TABLE!,
         key: { id: user.organization_id },
@@ -73,6 +83,30 @@ export async function cancelSubscription(event: APIGatewayProxyEvent) {
           stripe_subscription_ids: updatedSubscriptionIds
         }
       })
+
+      // Mark all purchased products with this subscription as cancelled
+      const purchasedProducts = await query<PurchasedProduct>({
+        tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+        keyConditionExpression: 'organization_id = :organizationId',
+        filterExpression: 'subscription_id = :subscriptionId',
+        expressionAttributeValues: {
+          ':organizationId': user.organization_id,
+          ':subscriptionId': subscriptionId
+        }
+      })
+
+      for (const product of purchasedProducts.items ?? []) {
+        await update<PurchasedProduct>({
+          tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+          key: {
+            organization_id: product.organization_id,
+            id: product.id
+          },
+          updates: {
+            cancelled: true
+          }
+        })
+      }
     } else {
       if (purchased_product.subscription_id !== subscriptionId) {
         throw new Error(`Purchased product subscription ID ${purchased_product.subscription_id} does not match subscription ID ${subscriptionId}`)
@@ -100,6 +134,18 @@ export async function cancelSubscription(event: APIGatewayProxyEvent) {
           quantity: newQuantity
         })
       }
+
+      // Mark the specific purchased product as cancelled
+      await update<PurchasedProduct>({
+        tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+        key: {
+          organization_id: purchased_product.organization_id,
+          id: purchased_product.id
+        },
+        updates: {
+          cancelled: true
+        }
+      })
     }
     return {
       statusCode: 200,
