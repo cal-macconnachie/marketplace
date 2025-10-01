@@ -107,6 +107,19 @@ export async function cancelSubscription(event: APIGatewayProxyEvent) {
           }
         })
       }
+
+      // Clear purchased_product_ids from all subscription items
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+      for (const item of subscription.items.data) {
+        if (item.metadata?.purchased_product_ids) {
+          await stripe.subscriptionItems.update(item.id, {
+            metadata: {
+              ...item.metadata,
+              purchased_product_ids: JSON.stringify([])
+            }
+          })
+        }
+      }
     } else {
       if (purchased_product.subscription_id !== subscriptionId) {
         throw new Error(`Purchased product subscription ID ${purchased_product.subscription_id} does not match subscription ID ${subscriptionId}`)
@@ -146,6 +159,22 @@ export async function cancelSubscription(event: APIGatewayProxyEvent) {
           cancelled: true
         }
       })
+
+      // Remove the purchased_product_id from subscription item metadata
+      if (purchased_product.subscription_item_id) {
+        const subscriptionItem = await stripe.subscriptionItems.retrieve(purchased_product.subscription_item_id)
+        const existingPurchasedProductIds = JSON.parse(subscriptionItem.metadata?.purchased_product_ids ?? '[]')
+        const updatedPurchasedProductIds = existingPurchasedProductIds.filter(
+          (id: string) => id !== purchased_product.id
+        )
+
+        await stripe.subscriptionItems.update(purchased_product.subscription_item_id, {
+          metadata: {
+            ...subscriptionItem.metadata,
+            purchased_product_ids: JSON.stringify(updatedPurchasedProductIds)
+          }
+        })
+      }
     }
     return {
       statusCode: 200,
