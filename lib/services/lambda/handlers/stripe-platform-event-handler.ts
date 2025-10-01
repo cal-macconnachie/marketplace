@@ -13,6 +13,8 @@ import { Product } from './products'
 import { get } from '../helpers/dynamo-helpers/get'
 import { Organization } from './organizations'
 import { adjustPurchaseAmount } from '../helpers/purchases/adjust-purchase-amount'
+import { queryPurchasedProductsBySubscriptionItem } from '../helpers/carts/query-purchased-products-by-subscription-item'
+import { updatePurchasedProductFromPurchase } from '../helpers/carts/update-purchased-product-from-purchase'
 export interface Cart {
   user_id: string
   id: string
@@ -212,22 +214,31 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                   }
                 }
 
-                // Remove completed purchase IDs from subscription item metadata
+                // Remove completed purchase IDs and store purchased_product_ids cumulatively
                 if (subscriptionItemId && purchaseIds.length > 0) {
                   try {
+                    // Get existing purchased_product_ids from metadata
+                    const existingPurchasedProductIds = JSON.parse(subscriptionItem.metadata?.purchased_product_ids ?? '[]')
+                    const newPurchasedProductIds = purchasedProducts.map(p => p.id)
+                    const allPurchasedProductIds = [
+                      ...existingPurchasedProductIds,
+                      ...newPurchasedProductIds
+                    ]
+
                     await stripe.subscriptionItems.update(subscriptionItemId, {
                       metadata: {
-                        purchase_ids: JSON.stringify([])
+                        purchase_ids: JSON.stringify([]),
+                        purchased_product_ids: JSON.stringify(allPurchasedProductIds)
                       }
                     })
                   } catch (error) {
-                    console.log(`Failed to clear purchase_ids from subscription item ${subscriptionItemId}:`, error)
+                    console.log(`Failed to update metadata for subscription item ${subscriptionItemId}:`, error)
                   }
                 }
               }
             }
           } else {
-            // Recurring billing (subscription_cycle) - create new completed purchases
+            // Recurring billing (subscription_cycle) - create new completed purchases and update existing purchased products
             // Get all unique products from invoice line items
             const productKeys: Array<{ id: string, group_id: string }> = []
             for (const item of invoice.lines.data) {
@@ -254,6 +265,8 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
               return acc
             }, {} as { [key: string]: Product })
 
+            const newPurchasedProductsToCreate: PurchasedProduct[] = []
+
             for (const item of invoice.lines.data) {
               const subscriptionItemId = item.parent?.subscription_item_details?.subscription_item
               if (subscriptionItemId) {
@@ -264,6 +277,12 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                 if (product) {
                   const quantity = item.quantity || 1
                   const taxAmount = item.taxes?.reduce((sum: number, tax) => sum + tax.amount, 0) || 0
+
+                  // Query existing purchased products for this subscription item
+                  const existingPurchasedProducts = await queryPurchasedProductsBySubscriptionItem({
+                    subscriptionItemId
+                  })
+
                   // Create a purchase for each quantity
                   for (let i = 0; i < quantity; i++) {
                     const newPurchase: Purchase = {
@@ -298,20 +317,47 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                       record: newPurchase
                     })
 
-                    purchasedProducts.push(await createPurchasedProductFromPurchase({
-                      purchaseKey: {
-                        userId: user.id,
-                        purchaseId: newPurchase.id
-                      },
-                      subscriptionItem
-                    }))
+                    // Update existing purchased product if found, otherwise create new
+                    const existingPurchasedProduct = existingPurchasedProducts[i]
+                    if (existingPurchasedProduct) {
+                      // Update happens in this function - no need to batch later
+                      await updatePurchasedProductFromPurchase({
+                        existingPurchasedProduct,
+                        purchase: newPurchase,
+                        subscriptionItem
+                      })
+                    } else {
+                      // Fallback: create new purchased product if not found (shouldn't happen for recurring)
+                      const newPurchasedProduct = await createPurchasedProductFromPurchase({
+                        purchaseKey: {
+                          userId: user.id,
+                          purchaseId: newPurchase.id
+                        },
+                        subscriptionItem
+                      })
+                      newPurchasedProductsToCreate.push(newPurchasedProduct)
+                    }
                   }
                 }
               }
             }
+
+            // Only create purchased products that didn't exist before (fallback case)
+            if (newPurchasedProductsToCreate.length > 0) {
+              const createPromises = newPurchasedProductsToCreate.map(product => create({
+                tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+                key: {
+                  organization_id: user?.organization_id,
+                  id: product.id
+                },
+                record: product
+              }))
+              await Promise.all(createPromises)
+            }
           }
 
-          if (purchasedProducts.length > 0) {
+          // For initial purchases, create all purchased products
+          if (isInitialPurchase && purchasedProducts.length > 0) {
             const createPromises = purchasedProducts.map(product => create({
               tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
               key: {
@@ -360,6 +406,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
 
           if (isInitialPurchase) {
             // Initial purchase - update existing pending purchases to failed
+            const purchasedProducts: PurchasedProduct[] = []
             for (const item of invoice.lines.data) {
               const subscriptionItemId = item.parent?.subscription_item_details?.subscription_item
               if (subscriptionItemId) {
@@ -384,9 +431,45 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                       purchaseId,
                       status: 'failed'
                     })
+
+                    // Track purchased products even for failures (for metadata consistency)
+                    try {
+                      const purchasedProduct = await createPurchasedProductFromPurchase({
+                        purchaseKey: {
+                          userId: user.id,
+                          purchaseId
+                        },
+                        subscriptionItem
+                      })
+                      purchasedProducts.push(purchasedProduct)
+                    } catch (error) {
+                      console.log(`Failed to create purchased product for failed purchase ${purchaseId}:`, error)
+                    }
                   } catch (error) {
                     // Purchase may already be failed/completed - this is expected for webhook retries
                     console.log(`Purchase ${purchaseId} already updated or failed to update:`, error)
+                  }
+                }
+
+                // Store purchased_product_ids cumulatively even for failed purchases
+                if (subscriptionItemId && purchaseIds.length > 0) {
+                  try {
+                    // Get existing purchased_product_ids from metadata
+                    const existingPurchasedProductIds = JSON.parse(subscriptionItem.metadata?.purchased_product_ids ?? '[]')
+                    const newPurchasedProductIds = purchasedProducts.map(p => p.id)
+                    const allPurchasedProductIds = [
+                      ...existingPurchasedProductIds,
+                      ...newPurchasedProductIds
+                    ]
+
+                    await stripe.subscriptionItems.update(subscriptionItemId, {
+                      metadata: {
+                        purchase_ids: JSON.stringify([]),
+                        purchased_product_ids: JSON.stringify(allPurchasedProductIds)
+                      }
+                    })
+                  } catch (error) {
+                    console.log(`Failed to update metadata for subscription item ${subscriptionItemId}:`, error)
                   }
                 }
               }
