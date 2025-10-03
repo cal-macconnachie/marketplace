@@ -49,23 +49,6 @@ export class CognitoStack extends cdk.Stack {
         })
       } : undefined
     })
-    this.userPoolClient = new cognito.UserPoolClient(this, `UserPoolClient-${envName}`, {
-      userPool: this.userPool,
-      generateSecret: false,
-      oAuth: {
-        flows: { authorizationCodeGrant: true },
-        scopes: [
-          cognito.OAuthScope.OPENID,
-          cognito.OAuthScope.EMAIL,
-          cognito.OAuthScope.PROFILE
-        ],
-        callbackUrls: envName === 'dev' ? ['http://localhost:5173/auth/callback'] : ['https://marketplace.csm.codes/auth/callback'],
-        logoutUrls: ['https://resume.csm.codes'],
-      },
-      authFlows: {
-        userPassword: true, userSrp: true 
-      }
-    })
     let googleProvider: cdk.aws_cognito.UserPoolIdentityProviderGoogle | undefined
     if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       googleProvider = new cognito.UserPoolIdentityProviderGoogle(this, `GoogleProvider-${envName}`, {
@@ -83,7 +66,6 @@ export class CognitoStack extends cdk.Stack {
           familyName: cognito.ProviderAttribute.GOOGLE_FAMILY_NAME
         },
       })
-      this.userPoolClient.node.addDependency(googleProvider)
     }
     let appleProvider: cdk.aws_cognito.UserPoolIdentityProviderApple | undefined
     if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPLE_KEY_ID && process.env.APPLE_PRIVATE_KEY) {
@@ -103,6 +85,35 @@ export class CognitoStack extends cdk.Stack {
           familyName: cognito.ProviderAttribute.APPLE_LAST_NAME
         },
       })
+    }
+
+    this.userPoolClient = new cognito.UserPoolClient(this, `UserPoolClient-${envName}`, {
+      userPool: this.userPool,
+      generateSecret: false,
+      supportedIdentityProviders: [
+        cognito.UserPoolClientIdentityProvider.COGNITO,
+        ...(googleProvider ? [cognito.UserPoolClientIdentityProvider.GOOGLE] : []),
+        ...(appleProvider ? [cognito.UserPoolClientIdentityProvider.APPLE] : [])
+      ],
+      oAuth: {
+        flows: { authorizationCodeGrant: true },
+        scopes: [
+          cognito.OAuthScope.OPENID,
+          cognito.OAuthScope.EMAIL,
+          cognito.OAuthScope.PROFILE
+        ],
+        callbackUrls: envName === 'dev' ? ['http://localhost:5173/auth/callback'] : ['https://marketplace.csm.codes/auth/callback'],
+        logoutUrls: ['https://resume.csm.codes'],
+      },
+      authFlows: {
+        userPassword: true, userSrp: true
+      }
+    })
+
+    if (googleProvider) {
+      this.userPoolClient.node.addDependency(googleProvider)
+    }
+    if (appleProvider) {
       this.userPoolClient.node.addDependency(appleProvider)
     }
 
