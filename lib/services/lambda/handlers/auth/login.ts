@@ -60,7 +60,7 @@ export const login = async (event: APIGatewayProxyEvent) => {
       response = {
         AuthenticationResult: {
           AccessToken: accessToken,
-          IdToken: accessToken, // In real implementation, these would be different
+          IdToken: idToken,
           RefreshToken: refreshToken // Social tokens might not have refresh tokens
         }
       }
