@@ -196,6 +196,7 @@ export const createSubscriptionPurchase = async ({
     purchased_at: new Date().toISOString(),
     is_one_time: false,
     is_subscription: true,
+    is_metered_subscription: product.default_price_data?.recurring?.usage_type === 'metered',
     payment_method_id: paymentMethodId!,
     product_name: product.name,
     amount: totalAmount, // Total amount including tax (full subscription or prorated)

@@ -56,7 +56,7 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
       eventName,
       customerId,
       value = 1,
-      timestamp,
+      timestamp = Math.floor(Date.now() / 1000),
       identifier,
       metadata
     } = params
@@ -121,7 +121,7 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
     const meterEventParams = {
       event_name: eventName,
       payload: eventPayload,
-      identifier: identifier || uuidv4(), // Use provided identifier or generate UUID
+      identifier: identifier ?? uuidv4(), // Use provided identifier or generate UUID
       ...(timestamp ? { timestamp } : {}) // Only include timestamp if provided
     }
 

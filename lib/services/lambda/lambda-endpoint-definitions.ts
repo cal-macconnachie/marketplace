@@ -900,6 +900,20 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     }
   },
 
+  // Stripe Meter Events
+  {
+    name: 'logMeterEvent',
+    handler: 'stripe/log-meter-event.logMeterEventHandler',
+    description: 'Log Stripe meter event for usage-based billing',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'stripe/log-meter-event',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+
   // Test Endpoint Definitions
   {
     name: 'testStatusCodes',

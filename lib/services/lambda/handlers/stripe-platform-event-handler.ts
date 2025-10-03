@@ -293,6 +293,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                       product_name: product.name,
                       is_one_time: false,
                       is_subscription: true,
+                      is_metered_subscription: product.default_price_data?.recurring?.usage_type === 'metered',
                       purchased_at: new Date().toISOString(),
                       organization_id: user.organization_id,
                       payment_method_id: typeof subscription.default_payment_method === 'string'
@@ -522,6 +523,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                       product_name: product.name,
                       is_one_time: false,
                       is_subscription: true,
+                      is_metered_subscription: product.default_price_data?.recurring?.usage_type === 'metered',
                       purchased_at: new Date().toISOString(),
                       organization_id: user.organization_id,
                       payment_method_id: typeof subscription.default_payment_method === 'string'

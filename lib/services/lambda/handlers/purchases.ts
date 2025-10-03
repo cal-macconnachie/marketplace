@@ -11,6 +11,7 @@ export interface Purchase {
   product_name: string
   is_one_time: boolean
   is_subscription: boolean
+  is_metered_subscription: boolean
   purchased_at: string
   organization_id: string
   payment_method_id: string

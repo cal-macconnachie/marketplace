@@ -1,7 +1,7 @@
 import { Organization } from "../../handlers/organizations"
 import { PaymentMethod } from "../../handlers/payment-methods"
 import {
-  Product 
+  Product, 
 } from "../../handlers/products"
 import { Purchase } from '../../handlers/purchases'
 import { User } from "../../handlers/users"

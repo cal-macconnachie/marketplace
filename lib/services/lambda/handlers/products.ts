@@ -22,6 +22,8 @@ export interface Product {
       usage_type?: 'licensed' | 'metered'
     }
     meter?: string // Billing meter ID for usage-based pricing
+    meter_event?: string // Event name for usage-based pricing
+    unit_label: string // Label for the unit of measure
     tax_behavior?: 'exclusive' | 'inclusive' | 'unspecified'
   }
   marketing_features?: {
@@ -36,15 +38,18 @@ export interface Product {
   account_id: string // ID of the Stripe account associated with the product
 }
 
-export type PurchasedProduct = Pick<Product, 'group_id' | 'name' | 'metadata'> & {
+export type PurchasedProduct = {
   id: string
   organization_id: string
   product_id: string
+  group_id: string
+  name: string
+  metadata?: Record<string, string>
   user_id?: string
   in_good_standing_until?: number
   amount: number
   currency: string
-  purchase_id: string
+  purchase_id?: string
   subscription_id?: string
   subscription_item_id?: string
   cancelled?: boolean
