@@ -4,23 +4,61 @@ import {
 } from '@aws-sdk/client-cognito-identity-provider'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { createUpdateUser } from '../../helpers/users/create-update-user'
+import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
+import { OneTimePassword } from '../../helpers/create-one-time-password'
+import { get } from '../../helpers/dynamo-helpers/get'
 
 const cognitoClient = new CognitoIdentityProviderClient({})
 
-export const register = async (event: APIGatewayProxyEvent) => {
+export const register = rateLimitedHandler(async (event: APIGatewayProxyEvent) => {
   const {
-    email, password, phone_number, family_name, given_name 
+    email, password, phone_number, family_name, given_name, code
   } = JSON.parse(event.body ?? '{}')
-  if (!email || !password) {
+
+  if (!email || !password || !code) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ message: 'Email and password are required' }),
+      body: JSON.stringify({ message: 'Email, password, and code are required' }),
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true
       }
     }
   }
+
+  // Verify OTP
+
+  const otp = await get<OneTimePassword>({
+    tableName: process.env.ONE_TIME_CODES_TABLE!,
+    key: {
+      email,
+      type: 'registration'
+    }
+  })
+
+  if (!otp || otp.one_time_password !== code) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ message: 'Invalid or expired OTP' }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true
+      }
+    }
+  }
+
+  // Check if OTP is expired (15 minutes)
+  if (new Date(otp.created_at) < new Date(Date.now() - 15 * 60 * 1000)) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ message: 'OTP has expired' }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true
+      }
+    }
+  }
+
   try {
     const command = new SignUpCommand({
       ClientId: process.env.USER_POOL_CLIENT_ID,
@@ -28,7 +66,7 @@ export const register = async (event: APIGatewayProxyEvent) => {
       Password: password,
       UserAttributes: [
         {
-          Name: 'email', Value: email 
+          Name: 'email', Value: email
         }
       ],
     })
@@ -57,8 +95,7 @@ export const register = async (event: APIGatewayProxyEvent) => {
       body: JSON.stringify({ message: 'User created successfully' }),
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true,
-        cognito_id: cognitoId
+        'Access-Control-Allow-Credentials': true
       }
     }
   } catch (error) {
@@ -70,8 +107,7 @@ export const register = async (event: APIGatewayProxyEvent) => {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,
-        'Content-Type': 'application/json'
       }
     }
   }
-}
+})

@@ -61,6 +61,29 @@ export interface LambdaEndpointDefinition {
 export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
   // Authentication & Authorization
   {
+    name: 'requestRegisterOtp',
+    handler: 'auth/request-register-otp.requestRegisterOtp',
+    description: 'Request registration OTP (send OTP email)',
+    environment: [
+      'EMAIL_LAMBDA_ARN',
+      'EMAIL_AWS_REGION',
+      'EMAIL_ASSUME_ROLE_ARN'
+    ],
+    iamPolicies: [
+      {
+        actions: ['sts:AssumeRole'],
+        resources: ['arn:aws:iam::472312425428:role/cross-dev-lambdaInvokeFrom-629891807011']
+      }
+    ],
+    bundleTemplate: ['registration.hbs'],
+    apiGw: {
+      path: 'auth/request-register-otp',
+      method: 'POST',
+      auth: 'none',
+      cors: true
+    }
+  },
+  {
     name: 'requestResetPassword',
     handler: 'auth/request-reset-password.requestResetPassword',
     description: 'Request password reset (send OTP email)',
