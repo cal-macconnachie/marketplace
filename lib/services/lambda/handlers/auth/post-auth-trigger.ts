@@ -5,6 +5,7 @@ import { User } from '../users'
 import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 
 export const postAuthTrigger = async (event: PostAuthenticationTriggerEvent) => {
+  console.log('Post Authentication Trigger Event:', JSON.stringify(event))
   
   const { userAttributes } = event.request
   const email = userAttributes.email
