@@ -59,7 +59,7 @@ export class CognitoStack extends cdk.Stack {
           cognito.OAuthScope.EMAIL,
           cognito.OAuthScope.PROFILE
         ],
-        callbackUrls: ['https://csm.codes/oauth'], // Your app's redirect URL
+        callbackUrls: envName === 'dev' ? ['http://localhost:5173/auth/callback'] : ['https://marketplace.csm.codes/auth/callback'],
         logoutUrls: ['https://resume.csm.codes'],
       },
       authFlows: {
