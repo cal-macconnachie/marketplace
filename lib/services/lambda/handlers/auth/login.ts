@@ -12,7 +12,7 @@ const CLIENT_ID = process.env.USER_POOL_CLIENT_ID || ''
 export const login = async (event: APIGatewayProxyEvent) => {
   const { body } = event
   const {
-    email, password, accessToken 
+    email, password, accessToken, idToken, refreshToken
   } = JSON.parse(body || '{}')
   
   // Support both email/password and social token authentication
@@ -35,10 +35,10 @@ export const login = async (event: APIGatewayProxyEvent) => {
     let response: any
     let userEmail: string | undefined
     let user: User | undefined
-    if (accessToken) {
+    if (accessToken && idToken) {
       // Social authentication - decode the access token to get user info
       // In practice, you might validate this token with Cognito
-      const payload = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64').toString('utf-8'))
+      const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64').toString('utf-8'))
       userEmail = payload.email || payload['cognito:username']
       
       // For social auth, we already have valid tokens
@@ -46,7 +46,7 @@ export const login = async (event: APIGatewayProxyEvent) => {
         AuthenticationResult: {
           AccessToken: accessToken,
           IdToken: accessToken, // In real implementation, these would be different
-          RefreshToken: null // Social tokens might not have refresh tokens
+          RefreshToken: refreshToken // Social tokens might not have refresh tokens
         }
       }
     } else {
