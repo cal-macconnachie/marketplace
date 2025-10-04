@@ -40,13 +40,13 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
         },
         projectionType: 'ALL'
       },
-      // {
-      //   indexName: 'cognito_id-index',
-      //   partitionKey: {
-      //     name: 'cognito_id', type: 'S' 
-      //   },
-      //   projectionType: 'ALL'
-      // },
+      {
+        indexName: 'cognito_id-index',
+        partitionKey: {
+          name: 'cognito_id', type: 'S' 
+        },
+        projectionType: 'ALL'
+      },
       // {
       //   indexName: 'stripe_id-index',
       //   partitionKey: {
@@ -134,18 +134,18 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
         },
         projectionType: 'ALL'
       },
-      // {
-      //   indexName: 'organization_id-index',
-      //   partitionKey: {
-      //     name: 'organization_id',
-      //     type: 'S'
-      //   },
-      //   sortKey: {
-      //     name: 'id',
-      //     type: 'S'
-      //   },
-      //   projectionType: 'ALL'
-      // }
+      {
+        indexName: 'organization_id-index',
+        partitionKey: {
+          name: 'organization_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'id',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      }
     ]
   },
   {
@@ -190,18 +190,18 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
         },
         projectionType: 'ALL'
       },
-      // {
-      //   indexName: 'organization_id-index',
-      //   partitionKey: {
-      //     name: 'organization_id',
-      //     type: 'S'
-      //   },
-      //   sortKey: {
-      //     name: 'purchased_at',
-      //     type: 'S'
-      //   },
-      //   projectionType: 'ALL'
-      // },
+      {
+        indexName: 'organization_id-index',
+        partitionKey: {
+          name: 'organization_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'purchased_at',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      },
       // {
       //   indexName: 'seller_organization_id-index',
       //   partitionKey: {
@@ -301,18 +301,18 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
         },
         projectionType: 'ALL'
       },
-      // {
-      //   indexName: 'user_id-index',
-      //   partitionKey: {
-      //     name: 'user_id',
-      //     type: 'S'
-      //   },
-      //   sortKey: {
-      //     name: 'id',
-      //     type: 'S'
-      //   },
-      //   projectionType: 'ALL'
-      // },
+      {
+        indexName: 'user_id-index',
+        partitionKey: {
+          name: 'user_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'id',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      },
       // {
       //   indexName: 'product_id-index',
       //   partitionKey: {
