@@ -7,6 +7,7 @@ import { createUpdateUser } from '../../helpers/users/create-update-user'
 import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
 import { OneTimePassword } from '../../helpers/create-one-time-password'
 import { get } from '../../helpers/dynamo-helpers/get'
+import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 
 const cognitoClient = new CognitoIdentityProviderClient({})
 
@@ -60,6 +61,17 @@ export const register = rateLimitedHandler(async (event: APIGatewayProxyEvent) =
   }
 
   try {
+    const existingUser = await getUserByEmail(email)
+    if (existingUser) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: 'User with this email already exists, please try logging in or resetting your password.' }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true
+        }
+      }
+    }
     const command = new SignUpCommand({
       ClientId: process.env.USER_POOL_CLIENT_ID,
       Username: email,
