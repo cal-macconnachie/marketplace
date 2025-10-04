@@ -39,10 +39,14 @@ export const handleSubscription = async ({
   const pricesHash = (await Promise.all(products.map(async (product) => {
     return {
       key: `${product.group_id}:${product.id}`,
-      price: await getProductPriceId(product)
+      price: await getProductPriceId(product),
+      isMetered: product.default_price_data?.recurring?.usage_type === 'metered'
     }
-  }))).reduce((acc: { [productKey: string]: string }, curr) => {
-    acc[curr.key] = curr.price
+  }))).reduce((acc: { [productKey: string]: { priceId: string, isMetered: boolean } }, curr) => {
+    acc[curr.key] = {
+      priceId: curr.price,
+      isMetered: curr.isMetered
+    }
     return acc
   }, {})
   const stripe = getStripeClient()
@@ -50,16 +54,26 @@ export const handleSubscription = async ({
   // adds items to current subscription if it exists for organization
   const items: Stripe.SubscriptionCreateParams.Item[] = Object.values(purchases.reduce((acc: { [key: string]: Stripe.SubscriptionCreateParams.Item }, p) => {
     const key = `${p.product_group_id}:${p.product_id}`
+    const priceInfo = pricesHash[key]
+    const isMetered = priceInfo?.isMetered || false
+
     if (acc[key] == null) {
-      acc[key] = {
-        price: pricesHash[key] || '',
-        quantity: 0,
+      const item: Stripe.SubscriptionCreateParams.Item = {
+        price: priceInfo?.priceId || '',
         metadata: {
-          purchase_ids: JSON.stringify([])
+          purchase_ids: JSON.stringify([]),
+          product_id: p.product_id,
+          product_group_id: p.product_group_id
         }
       }
+      // Only set quantity for non-metered subscriptions
+      if (!isMetered) {
+        item.quantity = 0
+      }
+      acc[key] = item
     }
-    if (acc[key] != null && acc[key].quantity != null) {
+    // Increment quantity only for non-metered subscriptions
+    if (acc[key] != null && !isMetered && acc[key].quantity != null) {
       acc[key].quantity += 1
     }
     // add purchase id to metadata
@@ -84,28 +98,45 @@ export const handleSubscription = async ({
     const subscriptionItems = subscription.items.data
     for (const item of items) {
       const matchingItem = subscriptionItems.find(i => i.price.id === item.price)
+      const isMetered = item.quantity === undefined // If quantity is undefined, it's a metered subscription
+
       if (matchingItem) {
-        // update item with new quantity
-        const newQuantity = (matchingItem.quantity ?? 1) + (item.quantity ?? 1)
-        await stripe.subscriptionItems.update(matchingItem.id, {
-          quantity: newQuantity,
+        // update item with new metadata and quantity (if non-metered)
+        const updateParams: Stripe.SubscriptionItemUpdateParams = {
           proration_behavior: 'always_invoice',
           metadata: {
+            ...matchingItem.metadata,
             purchase_ids: JSON.stringify([
               ...JSON.parse(matchingItem.metadata?.purchase_ids ?? '[]'),
               ...JSON.parse(String(item.metadata?.purchase_ids ?? '[]'))
-            ])
+            ]),
+            product_id: item.metadata?.product_id || '',
+            product_group_id: item.metadata?.product_group_id || ''
           }
-        })
+        }
+
+        // Only update quantity for non-metered subscriptions
+        if (!isMetered) {
+          const newQuantity = (matchingItem.quantity ?? 1) + (item.quantity ?? 1)
+          updateParams.quantity = newQuantity
+        }
+
+        await stripe.subscriptionItems.update(matchingItem.id, updateParams)
       } else {
         // create new item in subscription
-        await stripe.subscriptionItems.create({
+        const createParams: Stripe.SubscriptionItemCreateParams = {
           subscription: subscription.id,
           price: item.price,
-          quantity: item.quantity,
           proration_behavior: 'always_invoice',
           metadata: item.metadata
-        })
+        }
+
+        // Only set quantity for non-metered subscriptions
+        if (!isMetered) {
+          createParams.quantity = item.quantity
+        }
+
+        await stripe.subscriptionItems.create(createParams)
       }
     }
   } else {
