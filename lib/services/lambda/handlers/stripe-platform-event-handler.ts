@@ -612,42 +612,86 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                 const subscriptionItem = await stripe.subscriptionItems.retrieve(subscriptionItemId)
                 const productKey = `${subscriptionItem.metadata?.product_group_id}:${subscriptionItem.metadata?.product_id}`
                 const product = productsById[productKey]
+                const isMeteredSubscription = subscriptionItem.price?.recurring?.usage_type === 'metered'
 
                 if (product) {
                   const quantity = item.quantity || 1
                   const taxAmount = item.taxes?.reduce((sum: number, tax) => sum + tax.amount, 0) || 0
-                  // Create a failed purchase for each quantity
-                  for (let i = 0; i < quantity; i++) {
-                    const newPurchase: Purchase = {
-                      id: v4(),
-                      user_id: user.id,
-                      product_id: product.id,
-                      product_group_id: product.group_id,
-                      product_name: product.name,
-                      type: subscriptionItem.price?.recurring?.usage_type === 'metered' ? 'metered_subscription' : 'subscription',
-                      purchased_at: new Date().toISOString(),
-                      organization_id: user.organization_id,
-                      payment_method_id: typeof subscription.default_payment_method === 'string'
-                        ? subscription.default_payment_method
-                        : subscription.default_payment_method?.id || '',
-                      amount: item.amount,
-                      currency: item.currency,
-                      platform_fee_amount: item.amount * (subscription.application_fee_percent || 0) / 100,
-                      connected_account_id: product.account_id,
-                      tax_amount: taxAmount,
-                      base_amount: item.amount - taxAmount,
-                      seller_organization_id: product.metadata?.organization_id,
-                      status: 'failed'
-                    }
 
-                    await create<Purchase>({
-                      tableName: process.env.PURCHASES_TABLE!,
-                      key: {
-                        user_id: newPurchase.user_id,
-                        id: newPurchase.id
-                      },
-                      record: newPurchase
+                  if (isMeteredSubscription) {
+                    // For metered subscriptions, find the pending purchase via the purchased product and fail it
+                    const existingPurchasedProducts = await queryPurchasedProductsBySubscriptionItem({
+                      subscriptionItemId
                     })
+
+                    const existingPurchasedProduct = existingPurchasedProducts[0]
+                    if (existingPurchasedProduct) {
+                      try {
+                        const purchase = await get<Purchase>({
+                          tableName: process.env.PURCHASES_TABLE!,
+                          key: {
+                            user_id: user.id,
+                            id: existingPurchasedProduct.purchase_id
+                          }
+                        })
+
+                        if (purchase && purchase.status === 'pending') {
+                          const totalAmount = item.amount + taxAmount
+
+                          // Adjust purchase amount to match actual usage
+                          await adjustPurchaseAmount({
+                            purchase,
+                            correctAmount: totalAmount
+                          })
+
+                          // Mark purchase as failed
+                          await updatePurchaseStatus({
+                            cartId: purchase.cart_id || cartId,
+                            userId: user.id,
+                            purchaseId: purchase.id,
+                            status: 'failed'
+                          })
+
+                          console.log(`Marked metered subscription purchase ${purchase.id} as failed`)
+                        }
+                      } catch (error) {
+                        console.log(`Failed to update metered subscription purchase ${existingPurchasedProduct.purchase_id}:`, error)
+                      }
+                    }
+                  } else {
+                    // Create a failed purchase for each quantity (non-metered subscriptions only)
+                    for (let i = 0; i < quantity; i++) {
+                      const newPurchase: Purchase = {
+                        id: v4(),
+                        user_id: user.id,
+                        product_id: product.id,
+                        product_group_id: product.group_id,
+                        product_name: product.name,
+                        type: 'subscription',
+                        purchased_at: new Date().toISOString(),
+                        organization_id: user.organization_id,
+                        payment_method_id: typeof subscription.default_payment_method === 'string'
+                          ? subscription.default_payment_method
+                          : subscription.default_payment_method?.id || '',
+                        amount: item.amount,
+                        currency: item.currency,
+                        platform_fee_amount: item.amount * (subscription.application_fee_percent || 0) / 100,
+                        connected_account_id: product.account_id,
+                        tax_amount: taxAmount,
+                        base_amount: item.amount - taxAmount,
+                        seller_organization_id: product.metadata?.organization_id,
+                        status: 'failed'
+                      }
+
+                      await create<Purchase>({
+                        tableName: process.env.PURCHASES_TABLE!,
+                        key: {
+                          user_id: newPurchase.user_id,
+                          id: newPurchase.id
+                        },
+                        record: newPurchase
+                      })
+                    }
                   }
                 }
               }

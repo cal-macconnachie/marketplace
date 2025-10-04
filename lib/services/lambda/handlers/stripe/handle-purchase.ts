@@ -41,7 +41,6 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
 
     // organize payments into one-time or recurring and group by currency/ connected_account_id
     const oneTimePurchases = purchases.filter(p => p.type === 'one_time')
-    console.log('One-time purchases:', oneTimePurchases)
     const oneTimeGroups = oneTimePurchases.reduce((acc: { [key:string]: Purchase[]}, curr) => {
       const key = `${curr.currency}:${curr.connected_account_id}`
       if (!acc[key]) {
@@ -50,9 +49,17 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
       acc[key].push(curr)
       return acc
     }, {})
-    const recurringPurchases = purchases.filter(p => p.type === 'subscription' || p.type === 'metered_subscription')
-    console.log('Recurring purchases:', recurringPurchases)
+    const recurringPurchases = purchases.filter(p => p.type === 'subscription')
     const recurringGroups = recurringPurchases.reduce((acc: { [key:string]: Purchase[]}, curr) => {
+      const key = `${curr.currency}:${curr.connected_account_id}`
+      if (!acc[key]) {
+        acc[key] = []
+      }
+      acc[key].push(curr)
+      return acc
+    }, {})
+    const meteredPurchases = purchases.filter(p => p.type === 'metered_subscription')
+    const meteredGroups = meteredPurchases.reduce((acc: { [key:string]: Purchase[]}, curr) => {
       const key = `${curr.currency}:${curr.connected_account_id}`
       if (!acc[key]) {
         acc[key] = []
@@ -121,6 +128,39 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
         })
       } catch (e) {
         console.error('Error handling subscription:', e)
+        for (const purchase of group) {
+          try {
+            await updatePurchaseStatus({
+              cartId: purchase.cart_id,
+              userId: purchase.user_id,
+              purchaseId: purchase.id,
+              status: 'failed'
+            })
+          } catch (error) {
+            console.error(`Failed to update purchase status for purchase ${purchase.id}:`, error)
+          // fallthrough
+          }
+        }
+      }
+    }
+
+    for (const [
+      , group
+    ] of Object.entries(meteredGroups)) {
+      if (group.length === 0) {
+        continue
+      }
+      const destinationAccountId = group[0].connected_account_id
+      try {
+        if (!destinationAccountId) {
+          throw new Error(`Destination account ID not found`)
+        }
+        await handleSubscription({
+          purchases: group,
+          user
+        })
+      } catch (e) {
+        console.error('Error handling metered subscription:', e)
         for (const purchase of group) {
           try {
             await updatePurchaseStatus({
