@@ -31,8 +31,8 @@ export class CognitoStack extends cdk.Stack {
       signInCaseSensitive: false,
       standardAttributes: {
         email: {
-          required: true, mutable: false 
-        } 
+          required: true, mutable: true
+        }
       },
       lambdaTriggers: postAuthTriggerFunction ? {
         postAuthentication: postAuthTriggerFunction,
