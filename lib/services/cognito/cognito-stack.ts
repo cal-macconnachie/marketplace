@@ -104,7 +104,13 @@ export class CognitoStack extends Construct {
           cognito.OAuthScope.COGNITO_ADMIN
         ],
         callbackUrls: envName === 'dev' ? ['http://localhost:5173/auth/callback'] : ['https://marketplace.csm.codes/auth/callback'],
-        logoutUrls: ['https://resume.csm.codes'],
+        logoutUrls: envName === 'dev' ? [
+          'http://localhost:5173',
+          'http://localhost:5173/auth'
+        ] : [
+          'https://marketplace.csm.codes/auth',
+          'https://marketplace.csm.codes'
+        ],
       },
       authFlows: {
         userPassword: true, userSrp: true
