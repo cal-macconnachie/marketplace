@@ -1,7 +1,17 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { get } from '../../helpers/dynamo-helpers/get'
 import { Product } from '../products'
-
+export const publicProductFields: (keyof Product)[] = [
+  'id',
+  'name',
+  'description',
+  'group_id',
+  'default_price_data',
+  'images',
+  'marketing_features',
+  'organization_id',
+  'metadata'
+]
 export const publicGetProduct = async (event: APIGatewayProxyEvent) => {
   try {
     const { pathParameters } = event
@@ -62,17 +72,6 @@ export const publicGetProduct = async (event: APIGatewayProxyEvent) => {
         }
       }
     }
-    const publicProductFields: (keyof Product)[] = [
-      'id',
-      'name',
-      'description',
-      'group_id',
-      'default_price_data',
-      'images',
-      'marketing_features',
-      'organization_id',
-      'metadata'
-    ]
     // remove all fields from product that arent public
     const publicProduct = Object.fromEntries(
       Object.entries(product).filter(([key]) => publicProductFields.includes(key as keyof Product))

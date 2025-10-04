@@ -10,6 +10,7 @@ export interface Product {
   name: string
   description: string
   active: boolean
+  is_public: boolean
   metadata?: Record<string, string>
   tax_code?: string
   images?: string[]

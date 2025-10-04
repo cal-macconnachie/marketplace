@@ -4,6 +4,7 @@ import {
 } from '../../helpers/dynamo-helpers/query'
 import { scan } from '../../helpers/dynamo-helpers/scan'
 import { Product } from '../products'
+import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
 
 export const listProducts = async (
   request: APIGatewayProxyEvent
@@ -114,3 +115,51 @@ export const listProducts = async (
     }
   }
 }
+
+export const publicListProducts = rateLimitedHandler(async (event: APIGatewayProxyEvent) => {
+  try {
+    let response: Product[] | { message: string } = { message: 'Public product listing is disabled' }
+    const tableName = process.env.PRODUCTS_TABLE
+    if (tableName == null) throw new Error('PRODUCTS_TABLE environment variable not set')
+    const {
+      exclusive_start_key: exclusiveStartKey,
+      limit = 20
+    } = JSON.parse(event.body || '{}')
+    const responseData = await scan<Product>({
+      tableName,
+      filterExpression: 'is_public = :is_public',
+      expressionAttributeValues: {
+        ':is_public': true
+      },
+      exclusiveStartKey,
+      limit
+    })
+    if (responseData.items.length > 0) response = responseData.items
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
+      }
+    }
+  } catch (error) {
+    console.error('Error in publicListProducts:', error)
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        error: 'Failed to list products',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+        'Content-Type': 'application/json'
+      }
+    }
+  }
+}, {
+  maxRequests: 30,
+  windowMs: 60 * 1000, // 1 minute
+})

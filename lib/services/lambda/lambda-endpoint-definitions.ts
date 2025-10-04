@@ -325,7 +325,6 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     name: 'createProduct',
     handler: 'product-manager/create.createProduct',
     description: 'Create Product',
-    environment: ['PRODUCTS_TABLE'],
     apiGw: {
       path: 'products',
       method: 'POST',
@@ -337,7 +336,6 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     name: 'getProduct',
     handler: 'product-manager/get.getProduct',
     description: 'Get Product by ID',
-    environment: ['PRODUCTS_TABLE'],
     apiGw: {
       path: 'products/{group_id}/{id}',
       method: 'GET',
@@ -349,7 +347,6 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     name: 'publicGetProduct',
     handler: 'product-manager/get.publicGetProduct',
     description: 'Get Product by ID (Public)',
-    environment: ['PRODUCTS_TABLE'],
     apiGw: {
       path: 'public/products/{group_id}/{id}',
       method: 'GET',
@@ -361,11 +358,21 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
     name: 'listProducts',
     handler: 'product-manager/list.listProducts',
     description: 'List Products',
-    environment: ['PRODUCTS_TABLE'],
     apiGw: {
       path: 'products',
       method: 'GET',
       auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'publicListProducts',
+    handler: 'product-manager/list.publicListProducts',
+    description: 'List Public Products',
+    apiGw: {
+      path: 'public/products',
+      method: 'POST',
+      auth: 'none',
       cors: true
     }
   },
