@@ -50,15 +50,16 @@ export const logout = async (event: APIGatewayProxyEvent) => {
       const cognitoLogoutUrl = `https://${cognitoDomain}/logout?client_id=${process.env.USER_POOL_CLIENT_ID}&logout_uri=${encodeURIComponent(logoutUrl)}`
 
       return {
-        statusCode: 302,
+        statusCode: 200,
         body: JSON.stringify({
-          message: 'Logout successful', redirectUrl: cognitoLogoutUrl 
+          message: 'Logout successful',
+          redirectUrl: cognitoLogoutUrl,
+          requiresRedirect: true
         }),
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Credentials': true,
-          'Content-Type': 'application/json',
-          'Location': cognitoLogoutUrl
+          'Content-Type': 'application/json'
         }
       }
     }
