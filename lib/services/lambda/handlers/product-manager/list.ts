@@ -118,7 +118,11 @@ export const listProducts = async (
 
 export const publicListProducts = rateLimitedHandler(async (event: APIGatewayProxyEvent) => {
   try {
-    let response: Product[] | { message: string } = { message: 'Public product listing is disabled' }
+    let response: {
+      message: string,
+      items?: Product[],
+      lastEvaluatedKey?: Record<string, unknown>
+    } = { message: 'Public product listing is disabled' }
     const tableName = process.env.PRODUCTS_TABLE
     if (tableName == null) throw new Error('PRODUCTS_TABLE environment variable not set')
     const {
@@ -134,7 +138,11 @@ export const publicListProducts = rateLimitedHandler(async (event: APIGatewayPro
       exclusiveStartKey,
       limit
     })
-    if (responseData.items.length > 0) response = responseData.items
+    if (responseData.items.length > 0) response = {
+      items: responseData.items,
+      lastEvaluatedKey: responseData.lastEvaluatedKey,
+      message: 'Public products retrieved successfully'
+    }
     return {
       statusCode: 200,
       body: JSON.stringify(response),
@@ -149,7 +157,7 @@ export const publicListProducts = rateLimitedHandler(async (event: APIGatewayPro
     return {
       statusCode: 500,
       body: JSON.stringify({
-        error: 'Failed to list products',
+        message: 'Failed to list products',
         details: error instanceof Error ? error.message : 'Unknown error'
       }),
       headers: {
