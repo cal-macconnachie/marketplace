@@ -59,18 +59,18 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
         },
         projectionType: 'ALL'
       },
-      // {
-      //   indexName: 'organization_id-index',
-      //   partitionKey: {
-      //     name: 'organization_id',
-      //     type: 'S'
-      //   },
-      //   sortKey: {
-      //     name: 'id',
-      //     type: 'S'
-      //   },
-      //   projectionType: 'ALL'
-      // }
+      {
+        indexName: 'organization_id-index',
+        partitionKey: {
+          name: 'organization_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'id',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      }
     ],
     stream: 'NEW_AND_OLD_IMAGES'
   },
@@ -214,18 +214,18 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
         },
         projectionType: 'ALL'
       },
-      // {
-      //   indexName: 'cart_id-index',
-      //   partitionKey: {
-      //     name: 'cart_id',
-      //     type: 'S'
-      //   },
-      //   sortKey: {
-      //     name: 'purchased_at',
-      //     type: 'S'
-      //   },
-      //   projectionType: 'ALL'
-      // }
+      {
+        indexName: 'cart_id-index',
+        partitionKey: {
+          name: 'cart_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'purchased_at',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      }
     ],
     billingMode: 'PAY_PER_REQUEST',
     stream: 'NEW_AND_OLD_IMAGES'
@@ -325,18 +325,18 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
         },
         projectionType: 'ALL'
       },
-      // {
-      //   indexName: 'subscription_item_id-index',
-      //   partitionKey: {
-      //     name: 'subscription_item_id',
-      //     type: 'S'
-      //   },
-      //   sortKey: {
-      //     name: 'id',
-      //     type: 'S'
-      //   },
-      //   projectionType: 'ALL'
-      // }
+      {
+        indexName: 'subscription_item_id-index',
+        partitionKey: {
+          name: 'subscription_item_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'id',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      }
     ],
     billingMode: 'PAY_PER_REQUEST',
     stream: 'NEW_AND_OLD_IMAGES'
