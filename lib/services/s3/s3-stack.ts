@@ -65,7 +65,7 @@ export class S3Stack extends Stack {
           : undefined,
         websiteIndexDocument: def.websiteHosting?.indexDocument,
         websiteErrorDocument: def.websiteHosting?.errorDocument,
-        removalPolicy: RemovalPolicy.RETAIN
+        removalPolicy: RemovalPolicy.DESTROY
       }
       bucket = new Bucket(this, def.bucketName, bucketProps)
       this.buckets[def.bucketName] = bucket
