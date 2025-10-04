@@ -1,9 +1,14 @@
 import { getStripeClient } from './stripe-client'
 import { v4 as uuidv4 } from 'uuid'
+import { get } from '../dynamo-helpers/get'
+import { update } from '../dynamo-helpers/update'
+import { Purchase } from '../../handlers/purchases'
+import { Product } from '../../handlers/products'
+import { User } from '../../handlers/users'
 
 export interface MeterEventParams {
-  eventName: string
-  customerId: string
+  purchaseId: string
+  userId: string
   value?: string | number
   timestamp?: number
   identifier?: string
@@ -53,8 +58,8 @@ export interface MeterEventResult {
 export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEventResult> => {
   try {
     const {
-      eventName,
-      customerId,
+      purchaseId,
+      userId,
       value = 1,
       timestamp = Math.floor(Date.now() / 1000),
       identifier,
@@ -62,40 +67,90 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
     } = params
 
     // Validate required parameters
+    if (!purchaseId) {
+      return {
+        success: false,
+        error: 'Purchase ID is required'
+      }
+    }
+
+    if (!userId) {
+      return {
+        success: false,
+        error: 'User ID is required'
+      }
+    }
+
+    // Get the purchase
+    const purchase = await get<Purchase>({
+      tableName: process.env.PURCHASES_TABLE!,
+      key: {
+        user_id: userId,
+        id: purchaseId
+      }
+    })
+
+    if (!purchase) {
+      return {
+        success: false,
+        error: `Purchase not found: ${purchaseId}`
+      }
+    }
+
+    if (!purchase.is_metered_subscription) {
+      return {
+        success: false,
+        error: 'Purchase is not a metered subscription'
+      }
+    }
+
+    if (purchase.status !== 'pending') {
+      return {
+        success: false,
+        error: `Purchase status is ${purchase.status}, expected pending`
+      }
+    }
+
+    // Get the product to find the event name
+    const product = await get<Product>({
+      tableName: process.env.PRODUCTS_TABLE!,
+      key: {
+        group_id: purchase.product_group_id,
+        id: purchase.product_id
+      }
+    })
+
+    if (!product) {
+      return {
+        success: false,
+        error: `Product not found: ${purchase.product_id}`
+      }
+    }
+
+    const eventName = product.default_price_data?.meter_event
     if (!eventName) {
       return {
         success: false,
-        error: 'Event name is required'
+        error: 'Product does not have a meter event configured'
       }
     }
 
-    if (!customerId) {
-      return {
-        success: false,
-        error: 'Customer ID is required'
+    // Get the user to get the customer ID
+    const user = await get<User>({
+      tableName: process.env.USERS_TABLE!,
+      key: {
+        id: userId
       }
-    }
+    })
 
-    // Validate customer ID format
-    if (!customerId.startsWith('cus_')) {
+    if (!user || !user.stripe_id) {
       return {
         success: false,
-        error: 'Customer ID must be a valid Stripe customer ID (starts with cus_)'
+        error: 'User or Stripe customer ID not found'
       }
     }
 
     const stripe = getStripeClient()
-
-    // Verify customer exists
-    try {
-      await stripe.customers.retrieve(customerId)
-    } catch (error) {
-      return {
-        success: false,
-        error: `Invalid customer ID: ${customerId}`,
-        details: error instanceof Error ? error.message : 'Customer not found'
-      }
-    }
 
     // Prepare the meter event payload
     const eventPayload: {
@@ -103,7 +158,7 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
       value: string
       [key: string]: string
     } = {
-      stripe_customer_id: customerId,
+      stripe_customer_id: user.stripe_id,
       value: String(value)
     }
 
@@ -126,6 +181,31 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
     }
 
     const meterEvent = await stripe.billing.meterEvents.create(meterEventParams)
+
+    // Update purchase and purchased product amounts
+    try {
+      // Calculate new amount (add the value from this meter event)
+      const currentAmount = purchase.amount || 0
+      const additionalAmount = Number(value)
+      const newAmount = currentAmount + additionalAmount
+
+      // Update purchase amount
+      await update<Purchase>({
+        tableName: process.env.PURCHASES_TABLE!,
+        key: {
+          user_id: purchase.user_id,
+          id: purchase.id
+        },
+        updates: {
+          amount: newAmount
+        }
+      })
+
+      console.log(`Updated purchase ${purchase.id} amount to ${newAmount} with meter event value ${value}`)
+    } catch (error) {
+      console.error('Error updating purchase amount from meter event:', error)
+      // Don't fail the meter event logging if amount updates fail
+    }
 
     return {
       success: true,
@@ -207,39 +287,42 @@ export const batchLogMeterEvents = async (
  * Helper to log common usage events
  */
 export const logApiUsage = async (
-  customerId: string,
+  purchaseId: string,
+  userId: string,
   requestCount: number = 1,
   metadata?: { endpoint?: string; method?: string; [key: string]: string | undefined }
 ): Promise<MeterEventResult> => {
   return logMeterEvent({
-    eventName: 'api_request',
-    customerId,
+    purchaseId,
+    userId,
     value: requestCount,
     metadata: metadata as Record<string, string>
   })
 }
 
 export const logTokenUsage = async (
-  customerId: string,
+  purchaseId: string,
+  userId: string,
   tokenCount: number,
   metadata?: { model?: string; request_id?: string; [key: string]: string | undefined }
 ): Promise<MeterEventResult> => {
   return logMeterEvent({
-    eventName: 'tokens_consumed',
-    customerId,
+    purchaseId,
+    userId,
     value: tokenCount,
     metadata: metadata as Record<string, string>
   })
 }
 
 export const logStorageUsage = async (
-  customerId: string,
+  purchaseId: string,
+  userId: string,
   bytesUsed: number,
   metadata?: { storage_type?: string; [key: string]: string | undefined }
 ): Promise<MeterEventResult> => {
   return logMeterEvent({
-    eventName: 'storage_used',
-    customerId,
+    purchaseId,
+    userId,
     value: bytesUsed,
     metadata: metadata as Record<string, string>
   })

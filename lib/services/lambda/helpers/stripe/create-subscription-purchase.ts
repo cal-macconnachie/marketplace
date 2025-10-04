@@ -40,6 +40,34 @@ export const createSubscriptionPurchase = async ({
     throw new Error(`Organization not found for user ${user.id}`)
   }
 
+  // For metered subscriptions, create a zero-dollar pending purchase immediately
+  if (product.default_price_data?.recurring?.usage_type === 'metered') {
+    const purchaseData: Purchase = {
+      id: v4(),
+      cart_id: cartId,
+      user_id: user.id,
+      product_id: product.id,
+      product_group_id: product.group_id,
+      organization_id: user.organization_id,
+      purchased_at: new Date().toISOString(),
+      is_one_time: false,
+      is_subscription: true,
+      is_metered_subscription: true,
+      payment_method_id: paymentMethodId!,
+      product_name: product.name,
+      amount: 0, // Zero-dollar amount for metered subscriptions
+      currency: product.default_price_data.currency,
+      platform_fee_amount: 0,
+      connected_account_id: product.account_id,
+      tax_amount: 0,
+      base_amount: 0,
+      seller_organization_id: product.metadata?.organization_id,
+      status: 'pending' // Remains pending until invoice is finalized
+    }
+
+    return purchaseData
+  }
+
   // Check if organization has existing subscription for this product's account
   const existingSubscriptionId = organization.stripe_subscription_ids?.[product.account_id]
   let isAddingToExistingSubscription = false
@@ -196,7 +224,7 @@ export const createSubscriptionPurchase = async ({
     purchased_at: new Date().toISOString(),
     is_one_time: false,
     is_subscription: true,
-    is_metered_subscription: product.default_price_data?.recurring?.usage_type === 'metered',
+    is_metered_subscription: false,
     payment_method_id: paymentMethodId!,
     product_name: product.name,
     amount: totalAmount, // Total amount including tax (full subscription or prorated)

@@ -290,6 +290,18 @@ export const ddbTableDefinitions: DdbTableDefinition[] = [
     },
     globalSecondaryIndexes: [
       {
+        indexName: 'purchase_id-index',
+        partitionKey: {
+          name: 'purchase_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'id',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      },
+      {
         indexName: 'user_id-index',
         partitionKey: {
           name: 'user_id',

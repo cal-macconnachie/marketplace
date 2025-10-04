@@ -6,10 +6,10 @@ import {
 export const logMeterEventHandler = rateLimitedHandler(async (event) => {
   try {
     const eventBody = JSON.parse(event.body || '{}')
-    if (eventBody.event_name == null) {
+    if (eventBody.purchase_id == null) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'event_name is required' }),
+        body: JSON.stringify({ error: 'purchase_id is required' }),
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Credentials': true,
@@ -17,10 +17,10 @@ export const logMeterEventHandler = rateLimitedHandler(async (event) => {
         }
       }
     }
-    if (eventBody.customer_id == null) {
+    if (eventBody.user_id == null) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'customer_id is required' }),
+        body: JSON.stringify({ error: 'user_id is required' }),
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Credentials': true,
@@ -50,23 +50,42 @@ export const logMeterEventHandler = rateLimitedHandler(async (event) => {
         }
       }
     }
-    const metereventParams: MeterEventParams = {
-      eventName: eventBody.event_name,
-      customerId: eventBody.customer_id,
+    const meterEventParams: MeterEventParams = {
+      purchaseId: eventBody.purchase_id,
+      userId: eventBody.user_id,
       value: eventBody.value,
       metadata: eventBody.metadata
     }
-    await logMeterEvent(metereventParams)
+    const result = await logMeterEvent(meterEventParams)
+
+    if (!result.success) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: result.error, details: result.details
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
+      }
+    }
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Event logged' }),
+      body: JSON.stringify({
+        message: 'Event logged successfully',
+        event: result.event
+      }),
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,
         'Content-Type': 'application/json'
       }
     }
-  } catch {
+  } catch (error) {
+    console.error('Error in logMeterEventHandler:', error)
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Internal server error' }),

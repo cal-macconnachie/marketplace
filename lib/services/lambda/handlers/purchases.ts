@@ -2,6 +2,7 @@ import { unmarshall } from '@aws-sdk/util-dynamodb'
 import { DynamoDBStreamEvent } from 'aws-lambda'
 import { putEvents } from '../helpers/eventbridge/put-events'
 import { adjustPurchaseAmount } from '../helpers/purchases/adjust-purchase-amount'
+import { updatePurchasedProductAmount } from '../helpers/purchases/update-purchased-product-amount'
 
 export interface Purchase {
   id: string
@@ -76,6 +77,13 @@ export const purchases =  async (event: DynamoDBStreamEvent) => {
             correctAmount: 0
           })
         }
+      }
+      // if amount changed and status is pending update the purchasedProduct
+      if (oldPurchase.amount !== newPurchase.amount) {
+        await updatePurchasedProductAmount({
+          purchaseId: newPurchase.id,
+          amount: newPurchase.amount
+        })
       }
     }
   }
