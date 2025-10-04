@@ -4,7 +4,7 @@ export interface OneTimePassword {
   email: string
   type: string
   one_time_password: string
-  expires_at: string
+  expires_at: number
   created_at: string
 }
 
@@ -26,7 +26,7 @@ export const createOneTimePassword = async ({
       email,
       type,
       one_time_password: otp,
-      expires_at: (new Date(Date.now() + 15 * 60 * 1000)).toISOString(), // 15 minutes from now
+      expires_at: Math.floor((Date.now() + 15 * 60 * 1000) / 1000), // 15 minutes from now
       created_at: (new Date()).toISOString()
     }
   })
