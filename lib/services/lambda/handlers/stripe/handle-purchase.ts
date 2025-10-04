@@ -40,7 +40,7 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
     }
 
     // organize payments into one-time or recurring and group by currency/ connected_account_id
-    const oneTimePurchases = purchases.filter(p => p.is_one_time)
+    const oneTimePurchases = purchases.filter(p => p.type === 'one_time')
     console.log('One-time purchases:', oneTimePurchases)
     const oneTimeGroups = oneTimePurchases.reduce((acc: { [key:string]: Purchase[]}, curr) => {
       const key = `${curr.currency}:${curr.connected_account_id}`
@@ -50,7 +50,7 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
       acc[key].push(curr)
       return acc
     }, {})
-    const recurringPurchases = purchases.filter(p => p.is_subscription)
+    const recurringPurchases = purchases.filter(p => p.type === 'subscription' || p.type === 'metered_subscription')
     console.log('Recurring purchases:', recurringPurchases)
     const recurringGroups = recurringPurchases.reduce((acc: { [key:string]: Purchase[]}, curr) => {
       const key = `${curr.currency}:${curr.connected_account_id}`

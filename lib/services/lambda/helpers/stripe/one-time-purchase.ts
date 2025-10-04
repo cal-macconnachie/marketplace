@@ -160,9 +160,7 @@ export const createOneTimePurchase = async ({
     product_group_id: product.group_id,
     organization_id: user.organization_id,
     purchased_at: new Date().toISOString(),
-    is_one_time: true,
-    is_subscription: false,
-    is_metered_subscription: false,
+    type: 'one_time',
     payment_method_id: paymentMethodId!,
     product_name: product.name,
     amount: totalAmount, // Total amount including tax

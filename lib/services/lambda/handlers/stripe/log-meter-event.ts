@@ -5,8 +5,10 @@ import {
 
 export const logMeterEventHandler = rateLimitedHandler(async (event) => {
   try {
-    const eventBody = JSON.parse(event.body || '{}')
-    if (eventBody.purchase_id == null) {
+    const {
+      purchase_id, user_id, value, metadata
+    } = JSON.parse(event.body || '{}')
+    if (purchase_id == null) {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'purchase_id is required' }),
@@ -17,7 +19,7 @@ export const logMeterEventHandler = rateLimitedHandler(async (event) => {
         }
       }
     }
-    if (eventBody.user_id == null) {
+    if (user_id == null) {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'user_id is required' }),
@@ -28,7 +30,7 @@ export const logMeterEventHandler = rateLimitedHandler(async (event) => {
         }
       }
     }
-    if (eventBody.value == null || typeof eventBody.value !== 'number') {
+    if (value == null || typeof value !== 'number') {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'value is required and must be a number' }),
@@ -39,7 +41,7 @@ export const logMeterEventHandler = rateLimitedHandler(async (event) => {
         }
       }
     }
-    if (eventBody.metadata != null && typeof eventBody.metadata !== 'object') {
+    if (metadata != null && typeof metadata !== 'object') {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'metadata must be an object if provided' }),
@@ -51,10 +53,10 @@ export const logMeterEventHandler = rateLimitedHandler(async (event) => {
       }
     }
     const meterEventParams: MeterEventParams = {
-      purchaseId: eventBody.purchase_id,
-      userId: eventBody.user_id,
-      value: eventBody.value,
-      metadata: eventBody.metadata
+      purchaseId: purchase_id,
+      userId: user_id,
+      value: value,
+      metadata: metadata
     }
     const result = await logMeterEvent(meterEventParams)
 

@@ -5,6 +5,10 @@ import { update } from '../dynamo-helpers/update'
 import { Purchase } from '../../handlers/purchases'
 import { Product } from '../../handlers/products'
 import { User } from '../../handlers/users'
+import { calculateTaxesWithCaching } from '../tax/calculate-taxes-with-caching'
+import { generateLocationKey } from '../tax/tax-calculation-cache'
+import { Organization } from '../../handlers/organizations'
+import { calculatePlatformFee } from './calculate-platform-fee'
 
 export interface MeterEventParams {
   purchaseId: string
@@ -97,7 +101,7 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
       }
     }
 
-    if (!purchase.is_metered_subscription) {
+    if (purchase.type !== 'metered_subscription') {
       return {
         success: false,
         error: 'Purchase is not a metered subscription'
@@ -185,9 +189,37 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
     // Update purchase and purchased product amounts
     try {
       // Calculate new amount (add the value from this meter event)
-      const currentAmount = purchase.amount || 0
-      const additionalAmount = Number(value)
-      const newAmount = currentAmount + additionalAmount
+      const currentAmount = purchase.base_amount ?? 0
+      const additionalAmount = Number(value) * (product.default_price_data?.unit_amount ?? 1)
+      const newBaseAmount = currentAmount + additionalAmount
+      const productsHash = {[`${product.group_id}:${product.id}`]: product }
+      const orgsHash: { [key: string]: Organization } = {}
+      const org = await get<Organization>({
+        tableName: process.env.ORGANIZATIONS_TABLE!,
+        key: { id: product.organization_id }
+      })
+      if (!org) {
+        throw new Error(`Organization not found: ${product.organization_id}`)
+      }
+      orgsHash[product.organization_id] = org
+      const items = [
+        {
+          id: product.id,
+          group_id: product.group_id,
+          organization_id: product.organization_id,
+          quantity: 1,
+          amount: newBaseAmount,
+          tax_code: product.tax_code || 'txcd_99999999' // Default tax code if none set
+        }
+      ]
+      const location = generateLocationKey(user)
+
+      const taxAmount = await calculateTaxesWithCaching(items, productsHash, orgsHash, location)
+      const newAmount = newBaseAmount + taxAmount.items[0]?.tax_amount || 0
+      const platformFee = await calculatePlatformFee({
+        amount: newAmount,
+        organizationId: product.organization_id
+      })
 
       // Update purchase amount
       await update<Purchase>({
@@ -197,7 +229,10 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
           id: purchase.id
         },
         updates: {
-          amount: newAmount
+          amount: newAmount,
+          base_amount: newBaseAmount,
+          tax_amount: taxAmount.items[0]?.tax_amount || 0,
+          platform_fee_amount: platformFee
         }
       })
 

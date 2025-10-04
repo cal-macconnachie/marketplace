@@ -10,9 +10,7 @@ export interface Purchase {
   product_id: string
   product_group_id: string
   product_name: string
-  is_one_time: boolean
-  is_subscription: boolean
-  is_metered_subscription: boolean
+  type: 'one_time' | 'subscription' | 'metered_subscription'
   purchased_at: string
   organization_id: string
   payment_method_id: string
@@ -79,10 +77,10 @@ export const purchases =  async (event: DynamoDBStreamEvent) => {
         }
       }
       // if amount changed and status is pending update the purchasedProduct
-      if (oldPurchase.amount !== newPurchase.amount) {
+      if (newPurchase.base_amount != null && oldPurchase.base_amount !== newPurchase.base_amount) {
         await updatePurchasedProductAmount({
           purchaseId: newPurchase.id,
-          amount: newPurchase.amount
+          amount: newPurchase.base_amount
         })
       }
     }

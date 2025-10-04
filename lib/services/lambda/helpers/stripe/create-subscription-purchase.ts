@@ -50,9 +50,7 @@ export const createSubscriptionPurchase = async ({
       product_group_id: product.group_id,
       organization_id: user.organization_id,
       purchased_at: new Date().toISOString(),
-      is_one_time: false,
-      is_subscription: true,
-      is_metered_subscription: true,
+      type: 'metered_subscription',
       payment_method_id: paymentMethodId!,
       product_name: product.name,
       amount: 0, // Zero-dollar amount for metered subscriptions
@@ -222,9 +220,7 @@ export const createSubscriptionPurchase = async ({
     product_group_id: product.group_id,
     organization_id: user.organization_id,
     purchased_at: new Date().toISOString(),
-    is_one_time: false,
-    is_subscription: true,
-    is_metered_subscription: false,
+    type: 'subscription',
     payment_method_id: paymentMethodId!,
     product_name: product.name,
     amount: totalAmount, // Total amount including tax (full subscription or prorated)

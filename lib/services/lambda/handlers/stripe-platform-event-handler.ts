@@ -60,7 +60,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
       }
       // atomic update users org to add purchased products to purchased_products array
       if (purchasedProducts.length > 0) {
-        const createPromises = purchasedProducts.map(product => create({
+        const createPromises = purchasedProducts.map(product => create<PurchasedProduct>({
           tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
           key: {
             organization_id: user?.organization_id,
@@ -340,9 +340,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                             product_id: product.id,
                             product_group_id: product.group_id,
                             product_name: product.name,
-                            is_one_time: false,
-                            is_subscription: true,
-                            is_metered_subscription: true,
+                            type: 'metered_subscription',
                             purchased_at: new Date().toISOString(),
                             organization_id: user.organization_id,
                             payment_method_id: typeof subscription.default_payment_method === 'string'
@@ -397,9 +395,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                         product_id: product.id,
                         product_group_id: product.group_id,
                         product_name: product.name,
-                        is_one_time: false,
-                        is_subscription: true,
-                        is_metered_subscription: false,
+                        type: 'subscription',
                         purchased_at: new Date().toISOString(),
                         organization_id: user.organization_id,
                         payment_method_id: typeof subscription.default_payment_method === 'string'
@@ -452,7 +448,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
 
             // Only create purchased products that didn't exist before (fallback case)
             if (newPurchasedProductsToCreate.length > 0) {
-              const createPromises = newPurchasedProductsToCreate.map(product => create({
+              const createPromises = newPurchasedProductsToCreate.map(product => create<PurchasedProduct>({
                 tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
                 key: {
                   organization_id: user?.organization_id,
@@ -466,7 +462,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
 
           // For initial purchases, create all purchased products
           if (isInitialPurchase && purchasedProducts.length > 0) {
-            const createPromises = purchasedProducts.map(product => create({
+            const createPromises = purchasedProducts.map(product => create<PurchasedProduct>({
               tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
               key: {
                 organization_id: user?.organization_id,
@@ -628,9 +624,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                       product_id: product.id,
                       product_group_id: product.group_id,
                       product_name: product.name,
-                      is_one_time: false,
-                      is_subscription: true,
-                      is_metered_subscription: product.default_price_data?.recurring?.usage_type === 'metered',
+                      type: subscriptionItem.price?.recurring?.usage_type === 'metered' ? 'metered_subscription' : 'subscription',
                       purchased_at: new Date().toISOString(),
                       organization_id: user.organization_id,
                       payment_method_id: typeof subscription.default_payment_method === 'string'
@@ -678,6 +672,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
 
           // Process each subscription item
           for (const item of subscription.items.data) {
+            console.log(item)
             const isMeteredSubscription = item.price?.recurring?.usage_type === 'metered'
 
             // Only process metered subscriptions
