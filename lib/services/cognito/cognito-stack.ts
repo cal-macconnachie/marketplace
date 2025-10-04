@@ -4,18 +4,18 @@ import {
   aws_cognito as cognito, aws_lambda as lambda 
 } from 'aws-cdk-lib'
 
-export interface CognitoStackProps extends cdk.StackProps {
+export interface CognitoStackProps {
   envName: string
   postAuthTriggerFunction: lambda.Function
 }
 
-export class CognitoStack extends cdk.Stack {
+export class CognitoStack extends Construct {
   public readonly userPool: cognito.UserPool
   public readonly userPoolClient: cognito.UserPoolClient
   public readonly cognitoDomain: cognito.UserPoolDomain
 
   constructor(scope: Construct, id: string, props: CognitoStackProps) {
-    super(scope, id, props)
+    super(scope, id)
 
     const {
       envName, postAuthTriggerFunction 
