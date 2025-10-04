@@ -100,7 +100,8 @@ export class CognitoStack extends cdk.Stack {
         scopes: [
           cognito.OAuthScope.OPENID,
           cognito.OAuthScope.EMAIL,
-          cognito.OAuthScope.PROFILE
+          cognito.OAuthScope.PROFILE,
+          cognito.OAuthScope.COGNITO_ADMIN
         ],
         callbackUrls: envName === 'dev' ? ['http://localhost:5173/auth/callback'] : ['https://marketplace.csm.codes/auth/callback'],
         logoutUrls: ['https://resume.csm.codes'],
