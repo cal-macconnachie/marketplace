@@ -8,7 +8,9 @@ const cognitoClient = new CognitoIdentityProviderClient({})
 
 export const logout = async (event: APIGatewayProxyEvent) => {
   const { body } = event
-  const { accessToken, refreshToken } = JSON.parse(body || '{}')
+  const {
+    accessToken, refreshToken 
+  } = JSON.parse(body || '{}')
 
   try {
     // Try GlobalSignOut first (works for native Cognito users)
@@ -49,7 +51,9 @@ export const logout = async (event: APIGatewayProxyEvent) => {
 
       return {
         statusCode: 302,
-        body: JSON.stringify({ message: 'Logout successful', redirectUrl: cognitoLogoutUrl }),
+        body: JSON.stringify({
+          message: 'Logout successful', redirectUrl: cognitoLogoutUrl 
+        }),
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Credentials': true,
