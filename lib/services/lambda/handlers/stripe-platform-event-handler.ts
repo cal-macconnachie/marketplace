@@ -12,6 +12,7 @@ import { v4 } from 'uuid'
 import { batchGet } from '../helpers/dynamo-helpers/batch-get'
 import { Product } from './products'
 import { get } from '../helpers/dynamo-helpers/get'
+import { update } from '../helpers/dynamo-helpers/update'
 import { Organization } from './organizations'
 import { adjustPurchaseAmount } from '../helpers/purchases/adjust-purchase-amount'
 import { queryPurchasedProductsBySubscriptionItem } from '../helpers/carts/query-purchased-products-by-subscription-item'
@@ -331,6 +332,57 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                             },
                             subscriptionItem
                           })
+
+                          // Create a new pending purchase for the next billing period
+                          const newPurchase: Purchase = {
+                            id: v4(),
+                            user_id: user.id,
+                            product_id: product.id,
+                            product_group_id: product.group_id,
+                            product_name: product.name,
+                            is_one_time: false,
+                            is_subscription: true,
+                            is_metered_subscription: true,
+                            purchased_at: new Date().toISOString(),
+                            organization_id: user.organization_id,
+                            payment_method_id: typeof subscription.default_payment_method === 'string'
+                              ? subscription.default_payment_method
+                              : subscription.default_payment_method?.id || '',
+                            amount: 0, // Start at zero for next period
+                            currency: item.currency,
+                            platform_fee_amount: 0,
+                            connected_account_id: product.account_id,
+                            tax_amount: 0,
+                            base_amount: 0,
+                            seller_organization_id: product.metadata?.organization_id,
+                            status: 'pending' // Pending for next period's usage
+                          }
+
+                          await create<Purchase>({
+                            tableName: process.env.PURCHASES_TABLE!,
+                            key: {
+                              user_id: newPurchase.user_id,
+                              id: newPurchase.id
+                            },
+                            record: newPurchase
+                          })
+
+                          // Reset the purchased product amount to zero and update purchase_id for next period
+                          await update({
+                            tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+                            key: {
+                              organization_id: existingPurchasedProduct.organization_id,
+                              id: existingPurchasedProduct.id
+                            },
+                            updates: {
+                              amount: 0,
+                              purchase_id: newPurchase.id,
+                              in_good_standing_until: subscriptionItem.current_period_end,
+                              updated_at: new Date().toISOString()
+                            }
+                          })
+
+                          console.log(`Created new pending purchase ${newPurchase.id} for next billing period of metered subscription`)
                         }
                       } catch (error) {
                         console.log(`Failed to update metered subscription purchase ${existingPurchasedProduct.purchase_id}:`, error)

@@ -763,7 +763,9 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
           'application_fee.created',
           'charge.dispute.created',
           'invoice.paid',
-          'invoice.payment_failed'
+          'invoice.payment_failed',
+          'customer.subscription.created',
+          'customer.subscription.updated'
         ]
       }
     }
