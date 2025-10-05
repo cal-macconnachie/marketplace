@@ -195,7 +195,8 @@ const prepareProductDataForUpdate = (record: Product): Stripe.ProductUpdateParam
     'last_processed_at',
     'price_version',
     'account_id',
-    'organization_id'
+    'organization_id',
+    'is_public',
   ] as const
   const productData = { ...record } as Record<string, unknown>
   productData.metadata = {
