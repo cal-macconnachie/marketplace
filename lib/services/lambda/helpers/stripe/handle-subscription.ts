@@ -152,6 +152,9 @@ export const handleSubscription = async ({
       items,
       collection_method: 'charge_automatically',
       payment_behavior: 'allow_incomplete',
+      billing_mode: {
+        type: 'flexible'
+      },
       ...(paymentMethodId ? { default_payment_method: paymentMethodId } : {}),
       metadata: {
         connected_account_id: destinationAccountId,
