@@ -165,7 +165,8 @@ const prepareProductDataForCreate = (record: Product): Stripe.ProductCreateParam
     'last_processed_at',
     'price_version',
     'account_id',
-    'organization_id'
+    'organization_id',
+    'is_public',
   ] as const
   const productData = { ...record } satisfies Stripe.ProductCreateParams
   productData.metadata = {
