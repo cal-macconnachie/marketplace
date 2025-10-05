@@ -55,15 +55,21 @@ export class CloudFrontStack extends Stack {
     // Create basic auth Lambda@Edge function for dev environment
     let basicAuthFunction: NodejsFunction | undefined
     if (envName === 'dev') {
+      const authUsername = process.env.CLOUDFRONT_AUTH_USERNAME || 'dev'
+      const authPassword = process.env.CLOUDFRONT_AUTH_PASSWORD || 'dev123'
+
       basicAuthFunction = new NodejsFunction(this, 'BasicAuthFunction', {
         runtime: Runtime.NODEJS_20_X,
         handler: 'handler',
         entry: path.join(__dirname, '../lambda/handlers/cloudfront/basic-auth.ts'),
         functionName: `cloudfront-basic-auth-${envName}`,
         description: 'Lambda@Edge function for basic authentication on CloudFront',
-        environment: {
-          BASIC_AUTH_USERNAME: process.env.CLOUDFRONT_AUTH_USERNAME || 'dev',
-          BASIC_AUTH_PASSWORD: process.env.CLOUDFRONT_AUTH_PASSWORD || 'dev123'
+        bundling: {
+          minify: true,
+          define: {
+            'process.env.CLOUDFRONT_AUTH_USERNAME': JSON.stringify(authUsername),
+            'process.env.CLOUDFRONT_AUTH_PASSWORD': JSON.stringify(authPassword)
+          }
         }
       })
     }

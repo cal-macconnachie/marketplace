@@ -1,4 +1,6 @@
-import { CloudFrontRequestEvent, CloudFrontRequestResult } from 'aws-lambda'
+import {
+  CloudFrontRequestEvent, CloudFrontRequestResult 
+} from 'aws-lambda'
 
 /**
  * Lambda@Edge function for basic authentication on CloudFront distributions
@@ -13,9 +15,9 @@ export const handler = async (
   // Get the Authorization header
   const authHeader = headers.authorization?.[0]?.value
 
-  // Basic auth credentials - in production, these should come from AWS Secrets Manager
-  const username = process.env.BASIC_AUTH_USERNAME || 'dev'
-  const password = process.env.BASIC_AUTH_PASSWORD || 'dev123'
+  // Basic auth credentials - injected at build time via esbuild define
+  const username = process.env.CLOUDFRONT_AUTH_USERNAME || 'dev'
+  const password = process.env.CLOUDFRONT_AUTH_PASSWORD || 'dev123'
   const expectedAuth = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
 
   // Check if the Authorization header matches
