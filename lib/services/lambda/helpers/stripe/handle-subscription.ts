@@ -87,7 +87,7 @@ export const handleSubscription = async ({
   }, {}))
   let amount = purchases.reduce((sum, p) => sum + p.amount, 0)
   const platformFee = purchases.reduce((sum, p) => sum + (p.platform_fee_amount ?? 0), 0)
-  const platformFeePercent = Number(((platformFee / amount) * 100).toFixed(2))
+  const platformFeePercent = amount > 0 ? Number(((platformFee / amount) * 100).toFixed(2)) : 0
 
   const subscriptionId = organization.stripe_subscription_ids?.[destinationAccountId]
   let subscription: Stripe.Subscription | undefined
@@ -161,12 +161,12 @@ export const handleSubscription = async ({
       automatic_tax: {
         enabled: true,
         liability: {
-          type: 'account', account: destinationAccountId 
+          type: 'account', account: destinationAccountId
         },
       },
       transfer_data: { destination: destinationAccountId },
       on_behalf_of: destinationAccountId,
-      application_fee_percent: platformFeePercent
+      ...(platformFeePercent > 0 ? { application_fee_percent: platformFeePercent } : {})
     }
     console.log(`Creating subscription for organization ${organization.id} with params:`, JSON.stringify(createParams))
     subscription = await stripe.subscriptions.create(createParams)

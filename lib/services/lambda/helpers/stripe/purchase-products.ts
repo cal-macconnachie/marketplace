@@ -217,7 +217,9 @@ export const purchaseProducts = async ({
   }
 
   // Set purchases for the main cart (one-time + non-metered subscriptions)
-  await setCartPurchases({ purchases: purchaseDataList })
+  if (purchaseDataList.length > 0) {
+    await setCartPurchases({ purchases: purchaseDataList })
+  }
 
   // Handle metered subscription products - each gets its own separate cart
   const meteredCartIds: string[] = []

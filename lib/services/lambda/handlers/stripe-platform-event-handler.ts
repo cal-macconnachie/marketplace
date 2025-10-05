@@ -20,6 +20,7 @@ import { updatePurchasedProductFromPurchase } from '../helpers/carts/update-purc
 import { PaymentMethod } from './payment-methods'
 import { User } from './users'
 import { createPurchaseCart } from '../helpers/create-purchase-cart'
+import { calculatePlatformFee } from '../helpers/stripe/calculate-platform-fee'
 export interface Cart {
   user_id: string
   id: string
@@ -146,7 +147,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                 id: paymentMethodId
               },
               updates: {
-                status: 'failed'
+                status: 'failed',
               }
             })
 
@@ -262,6 +263,71 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
       break
     }
     
+    case 'invoice.finalized': {
+      // Apply platform fee to all subscription invoices before they're charged
+      const invoice = event.detail.data.object as Stripe.Invoice
+      const subscriptionId = invoice.parent?.type === 'subscription_details'
+        ? (typeof invoice.parent.subscription_details?.subscription === 'string'
+          ? invoice.parent.subscription_details.subscription
+          : invoice.parent.subscription_details?.subscription?.id)
+        : undefined
+
+      if (subscriptionId && invoice.total > 0 && invoice.id) {
+        try {
+          const stripe = getStripeClient()
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+          const connectedAccountId = subscription.metadata?.connected_account_id
+
+          // Only apply fee if this is for a connected account (destination charge)
+          if (connectedAccountId) {
+            // Get the seller organization from the first line item
+            let sellerOrgId: string | undefined
+            for (const item of invoice.lines.data) {
+              const subscriptionItemId = item.parent?.subscription_item_details?.subscription_item
+              if (subscriptionItemId) {
+                const subscriptionItem = await stripe.subscriptionItems.retrieve(subscriptionItemId)
+                const productGroupId = subscriptionItem.metadata?.product_group_id
+                const productId = subscriptionItem.metadata?.product_id
+
+                if (productGroupId && productId) {
+                  const product = await get<Product>({
+                    tableName: process.env.PRODUCTS_TABLE!,
+                    key: {
+                      group_id: productGroupId,
+                      id: productId
+                    }
+                  })
+
+                  if (product?.metadata?.organization_id) {
+                    sellerOrgId = product.metadata.organization_id
+                    break
+                  }
+                }
+              }
+            }
+
+            // Calculate the correct platform fee using our helper
+            const platformFeePercent = await calculatePlatformFee({
+              amount: invoice.total,
+              organizationId: sellerOrgId,
+              subscription: true
+            })
+
+            const applicationFeeAmount = Math.round(invoice.total * (platformFeePercent / 100))
+
+            await stripe.invoices.update(invoice.id, {
+              application_fee_amount: applicationFeeAmount
+            })
+
+            console.log(`Applied platform fee of ${applicationFeeAmount} (${platformFeePercent}%) to subscription invoice ${invoice.id}`)
+          }
+        } catch (error) {
+          console.error(`Error applying platform fee to invoice ${invoice.id}:`, error)
+        }
+      }
+      break
+    }
+
     case 'invoice.paid': {
       // Handle subscription payments that are destination charges
       const invoice = event.detail.data.object
