@@ -7,7 +7,8 @@ import {
   CachedMethods,
   OriginProtocolPolicy,
   OriginSslPolicy,
-  CacheQueryStringBehavior
+  CacheQueryStringBehavior,
+  LambdaEdgeEventType,
 } from 'aws-cdk-lib/aws-cloudfront'
 import {
   HttpOrigin
@@ -20,9 +21,18 @@ import {
   CloudFrontDistributionDefinition,
   cloudFrontDefinitions
 } from './cloudfront-definitions'
-import { Certificate, CertificateValidation } from 'aws-cdk-lib/aws-certificatemanager'
-import { HostedZone, ARecord, RecordTarget } from 'aws-cdk-lib/aws-route53'
+import {
+  Certificate, CertificateValidation 
+} from 'aws-cdk-lib/aws-certificatemanager'
+import {
+  HostedZone, ARecord, RecordTarget 
+} from 'aws-cdk-lib/aws-route53'
 import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets'
+import {
+  Runtime 
+} from 'aws-cdk-lib/aws-lambda'
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
+import path from 'path'
 
 interface CloudFrontStackProps extends StackProps {
   envName?: string
@@ -42,20 +52,42 @@ export class CloudFrontStack extends Stack {
       s3WebsiteUrls
     } = props || {}
 
+    // Create basic auth Lambda@Edge function for dev environment
+    let basicAuthFunction: NodejsFunction | undefined
+    if (envName === 'dev') {
+      basicAuthFunction = new NodejsFunction(this, 'BasicAuthFunction', {
+        runtime: Runtime.NODEJS_20_X,
+        handler: 'handler',
+        entry: path.join(__dirname, '../lambda/handlers/cloudfront/basic-auth.ts'),
+        functionName: `cloudfront-basic-auth-${envName}`,
+        description: 'Lambda@Edge function for basic authentication on CloudFront',
+        environment: {
+          BASIC_AUTH_USERNAME: process.env.CLOUDFRONT_AUTH_USERNAME || 'dev',
+          BASIC_AUTH_PASSWORD: process.env.CLOUDFRONT_AUTH_PASSWORD || 'dev123'
+        }
+      })
+    }
+
     cloudFrontDefinitions.forEach((def: CloudFrontDistributionDefinition) => {
+      // Determine the actual domain name based on environment
+      let actualDomainName = def.domainName
+      if (def.domainName && def.domainPrefix && envName === 'dev') {
+        actualDomainName = `${def.domainPrefix}.${def.domainName}`
+      }
+
       // Create hosted zone and certificate if domain is specified
       let certificate
       let hostedZone
-      if (def.domainName) {
+      if (actualDomainName) {
         // Create a new hosted zone for the subdomain
         hostedZone = new HostedZone(this, `${def.name}-hosted-zone`, {
-          zoneName: def.domainName,
-          comment: `Hosted zone for ${def.domainName}`
+          zoneName: actualDomainName,
+          comment: `Hosted zone for ${actualDomainName}`
         })
 
         // Create certificate with DNS validation
         certificate = new Certificate(this, `${def.name}-certificate`, {
-          domainName: def.domainName,
+          domainName: actualDomainName,
           validation: CertificateValidation.fromDns(hostedZone)
         })
       }
@@ -109,11 +141,20 @@ export class CloudFrontStack extends Stack {
         enableAcceptEncodingBrotli: true
       })
 
+      // Prepare edge lambdas for basic auth in dev environment
+      const edgeLambdas = []
+      if (envName === 'dev' && def.requireBasicAuth && basicAuthFunction) {
+        edgeLambdas.push({
+          functionVersion: basicAuthFunction.currentVersion,
+          eventType: LambdaEdgeEventType.VIEWER_REQUEST
+        })
+      }
+
       // Create distribution
       const distribution = new Distribution(this, def.name, {
         comment: def.comment || `${envName} ${def.name}`,
-        defaultRootObject: def.domainName ? 'index.html' : undefined,
-        domainNames: def.domainName ? [def.domainName] : undefined,
+        defaultRootObject: actualDomainName ? 'index.html' : undefined,
+        domainNames: actualDomainName ? [actualDomainName] : undefined,
         certificate: certificate,
         enabled: def.enabled ?? true,
         priceClass: def.priceClass === 'PriceClass_100'
@@ -127,17 +168,18 @@ export class CloudFrontStack extends Stack {
           cachedMethods: this.mapCachedMethods(def.defaultBehavior.cachedMethods),
           viewerProtocolPolicy: this.mapViewerProtocolPolicy(def.defaultBehavior.viewerProtocolPolicy),
           cachePolicy,
-          compress: def.defaultBehavior.compress ?? true
+          compress: def.defaultBehavior.compress ?? true,
+          edgeLambdas: edgeLambdas.length > 0 ? edgeLambdas : undefined
         }
       })
 
       this.distributions[def.name] = distribution
 
       // Create A record if hosted zone exists
-      if (hostedZone && def.domainName) {
+      if (hostedZone && actualDomainName) {
         new ARecord(this, `${def.name}-a-record`, {
           zone: hostedZone,
-          recordName: def.domainName,
+          recordName: actualDomainName,
           target: RecordTarget.fromAlias(new CloudFrontTarget(distribution))
         })
       }

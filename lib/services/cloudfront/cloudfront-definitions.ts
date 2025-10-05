@@ -2,7 +2,9 @@ export interface CloudFrontDistributionDefinition {
   name: string
   comment?: string
   domainName?: string
+  domainPrefix?: string // Prefix for dev environment (e.g., 'dev' will create dev.domain.com)
   hostedZoneName?: string
+  requireBasicAuth?: boolean // Enable basic auth for dev environment
   origins: {
     domainName: string
     originId: string
@@ -88,6 +90,8 @@ export const cloudFrontDefinitions: CloudFrontDistributionDefinition[] = [
     name: 'marketplace-distribution',
     comment: 'CloudFront distribution for marketplace static website',
     domainName: 'marketplace.csm.codes',
+    domainPrefix: 'dev',
+    requireBasicAuth: true,
     origins: [
       {
         domainName: '', // Will be set dynamically from S3 bucket website endpoint
