@@ -20,10 +20,14 @@ import {
   CloudFrontDistributionDefinition,
   cloudFrontDefinitions
 } from './cloudfront-definitions'
+import { Certificate, CertificateValidation } from 'aws-cdk-lib/aws-certificatemanager'
+import { HostedZone, ARecord, RecordTarget } from 'aws-cdk-lib/aws-route53'
+import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets'
 
 interface CloudFrontStackProps extends StackProps {
   envName?: string
   imageLambdaUrl?: string
+  s3WebsiteUrls?: { [key: string]: string }
 }
 
 export class CloudFrontStack extends Stack {
@@ -34,14 +38,32 @@ export class CloudFrontStack extends Stack {
 
     const {
       envName,
-      imageLambdaUrl
+      imageLambdaUrl,
+      s3WebsiteUrls
     } = props || {}
 
     cloudFrontDefinitions.forEach((def: CloudFrontDistributionDefinition) => {
+      // Create hosted zone and certificate if domain is specified
+      let certificate
+      let hostedZone
+      if (def.domainName) {
+        // Create a new hosted zone for the subdomain
+        hostedZone = new HostedZone(this, `${def.name}-hosted-zone`, {
+          zoneName: def.domainName,
+          comment: `Hosted zone for ${def.domainName}`
+        })
+
+        // Create certificate with DNS validation
+        certificate = new Certificate(this, `${def.name}-certificate`, {
+          domainName: def.domainName,
+          validation: CertificateValidation.fromDns(hostedZone)
+        })
+      }
+
       // Create origins
       const origins = def.origins.map(origin => {
         let domainName = origin.domainName
-        
+
         // Use provided Lambda URL for image processor
         if (origin.originId === 'image-processor-origin' && imageLambdaUrl) {
           // Extract hostname from Lambda Function URL using CDK intrinsic functions
@@ -50,14 +72,20 @@ export class CloudFrontStack extends Stack {
           domainName = Fn.select(0, Fn.split('/', afterProtocol))
         }
 
+        // Use provided S3 website URL for marketplace
+        if (origin.originId === 'marketplace-origin' && s3WebsiteUrls?.['marketplace.csm.codes']) {
+          domainName = s3WebsiteUrls['marketplace.csm.codes']
+        }
+
         return new HttpOrigin(domainName, {
           httpsPort: origin.customOriginConfig?.httpsPort || 443,
-          protocolPolicy: origin.customOriginConfig?.originProtocolPolicy === 'https-only' 
-            ? OriginProtocolPolicy.HTTPS_ONLY 
+          httpPort: origin.customOriginConfig?.httpPort || 80,
+          protocolPolicy: origin.customOriginConfig?.originProtocolPolicy === 'https-only'
+            ? OriginProtocolPolicy.HTTPS_ONLY
             : origin.customOriginConfig?.originProtocolPolicy === 'http-only'
               ? OriginProtocolPolicy.HTTP_ONLY
               : OriginProtocolPolicy.MATCH_VIEWER,
-          originSslProtocols: origin.customOriginConfig?.originSslProtocols?.map(protocol => 
+          originSslProtocols: origin.customOriginConfig?.originSslProtocols?.map(protocol =>
             protocol === 'TLSv1.2' ? OriginSslPolicy.TLS_V1_2 : OriginSslPolicy.TLS_V1_2
           ) || [OriginSslPolicy.TLS_V1_2]
         })
@@ -84,11 +112,12 @@ export class CloudFrontStack extends Stack {
       // Create distribution
       const distribution = new Distribution(this, def.name, {
         comment: def.comment || `${envName} ${def.name}`,
-        defaultRootObject: undefined,
-        domainNames: undefined, // Add custom domain later if needed
+        defaultRootObject: def.domainName ? 'index.html' : undefined,
+        domainNames: def.domainName ? [def.domainName] : undefined,
+        certificate: certificate,
         enabled: def.enabled ?? true,
-        priceClass: def.priceClass === 'PriceClass_100' 
-          ? PriceClass.PRICE_CLASS_100 
+        priceClass: def.priceClass === 'PriceClass_100'
+          ? PriceClass.PRICE_CLASS_100
           : def.priceClass === 'PriceClass_200'
             ? PriceClass.PRICE_CLASS_200
             : PriceClass.PRICE_CLASS_ALL,
@@ -103,6 +132,15 @@ export class CloudFrontStack extends Stack {
       })
 
       this.distributions[def.name] = distribution
+
+      // Create A record if hosted zone exists
+      if (hostedZone && def.domainName) {
+        new ARecord(this, `${def.name}-a-record`, {
+          zone: hostedZone,
+          recordName: def.domainName,
+          target: RecordTarget.fromAlias(new CloudFrontTarget(distribution))
+        })
+      }
     })
   }
 

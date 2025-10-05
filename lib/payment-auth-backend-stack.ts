@@ -54,10 +54,11 @@ export class PaymentAuthBackendStack extends cdk.Stack {
       tables: ddbTables.tables,
     })
 
-    // Create CloudFront distribution for image processing
+    // Create CloudFront distributions
     new CloudFrontStack(this, `CloudFrontStack-${envName}`, {
       envName,
-      imageLambdaUrl: lambdaStack.imageLambdaUrl
+      imageLambdaUrl: lambdaStack.imageLambdaUrl,
+      s3WebsiteUrls: s3Stack.websiteUrls
     })
 
   }

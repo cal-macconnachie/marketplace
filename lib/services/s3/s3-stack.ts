@@ -5,20 +5,23 @@ import {
   BlockPublicAccess,
   HttpMethods,
   StorageClass,
-  IBucket
+  IBucket,
+  BucketPolicy
 } from 'aws-cdk-lib/aws-s3'
 import {
-  Stack, StackProps, RemovalPolicy, Duration 
+  Stack, StackProps, RemovalPolicy, Duration
 } from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import {
-  S3BucketDefinition, s3Definitions 
+  S3BucketDefinition, s3Definitions
 } from './s3-bucket-definitions'
+import { PolicyStatement, Effect, AnyPrincipal } from 'aws-cdk-lib/aws-iam'
 interface s3StackProps extends StackProps {
   envName?: string
 }
 export class S3Stack extends Stack {
   public readonly buckets: { [bucketName: string]: IBucket } = {}
+  public readonly websiteUrls: { [bucketName: string]: string } = {}
   constructor(scope: Construct, id: string, props?: s3StackProps) {
     super(scope, id, props)
     const {
@@ -69,6 +72,19 @@ export class S3Stack extends Stack {
       }
       bucket = new Bucket(this, def.bucketName, bucketProps)
       this.buckets[def.bucketName] = bucket
+
+      // If website hosting is enabled, add bucket policy for public read access
+      if (def.websiteHosting) {
+        bucket.addToResourcePolicy(new PolicyStatement({
+          effect: Effect.ALLOW,
+          principals: [new AnyPrincipal()],
+          actions: ['s3:GetObject'],
+          resources: [`${bucket.bucketArn}/*`]
+        }))
+
+        // Store the website URL for CloudFront
+        this.websiteUrls[def.bucketName] = bucket.bucketWebsiteDomainName
+      }
     })
   }
 }

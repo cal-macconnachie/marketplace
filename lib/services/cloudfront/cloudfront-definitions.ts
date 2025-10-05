@@ -1,6 +1,8 @@
 export interface CloudFrontDistributionDefinition {
   name: string
   comment?: string
+  domainName?: string
+  hostedZoneName?: string
   origins: {
     domainName: string
     originId: string
@@ -76,6 +78,44 @@ export const cloudFrontDefinitions: CloudFrontDistributionDefinition[] = [
       ttl: {
         defaultTtl: 31536000, // 1 year
         maxTtl: 31536000,
+        minTtl: 0
+      }
+    },
+    priceClass: 'PriceClass_100',
+    enabled: true
+  },
+  {
+    name: 'marketplace-distribution',
+    comment: 'CloudFront distribution for marketplace static website',
+    domainName: 'marketplace.csm.codes',
+    origins: [
+      {
+        domainName: '', // Will be set dynamically from S3 bucket website endpoint
+        originId: 'marketplace-origin',
+        customOriginConfig: {
+          httpPort: 80,
+          httpsPort: 443,
+          originProtocolPolicy: 'http-only',
+          originSslProtocols: ['TLSv1.2']
+        }
+      }
+    ],
+    defaultBehavior: {
+      targetOriginId: 'marketplace-origin',
+      viewerProtocolPolicy: 'redirect-to-https',
+      allowedMethods: [
+        'GET',
+        'HEAD',
+        'OPTIONS'
+      ],
+      cachedMethods: [
+        'GET',
+        'HEAD'
+      ],
+      compress: true,
+      ttl: {
+        defaultTtl: 86400, // 1 day
+        maxTtl: 31536000, // 1 year
         minTtl: 0
       }
     },

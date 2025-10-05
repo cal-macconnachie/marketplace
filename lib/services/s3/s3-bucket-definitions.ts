@@ -60,5 +60,20 @@ export const s3Definitions: S3BucketDefinition[] = [
       }
     ],
     encryption: 'NONE'
+  },
+  {
+    bucketName: 'marketplace.csm.codes',
+    description: 'Static website hosting for marketplace',
+    websiteHosting: {
+      indexDocument: 'index.html',
+      errorDocument: 'error.html'
+    },
+    publicAccessBlock: {
+      blockPublicAcls: false,
+      ignorePublicAcls: false,
+      blockPublicPolicy: false,
+      restrictPublicBuckets: false
+    },
+    encryption: 'NONE'
   }
 ]
