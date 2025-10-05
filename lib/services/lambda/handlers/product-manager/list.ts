@@ -5,6 +5,7 @@ import {
 import { scan } from '../../helpers/dynamo-helpers/scan'
 import { Product } from '../products'
 import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
+import { publicProductFields } from './get'
 
 export const listProducts = async (
   request: APIGatewayProxyEvent
@@ -139,7 +140,12 @@ export const publicListProducts = rateLimitedHandler(async (event: APIGatewayPro
       limit
     })
     if (responseData.items.length > 0) response = {
-      items: responseData.items,
+      items: responseData.items.map(item => {
+        const publicItem: Product = Object.fromEntries(
+          Object.entries(item).filter(([key]) => publicProductFields.includes(key as keyof Product))
+        ) as Product
+        return publicItem
+      }),
       lastEvaluatedKey: responseData.lastEvaluatedKey,
       message: 'Public products retrieved successfully'
     }
