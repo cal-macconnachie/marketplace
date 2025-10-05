@@ -52,7 +52,7 @@ export const createPaymentMethod = async (event: APIGatewayProxyEvent) => {
     if (org == null) {
       throw new Error(`Organization not found: ${user.organization_id}`)
     }
-    // create stripe paymentIntent
+    // create stripe setupIntent
     const stripe = getStripeClient()
     const setupIntent = await stripe.setupIntents.create({
       customer: user.stripe_id,
@@ -62,22 +62,38 @@ export const createPaymentMethod = async (event: APIGatewayProxyEvent) => {
       automatic_payment_methods: {
         enabled: true,
         allow_redirects: 'never'
+      },
+      metadata: {
+        user_id,
+        payment_method_id: id
       }
     })
     if (!setupIntent) {
       throw new Error('Failed to create setup intent')
     }
-    if (setupIntent.status !== 'succeeded') {
+
+    let paymentMethodStatus: 'pending_verification' | 'active' = 'active'
+    let nextAction = null
+
+    if (setupIntent.status === 'requires_action' && setupIntent.next_action) {
+      // 3DS or other verification required
+      paymentMethodStatus = 'pending_verification'
+      nextAction = setupIntent.next_action
+    } else if (setupIntent.status !== 'succeeded') {
       throw new Error(`Setup intent failed with status: ${setupIntent.status}`)
     }
-    await stripe.paymentMethods.attach(id, {
-      customer: user.stripe_id
-    })
-    await stripe.customers.update(user.stripe_id, {
-      invoice_settings: {
-        default_payment_method: id
-      }
-    })
+
+    // Only attach and set as default if verification succeeded immediately
+    if (setupIntent.status === 'succeeded') {
+      await stripe.paymentMethods.attach(id, {
+        customer: user.stripe_id
+      })
+      await stripe.customers.update(user.stripe_id, {
+        invoice_settings: {
+          default_payment_method: id
+        }
+      })
+    }
 
     const paymentMethod = await create<PaymentMethod>({
       tableName: process.env.PAYMENT_METHODS_TABLE!,
@@ -91,11 +107,13 @@ export const createPaymentMethod = async (event: APIGatewayProxyEvent) => {
         last_four_digits,
         brand,
         expiry_month,
-        expiry_year
+        expiry_year,
+        status: paymentMethodStatus
       },
       returnCreated: true
     })
-    if (org.default_payment_method == null) {
+    // Only set as org default if verification succeeded and org has no default
+    if (org.default_payment_method == null && setupIntent.status === 'succeeded') {
       await update<Organization>({
         tableName: process.env.ORGANIZATIONS_TABLE!,
         key: {
@@ -109,9 +127,21 @@ export const createPaymentMethod = async (event: APIGatewayProxyEvent) => {
         }
       })
     }
+
+    const responseBody: any = {
+      ...paymentMethod
+    }
+
+    // Include next_action if verification is required
+    if (nextAction) {
+      responseBody.requires_action = true
+      responseBody.next_action = nextAction
+      responseBody.setup_intent_client_secret = setupIntent.client_secret
+    }
+
     return {
       statusCode: 200,
-      body: JSON.stringify(paymentMethod),
+      body: JSON.stringify(responseBody),
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,

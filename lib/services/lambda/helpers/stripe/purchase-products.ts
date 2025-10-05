@@ -118,6 +118,10 @@ export const purchaseProducts = async ({
   if (paymentMethod == null) {
     throw new Error(`Payment method not found for organization: ${user.organization_id}`)
   }
+  // Validate payment method is active
+  if (paymentMethod.status === 'pending_verification') {
+    throw new Error(`Payment method requires verification. Please complete the verification process before making purchases.`)
+  }
   // Create a new cart for this purchase request
   const cart = await createPurchaseCart({
     userId,

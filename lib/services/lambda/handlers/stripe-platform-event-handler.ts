@@ -17,6 +17,8 @@ import { Organization } from './organizations'
 import { adjustPurchaseAmount } from '../helpers/purchases/adjust-purchase-amount'
 import { queryPurchasedProductsBySubscriptionItem } from '../helpers/carts/query-purchased-products-by-subscription-item'
 import { updatePurchasedProductFromPurchase } from '../helpers/carts/update-purchased-product-from-purchase'
+import { PaymentMethod } from './payment-methods'
+import { User } from './users'
 export interface Cart {
   user_id: string
   id: string
@@ -29,6 +31,133 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
   const type = event.detail.type
 
   switch (type) {
+    case 'setup_intent.succeeded': {
+      // Handle successful payment method verification
+      const setupIntent = event.detail.data.object as Stripe.SetupIntent
+      const userId = setupIntent.metadata?.user_id
+      const paymentMethodId = setupIntent.metadata?.payment_method_id ||
+                             (typeof setupIntent.payment_method === 'string'
+                               ? setupIntent.payment_method
+                               : setupIntent.payment_method?.id)
+
+      if (userId && paymentMethodId) {
+        try {
+          // Get the payment method from DynamoDB
+          const paymentMethod = await get<PaymentMethod>({
+            tableName: process.env.PAYMENT_METHODS_TABLE!,
+            key: {
+              user_id: userId,
+              id: paymentMethodId
+            }
+          })
+
+          if (paymentMethod && paymentMethod.status === 'pending_verification') {
+            const stripe = getStripeClient()
+            const customerId = typeof setupIntent.customer === 'string'
+              ? setupIntent.customer
+              : setupIntent.customer?.id
+
+            if (customerId) {
+              // Attach payment method and set as default
+              await stripe.paymentMethods.attach(paymentMethodId, {
+                customer: customerId
+              })
+              await stripe.customers.update(customerId, {
+                invoice_settings: {
+                  default_payment_method: paymentMethodId
+                }
+              })
+
+              // Update payment method status to active
+              await update<PaymentMethod>({
+                tableName: process.env.PAYMENT_METHODS_TABLE!,
+                key: {
+                  user_id: userId,
+                  id: paymentMethodId
+                },
+                updates: {
+                  status: 'active'
+                }
+              })
+
+              // Get user and org to set as org default if needed
+              const user = await get<User>({
+                tableName: process.env.USERS_TABLE!,
+                key: { id: userId }
+              })
+
+              if (user) {
+                const org = await get<Organization>({
+                  tableName: process.env.ORGANIZATIONS_TABLE!,
+                  key: { id: user.organization_id }
+                })
+
+                if (org && org.default_payment_method == null) {
+                  await update<Organization>({
+                    tableName: process.env.ORGANIZATIONS_TABLE!,
+                    key: { id: org.id },
+                    updates: {
+                      default_payment_method: {
+                        id: paymentMethodId,
+                        user_id: userId
+                      }
+                    }
+                  })
+                }
+              }
+
+              console.log(`Payment method ${paymentMethodId} verified and activated for user ${userId}`)
+            }
+          }
+        } catch (error) {
+          console.error(`Error handling setup_intent.succeeded for payment method ${paymentMethodId}:`, error)
+        }
+      }
+      break
+    }
+
+    case 'setup_intent.setup_failed': {
+      // Handle failed payment method verification
+      const setupIntent = event.detail.data.object as Stripe.SetupIntent
+      const userId = setupIntent.metadata?.user_id
+      const paymentMethodId = setupIntent.metadata?.payment_method_id ||
+                             (typeof setupIntent.payment_method === 'string'
+                               ? setupIntent.payment_method
+                               : setupIntent.payment_method?.id)
+
+      if (userId && paymentMethodId) {
+        try {
+          // Get the payment method from DynamoDB
+          const paymentMethod = await get<PaymentMethod>({
+            tableName: process.env.PAYMENT_METHODS_TABLE!,
+            key: {
+              user_id: userId,
+              id: paymentMethodId
+            }
+          })
+
+          if (paymentMethod && paymentMethod.status === 'pending_verification') {
+            // Update payment method status to failed
+            await update<PaymentMethod>({
+              tableName: process.env.PAYMENT_METHODS_TABLE!,
+              key: {
+                user_id: userId,
+                id: paymentMethodId
+              },
+              updates: {
+                status: 'failed'
+              }
+            })
+
+            console.log(`Payment method ${paymentMethodId} verification failed for user ${userId}. Reason: ${setupIntent.last_setup_error?.message || 'Unknown'}`)
+          }
+        } catch (error) {
+          console.error(`Error handling setup_intent.setup_failed for payment method ${paymentMethodId}:`, error)
+        }
+      }
+      break
+    }
+
     case 'payment_intent.succeeded': {
       // one time payments
       const paymentIntent = event.detail.data.object as Stripe.PaymentIntent

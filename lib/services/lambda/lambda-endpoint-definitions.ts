@@ -764,6 +764,8 @@ export const lambdaEndpointDefinitions: LambdaEndpointDefinition[] = [
         source: [{ prefix: 'aws.partner/stripe.com' }],
         // Platform account events for destination charges
         'detail-type': [
+          'setup_intent.succeeded',
+          'setup_intent.setup_failed',
           'payment_intent.succeeded',
           'payment_intent.payment_failed',
           'transfer.created',

@@ -6,4 +6,5 @@ export interface PaymentMethod {
   expiry_month: number
   expiry_year: number
   archived?: boolean
+  status?: 'pending_verification' | 'active' | 'failed'
 }
