@@ -38,10 +38,16 @@ export function createNativeBundlingConfig(options?: {
   additionalNodeModules?: string[]
 }): BundlingOptions {
   const baseConfig = { ...sharpBundlingConfig }
-  
+
+  // Always include source-map-support for Lambda functions
+  baseConfig.nodeModules = [
+    ...(baseConfig.nodeModules || []),
+    'source-map-support'
+  ]
+
   if (options?.additionalNodeModules) {
     baseConfig.nodeModules = [
-      ...(baseConfig.nodeModules || []),
+      ...baseConfig.nodeModules,
       ...options.additionalNodeModules
     ]
   }
