@@ -137,7 +137,12 @@ export const purchaseProducts = async ({
   }, {})
   const productsToPurchase = productKeys.map((key) => productsHash[`${key.group_id}:${key.id}`]).filter(Boolean)
   const oneTimeProduct = productsToPurchase.filter((prod) => !Boolean(prod.default_price_data.recurring))
-  const subscriptionProducts = productsToPurchase.filter((prod) => Boolean(prod.default_price_data.recurring))
+  const meteredSubscriptionProducts = productsToPurchase.filter((prod) =>
+    Boolean(prod.default_price_data.recurring) && prod.default_price_data.recurring?.usage_type === 'metered'
+  )
+  const nonMeteredSubscriptionProducts = productsToPurchase.filter((prod) =>
+    Boolean(prod.default_price_data.recurring) && prod.default_price_data.recurring?.usage_type !== 'metered'
+  )
 
   // Batch fetch all unique seller organizations upfront
   const uniqueSellerOrgIds = [...new Set(productsToPurchase.map(p => p.organization_id))]
@@ -186,9 +191,11 @@ export const purchaseProducts = async ({
       console.error(`Error creating one-time payment for product ${product.id}:`, error)
     }
   }
+
+  // Handle non-metered subscription products (can be combined in one cart)
   try {
-    if (subscriptionProducts.length !== 0) {
-      for (const product of subscriptionProducts) {
+    if (nonMeteredSubscriptionProducts.length !== 0) {
+      for (const product of nonMeteredSubscriptionProducts) {
         const subscriptionResponse = await createSubscriptionPurchase({
           promotionCode: promoCode,
           couponId: couponId,
@@ -206,8 +213,46 @@ export const purchaseProducts = async ({
       }
     }
   } catch (error) {
-    console.error(`Error managing subscription for user ${user.id}:`, error)
+    console.error(`Error managing non-metered subscription for user ${user.id}:`, error)
   }
+
+  // Set purchases for the main cart (one-time + non-metered subscriptions)
   await setCartPurchases({ purchases: purchaseDataList })
-  return { cartId }
+
+  // Handle metered subscription products - each gets its own separate cart
+  const meteredCartIds: string[] = []
+  for (const product of meteredSubscriptionProducts) {
+    try {
+      // Create a new cart specifically for this metered subscription
+      const meteredCart = await createPurchaseCart({
+        userId,
+        purchases: {},
+        paymentMethodId: paymentMethod.id
+      })
+
+      const meteredSubscriptionResponse = await createSubscriptionPurchase({
+        promotionCode: promoCode,
+        couponId: couponId,
+        paymentMethodId: paymentMethod.id,
+        product,
+        user,
+        organization,
+        sellerOrganization: sellerOrgsHash[product.organization_id],
+        ipAddress,
+        cartId: meteredCart.id
+      })
+
+      if (meteredSubscriptionResponse) {
+        await setCartPurchases({ purchases: [meteredSubscriptionResponse] })
+        meteredCartIds.push(meteredCart.id)
+      }
+    } catch (error) {
+      console.error(`Error managing metered subscription for user ${user.id}, product ${product.id}:`, error)
+    }
+  }
+
+  return {
+    cartId,
+    meteredCartIds: meteredCartIds.length > 0 ? meteredCartIds : undefined
+  }
 }

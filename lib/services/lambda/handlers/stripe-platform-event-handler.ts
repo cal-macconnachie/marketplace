@@ -19,6 +19,7 @@ import { queryPurchasedProductsBySubscriptionItem } from '../helpers/carts/query
 import { updatePurchasedProductFromPurchase } from '../helpers/carts/update-purchased-product-from-purchase'
 import { PaymentMethod } from './payment-methods'
 import { User } from './users'
+import { createPurchaseCart } from '../helpers/create-purchase-cart'
 export interface Cart {
   user_id: string
   id: string
@@ -404,6 +405,8 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
             }, {} as { [key: string]: Product })
 
             const newPurchasedProductsToCreate: PurchasedProduct[] = []
+            // Track all new purchases by subscription item to create carts
+            const purchasesBySubscriptionItem: { [subscriptionItemId: string]: string[] } = {}
 
             for (const item of invoice.lines.data) {
               const subscriptionItemId = item.parent?.subscription_item_details?.subscription_item
@@ -494,6 +497,12 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                             record: newPurchase
                           })
 
+                          // Track new purchase for cart creation
+                          if (!purchasesBySubscriptionItem[subscriptionItemId]) {
+                            purchasesBySubscriptionItem[subscriptionItemId] = []
+                          }
+                          purchasesBySubscriptionItem[subscriptionItemId].push(newPurchase.id)
+
                           // Reset the purchased product amount to zero and update purchase_id for next period
                           await update({
                             tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
@@ -549,6 +558,12 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                         record: newPurchase
                       })
 
+                      // Track new purchase for cart creation
+                      if (!purchasesBySubscriptionItem[subscriptionItemId]) {
+                        purchasesBySubscriptionItem[subscriptionItemId] = []
+                      }
+                      purchasesBySubscriptionItem[subscriptionItemId].push(newPurchase.id)
+
                       // Update existing purchased product if found, otherwise create new
                       const existingPurchasedProduct = existingPurchasedProducts[i]
                       if (existingPurchasedProduct) {
@@ -586,6 +601,33 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                 record: product
               }))
               await Promise.all(createPromises)
+            }
+
+            // Create carts for all new purchases (recurring billing)
+            for (const [
+              subscriptionItemId,
+              purchaseIds
+            ] of Object.entries(purchasesBySubscriptionItem)) {
+              if (purchaseIds.length > 0) {
+                try {
+                  const purchases = purchaseIds.reduce((acc, purchaseId) => {
+                    acc[purchaseId] = 'completed'
+                    return acc
+                  }, {} as { [purchaseId: string]: 'completed' | 'pending' | 'failed' })
+
+                  const cart = await createPurchaseCart({
+                    userId: user.id,
+                    purchases,
+                    paymentMethodId: typeof subscription.default_payment_method === 'string'
+                      ? subscription.default_payment_method
+                      : subscription.default_payment_method?.id || ''
+                  })
+
+                  console.log(`Created cart ${cart.id} for ${purchaseIds.length} recurring billing purchases`)
+                } catch (error) {
+                  console.error(`Failed to create cart for subscription item ${subscriptionItemId}:`, error)
+                }
+              }
             }
           }
 
@@ -709,6 +751,8 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
             }
           } else {
             // Recurring billing (subscription_cycle) - create new failed purchases
+            // Track all new failed purchases by subscription item to create carts
+            const purchasesBySubscriptionItem: { [subscriptionItemId: string]: string[] } = {}
             // Get all unique products from invoice line items
             const productKeys: Array<{ id: string, group_id: string }> = []
             for (const item of invoice.lines.data) {
@@ -820,8 +864,41 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                         },
                         record: newPurchase
                       })
+
+                      // Track new failed purchase for cart creation
+                      if (!purchasesBySubscriptionItem[subscriptionItemId]) {
+                        purchasesBySubscriptionItem[subscriptionItemId] = []
+                      }
+                      purchasesBySubscriptionItem[subscriptionItemId].push(newPurchase.id)
                     }
                   }
+                }
+              }
+            }
+
+            // Create carts for all failed purchases (recurring billing)
+            for (const [
+              subscriptionItemId,
+              purchaseIds
+            ] of Object.entries(purchasesBySubscriptionItem)) {
+              if (purchaseIds.length > 0) {
+                try {
+                  const purchases = purchaseIds.reduce((acc, purchaseId) => {
+                    acc[purchaseId] = 'failed'
+                    return acc
+                  }, {} as { [purchaseId: string]: 'completed' | 'pending' | 'failed' })
+
+                  const cart = await createPurchaseCart({
+                    userId: user.id,
+                    purchases,
+                    paymentMethodId: typeof subscription.default_payment_method === 'string'
+                      ? subscription.default_payment_method
+                      : subscription.default_payment_method?.id || ''
+                  })
+
+                  console.log(`Created cart ${cart.id} for ${purchaseIds.length} failed recurring billing purchases`)
+                } catch (error) {
+                  console.error(`Failed to create cart for subscription item ${subscriptionItemId}:`, error)
                 }
               }
             }
