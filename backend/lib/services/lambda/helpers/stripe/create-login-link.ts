@@ -1,8 +1,5 @@
 import { getStripeClient } from './stripe-client'
-
-export interface CreateLoginLinkParams {
-  connectedAccountId: string
-}
+import type { CreateLoginLinkParams } from '@marketplace/types'
 
 export const createLoginLink = async ({ connectedAccountId }: CreateLoginLinkParams) => {
   const stripe = getStripeClient()

@@ -1,6 +1,7 @@
-import { Product } from '../../handlers/products'
+import { Product } from '@marketplace/types'
 import { update } from '../dynamo-helpers/update'
 import { getStripeClient } from './stripe-client'
+import { productsTableName } from '@marketplace/constants'
 
 export const getProductPriceId = async (product: Partial<Product>): Promise<string> => {
   if (product.price_id) return product.price_id
@@ -14,7 +15,7 @@ export const getProductPriceId = async (product: Partial<Product>): Promise<stri
   const finalPrice = typeof price === 'string' ? price : price.id
   if (product.group_id) {
     await update<Product>({
-      tableName: process.env.PRODUCTS_TABLE!,
+      tableName: productsTableName!,
       key: {
         group_id: product.group_id,
         id: product.id

@@ -1,7 +1,8 @@
+import { purchasedProductsTableName } from '@marketplace/constants'
+import { PurchasedProduct } from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { PurchasedProduct } from '../products'
-import { query } from '../../helpers/dynamo-helpers/query'
 import { get } from '../../helpers/dynamo-helpers/get'
+import { query } from '../../helpers/dynamo-helpers/query'
 
 export const getPurchasedProducts = async (event: APIGatewayProxyEvent) => {
   try {
@@ -22,7 +23,7 @@ export const getPurchasedProducts = async (event: APIGatewayProxyEvent) => {
       if (userId != null) {
         // get by user and id
         const res = await query<PurchasedProduct>({
-          tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+          tableName: purchasedProductsTableName!,
           indexName: 'user_id-index',
           keyConditionExpression: 'user_id = :userId and id = :id',
           expressionAttributeValues: {
@@ -33,7 +34,7 @@ export const getPurchasedProducts = async (event: APIGatewayProxyEvent) => {
         purchasedProduct = res.items?.[0]
       } else if (organizationId != null) {
         purchasedProduct = await get<PurchasedProduct>({
-          tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+          tableName: purchasedProductsTableName!,
           key: {
             organization_id: organizationId,
             id
@@ -41,7 +42,7 @@ export const getPurchasedProducts = async (event: APIGatewayProxyEvent) => {
         })
       } else if (productId != null) {
         const res = await query<PurchasedProduct>({
-          tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+          tableName: purchasedProductsTableName!,
           indexName: 'product_id-index',
           keyConditionExpression: 'product_id = :productId and id = :id',
           expressionAttributeValues: {
@@ -103,7 +104,7 @@ export const getPurchasedProducts = async (event: APIGatewayProxyEvent) => {
     if (organizationId != null) {
       // get all by organization
       const res = await query<PurchasedProduct>({
-        tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+        tableName: purchasedProductsTableName!,
         keyConditionExpression: 'organization_id = :organizationId',
         expressionAttributeValues: {
           ':organizationId': organizationId,
@@ -112,14 +113,14 @@ export const getPurchasedProducts = async (event: APIGatewayProxyEvent) => {
         ...(filterExpression != null ? { filterExpression } : {}),
         limit: limit,
         exclusiveStartKey: lastEvaluatedKey,
-        scanIndexForward: sortOrder === 'asc' ? true : false,
+        sortOrder
       })
       purchasedProducts = res.items
     }
     if (userId != null) {
       // get all by user
       const res = await query<PurchasedProduct>({
-        tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+        tableName: purchasedProductsTableName!,
         indexName: 'user_id-index',
         keyConditionExpression: 'user_id = :userId',
         expressionAttributeValues: {
@@ -129,14 +130,14 @@ export const getPurchasedProducts = async (event: APIGatewayProxyEvent) => {
         ...(filterExpression != null ? { filterExpression } : {}),
         limit: limit,
         exclusiveStartKey: lastEvaluatedKey,
-        scanIndexForward: sortOrder === 'asc' ? true : false,
+        sortOrder
       })
       purchasedProducts = res.items
     }
     if (productId != null) {
       // get all by product
       const res = await query<PurchasedProduct>({
-        tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+        tableName: purchasedProductsTableName!,
         indexName: 'product_id-index',
         keyConditionExpression: 'product_id = :productId',
         expressionAttributeValues: {
@@ -146,7 +147,7 @@ export const getPurchasedProducts = async (event: APIGatewayProxyEvent) => {
         ...(filterExpression != null ? { filterExpression } : {}),
         limit: limit,
         exclusiveStartKey: lastEvaluatedKey,
-        scanIndexForward: sortOrder === 'asc' ? true : false,
+        sortOrder
       })
       purchasedProducts = res.items
     }

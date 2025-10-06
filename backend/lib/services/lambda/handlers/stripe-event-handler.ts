@@ -1,8 +1,9 @@
+import { organizationsTableName } from '@marketplace/constants'
+import { Organization } from '@marketplace/types'
 import { EventBridgeEvent } from 'aws-lambda'
 import Stripe from 'stripe'
-import { update } from '../helpers/dynamo-helpers/update'
-import { Organization } from './organizations'
 import { query } from '../helpers/dynamo-helpers/query'
+import { update } from '../helpers/dynamo-helpers/update'
 
 export const stripeEventHandler = async (event: EventBridgeEvent<'Stripe Event', Stripe.Event>) => {
   const type = event.detail.type
@@ -14,7 +15,7 @@ export const stripeEventHandler = async (event: EventBridgeEvent<'Stripe Event',
       
       // Find user by stripe_account_id using scan (until GSI is deployed)
       const scanResult = await query<Organization>({
-        tableName: process.env.ORGANIZATIONS_TABLE!,
+        tableName: organizationsTableName!,
         indexName: 'stripe_account_id-index',
         keyConditionExpression: 'stripe_account_id = :accountId',
         expressionAttributeValues: {
@@ -34,7 +35,7 @@ export const stripeEventHandler = async (event: EventBridgeEvent<'Stripe Event',
       
       // Update user with latest account status
       await update<Organization>({
-        tableName: process.env.ORGANIZATIONS_TABLE!,
+        tableName: organizationsTableName!,
         key: { id: org.id },
         updates: {
           charges_enabled: account.charges_enabled,

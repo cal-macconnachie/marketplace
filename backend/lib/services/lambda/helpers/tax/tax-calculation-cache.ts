@@ -1,16 +1,10 @@
-import { get } from '../dynamo-helpers/get'
+import type {
+  Organization, TaxCalculationCache, User
+} from '@marketplace/types'
+import { taxCalculationsTableName } from '@marketplace/constants'
 import { create } from '../dynamo-helpers/create'
-import { User } from '../../handlers/users'
-import { Organization } from '../../handlers/organizations'
+import { get } from '../dynamo-helpers/get'
 import { convertAddressToCodes } from './address-code-converter'
-
-export interface TaxCalculationCache {
-  location: string
-  tax_code: string
-  tax_rate: number
-  expires_at: number
-  calculated_at: number
-}
 
 // Helper function to generate a location-based cache key
 export function generateLocationKey(user?: User, ipAddress?: string): string {
@@ -68,7 +62,7 @@ export async function getCachedTaxCalculation(
 ): Promise<TaxCalculationCache | null> {
   try {
     const cachedTax = await get<TaxCalculationCache>({
-      tableName: process.env.TAX_CALCULATIONS_TABLE!,
+      tableName: taxCalculationsTableName!,
       key: {
         location,
         tax_code: taxCacheKey
@@ -96,7 +90,7 @@ export async function cacheTaxCalculation(
   try {
     const expiresAt = Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
     await create({
-      tableName: process.env.TAX_CALCULATIONS_TABLE!,
+      tableName: taxCalculationsTableName!,
       key: {
         location,
         tax_code: taxCacheKey

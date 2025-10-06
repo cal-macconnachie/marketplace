@@ -2,7 +2,7 @@ import Stripe from 'stripe'
 import { getStripeClient } from '../../helpers/stripe/stripe-client'
 import {
   BillingMeter 
-} from './types'
+} from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 
 export const deactivateMeter = async (

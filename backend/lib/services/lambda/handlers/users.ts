@@ -1,11 +1,14 @@
-import { DynamoDBStreamEvent } from 'aws-lambda'
-import { PurchasedProduct } from "./products"
-import { unmarshall } from '@aws-sdk/util-dynamodb'
 import { AttributeValue } from '@aws-sdk/client-dynamodb'
-import Stripe from 'stripe'
+import { unmarshall } from '@aws-sdk/util-dynamodb'
+import { usersTableName } from '@marketplace/constants'
+import {
+  User
+} from "@marketplace/types"
+import { DynamoDBStreamEvent } from 'aws-lambda'
 import isEqual from 'lodash.isequal'
-import { getStripeClient } from '../helpers/stripe/stripe-client'
+import Stripe from 'stripe'
 import { update } from '../helpers/dynamo-helpers/update'
+import { getStripeClient } from '../helpers/stripe/stripe-client'
 import { convertAddressToCodes } from '../helpers/tax/address-code-converter'
 
 const toStripeAddress = (address?: User['address']): Stripe.AddressParam | undefined => {
@@ -33,42 +36,6 @@ const toStripeAddress = (address?: User['address']): Stripe.AddressParam | undef
     country,
     postal_code: address.postal_code
   }
-}
-
-export interface User {
-  // basic fields
-  id: string
-  organization_id: string
-  is_organization_admin: boolean
-  given_name?: string
-  family_name?: string
-  name?: string // Full name, can be a combination of given_name and family_name
-  cognito_id?: string
-  email?: string
-  phone_number?: string
-  social_provider?: string
-  address?: {
-    line_1: string
-    line_2?: string
-    state: string
-    city: string
-    country: string
-    postal_code: string
-  }
-  ip_address?: string
-
-  // stripe fields
-  stripe_id?: string
-  stripe_customer_error?: string
-
-  // purchases
-  products?: PurchasedProduct[]
-  in_good_standing_until?: number // Timestamp until which the user is in good standing
-  product_groups?: string[],
-
-  // ADMIN
-  is_internal_admin?: boolean
-  receipt_opt_out?: boolean
 }
 
 export const users = async (event: DynamoDBStreamEvent) => {
@@ -122,7 +89,7 @@ export const users = async (event: DynamoDBStreamEvent) => {
       }
       if (customer) {
         await update<User>({
-          tableName: process.env.USERS_TABLE!,
+          tableName: usersTableName!,
           key: { id: newUser.id },
           updates: {
             stripe_id: customer.id,
@@ -131,7 +98,7 @@ export const users = async (event: DynamoDBStreamEvent) => {
         })
       } else {
         await update<User>({
-          tableName: process.env.USERS_TABLE!,
+          tableName: usersTableName!,
           key: { id: newUser.id },
           updates: {
             stripe_customer_error: error?.message ?? 'Unknown error check logs'
@@ -166,7 +133,7 @@ export const users = async (event: DynamoDBStreamEvent) => {
       }
       if (error) {
         await update<User>({
-          tableName: process.env.USERS_TABLE!,
+          tableName: usersTableName!,
           key: { id: newUser.id },
           updates: {
             stripe_customer_error: error?.message

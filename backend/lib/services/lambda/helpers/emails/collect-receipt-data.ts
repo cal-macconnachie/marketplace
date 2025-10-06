@@ -1,101 +1,17 @@
-import { get } from "../dynamo-helpers/get"
-import { Organization } from "../../handlers/organizations"
-import { PaymentMethod } from "../../handlers/payment-methods"
-import { Product } from "../../handlers/products"
-import { Purchase } from "../../handlers/purchases"
-import { User } from "../../handlers/users"
-import { Cart } from '../../handlers/stripe-platform-event-handler'
+import {
+  organizationsTableName, paymentMethodsTableName, productsTableName, purchaseCartsTableName, usersTableName
+} from '@marketplace/constants'
+import {
+  Cart,
+  Organization,
+  PaymentMethod, Product,
+  Purchase,
+  ReceiptEmailContext,
+  ReceiptLineItem, ReceiptSummary,
+  User
+} from '@marketplace/types'
 import { getAllPurchasesForCart } from '../carts/get-all-purchases-for-cart'
-
-export interface ReceiptLineItem {
-  product_id: string
-  product_name: string
-  product_description?: string
-  quantity: number
-  unit_price_formatted: string
-  subtotal_formatted: string
-  is_subscription?: boolean
-  interval_text?: string
-  seller_id?: string
-  seller_name?: string
-}
-
-export interface ReceiptSummary {
-  subtotal_formatted: string
-  discounts_formatted?: string
-  fees_formatted?: string
-  tax_formatted?: string
-  total_formatted: string
-}
-
-export interface ReceiptEmailContext {
-  preheader: string
-  receipt_number: string
-  purchase_datetime: string
-  currency: string
-  header_brand?: string
-  footer_brand?: string
-  is_multi_seller?: boolean
-
-  organization_name?: string // kept for backward compatibility when single seller
-  organization_email?: string // kept for backward compatibility when single seller
-  organization_logo_url?: string
-  organization_address_line_1?: string
-  organization_address_line_2?: string
-  organization_city?: string
-  organization_state?: string
-  organization_postal_code?: string
-  organization_country?: string
-  support_url?: string
-
-  customer_name: string
-  customer_email: string
-
-  payment_method_brand?: string
-  payment_method_last4?: string
-  payment_method_expiry_month?: number
-  payment_method_expiry_year?: number
-
-  line_items: ReceiptLineItem[]
-  summary: ReceiptSummary
-  notes?: string
-  sellers?: Array<{
-    id: string
-    name?: string
-    email?: string
-    address_line_1?: string
-    address_line_2?: string
-    city?: string
-    state?: string
-    postal_code?: string
-    country?: string
-  }>
-  seller_groups?: Array<{
-    seller_id: string
-    seller_name?: string
-    seller_email?: string
-    seller_phone?: string
-    address_line_1?: string
-    address_line_2?: string
-    city?: string
-    state?: string
-    postal_code?: string
-    country?: string
-    items: ReceiptLineItem[]
-    subtotal_formatted: string
-    tax_formatted?: string
-    fees_formatted?: string
-    total_formatted: string
-    support_url?: string
-    statement_descriptor?: string
-  }>
-  opt_out?: boolean // If true, user has opted out of receipt emails
-}
-
-type ProductsPurchasedEventDetail = {
-  userId: string
-  cartId: string
-}
+import { get } from "../dynamo-helpers/get"
 
 const formatCurrency = (amountMinor: number, currency: string): string => {
   // amountMinor is in smallest unit (e.g., cents)
@@ -137,7 +53,10 @@ const intervalTextFromProduct = (product?: Product): string | undefined => {
 }
 
 export const collectReceiptEmailData = async (
-  detail: ProductsPurchasedEventDetail
+  detail: {
+    userId: string
+    cartId: string
+  }
 ): Promise<ReceiptEmailContext> => {
   const {
     userId,
@@ -151,10 +70,10 @@ export const collectReceiptEmailData = async (
     purchases
   ] = await Promise.all([
     get<User>({
-      tableName: process.env.USERS_TABLE!, key: { id: userId } 
+      tableName: usersTableName!, key: { id: userId } 
     }),
     get<Cart>({
-      tableName: process.env.PURCHASE_CARTS_TABLE!,
+      tableName: purchaseCartsTableName!,
       key: {
         user_id: userId, id: cartId
       }
@@ -164,7 +83,7 @@ export const collectReceiptEmailData = async (
   if (!cart) throw new Error(`Cart not found: ${cartId}`)
 
   const paymentMethod = await get<PaymentMethod>({
-    tableName: process.env.PAYMENT_METHODS_TABLE!,
+    tableName: paymentMethodsTableName!,
     key: {
       user_id: userId, id: cart.payment_method_id
     }
@@ -183,7 +102,7 @@ export const collectReceiptEmailData = async (
       line_items: [],
       summary: {
         subtotal_formatted: '',
-        total_formatted: ''
+        total_formatted: '',
       },
       opt_out: true
     }
@@ -205,7 +124,7 @@ export const collectReceiptEmailData = async (
   const productRecords = (await Promise.all(
     Object.values(productKeyById).map((pp) =>
       get<Product>({
-        tableName: process.env.PRODUCTS_TABLE!, key: {
+        tableName: productsTableName!, key: {
           group_id: pp.group_id, id: pp.id 
         } 
       })
@@ -215,7 +134,7 @@ export const collectReceiptEmailData = async (
   const organizations = (await Promise.all(
     organizationIds.map((id) =>
       get<Organization>({
-        tableName: process.env.ORGANIZATIONS_TABLE!, key: { id }
+        tableName: organizationsTableName!, key: { id }
       })
     )
   )).filter(Boolean) as Organization[]
@@ -277,7 +196,7 @@ export const collectReceiptEmailData = async (
 
     const name = relatedPurchases[0]?.product_name || productById[productId]?.name || productId
     const desc = productById[productId]?.description
-    const isSub = relatedPurchases.some((p) => p.is_subscription) || Boolean(productById[productId]?.default_price_data?.recurring)
+    const isSub = relatedPurchases.some((p) => p.type === 'subscription') || Boolean(productById[productId]?.default_price_data?.recurring)
     const interval = intervalTextFromProduct(productById[productId])
     const sellerId = productById[productId]?.organization_id
     const sellerName = sellerId ? orgById[sellerId]?.name : undefined

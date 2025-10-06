@@ -1,5 +1,6 @@
-import { update } from '../dynamo-helpers/update'
+import { rateLimitsTableName } from '@marketplace/constants'
 import { get } from '../dynamo-helpers/get'
+import { update } from '../dynamo-helpers/update'
 
 interface RateLimitRecord {
   key: string
@@ -26,14 +27,14 @@ export const checkRateLimit = async (
   try {
     // Try to get existing record
     const existing = await get<RateLimitRecord>({
-      tableName: process.env.RATE_LIMITS_TABLE!,
+      tableName: rateLimitsTableName!,
       key: { key }
     })
 
     if (!existing || existing.window_start < windowStart) {
       // No existing record or it's from a previous window - create/update with count 1
       await update<RateLimitRecord>({
-        tableName: process.env.RATE_LIMITS_TABLE!,
+        tableName: rateLimitsTableName!,
         key: { key },
         updates: {
           count: 1,
@@ -61,7 +62,7 @@ export const checkRateLimit = async (
     // Increment the count
     const newCount = existing.count + 1
     await update<RateLimitRecord>({
-      tableName: process.env.RATE_LIMITS_TABLE!,
+      tableName: rateLimitsTableName!,
       key: { key },
       updates: {
         count: newCount,

@@ -1,9 +1,10 @@
 import {
-  DynamoDBClient, PutItemCommand 
+  DynamoDBClient, PutItemCommand
 } from '@aws-sdk/client-dynamodb'
 import { marshall } from '@aws-sdk/util-dynamodb'
+import { Cart } from '@marketplace/types'
 import { randomBytes } from 'crypto'
-import { Cart } from '../handlers/stripe-platform-event-handler'
+import { purchaseCartsTableName } from '@marketplace/constants'
 
 const dynamo = new DynamoDBClient({})
 
@@ -43,7 +44,7 @@ export async function createPurchaseCart(params: {
     userId,
     purchases,
     maxAttempts = 5,
-    tableName = process.env.PURCHASE_CARTS_TABLE!,
+    tableName = purchaseCartsTableName!,
     idLength = 10,
     paymentMethodId
   } = params

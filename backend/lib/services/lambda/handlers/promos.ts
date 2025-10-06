@@ -1,52 +1,11 @@
 import { AttributeValue } from '@aws-sdk/client-dynamodb'
 import { unmarshall } from '@aws-sdk/util-dynamodb'
+import { Promo } from '@marketplace/types'
 import { DynamoDBStreamEvent } from 'aws-lambda'
-import { update } from '../helpers/dynamo-helpers/update'
 import Stripe from 'stripe'
+import { promosTableName } from '@marketplace/constants'
+import { update } from '../helpers/dynamo-helpers/update'
 import { getStripeClient } from '../helpers/stripe/stripe-client'
-
-export interface Promo {
-  type: 'coupon' | 'promotion_code'
-  id: string
-  persist_update?: boolean
-  
-  // Common fields
-  metadata?: Record<string, string>
-  created?: number
-  livemode?: boolean
-  
-  // Coupon-specific fields
-  name?: string
-  percent_off?: number | null
-  amount_off?: number | null
-  currency?: string | null
-  duration?: 'once' | 'repeating' | 'forever'
-  duration_in_months?: number | null
-  max_redemptions?: number | null
-  redeem_by?: number | null
-  times_redeemed?: number
-  valid?: boolean
-  applies_to?: {
-    products?: string[]
-  }
-  stripeId?: string // Stripe ID for the coupon if applicable
-  // Promotion code-specific fields
-  code?: string
-  coupon?: string | Stripe.Coupon
-  customer?: string | null
-  expires_at?: number | null
-  active?: boolean
-  restrictions?: {
-    first_time_transaction?: boolean
-    minimum_amount?: number | null
-    minimum_amount_currency?: string | null
-  }
-  
-  // System fields
-  error?: string
-  last_processed_at?: string
-  account_id?: string
-}
 
 const getChangedAttributes = (
   oldRecord: Promo | undefined,
@@ -243,7 +202,7 @@ export const promos = async (event: DynamoDBStreamEvent) => {
       throw new Error('STRIPE_SECRET_KEY environment variable is not set')
     }
     
-    if (process.env.PROMOS_TABLE == null || process.env.PROMOS_TABLE === '') {
+    if (promosTableName == null || promosTableName === '') {
       throw new Error('PROMOS_TABLE environment variable is not set')
     }
     
@@ -341,7 +300,7 @@ export const promos = async (event: DynamoDBStreamEvent) => {
                 console.error(`Error processing INSERT for promo ${promoId}:`, error)
                 
                 await updateDatabaseRecord(
-                  process.env.PROMOS_TABLE!,
+                  promosTableName!,
                   promoType,
                   promoId,
                   {
@@ -384,7 +343,7 @@ export const promos = async (event: DynamoDBStreamEvent) => {
                 console.error(`Error processing MODIFY for promo ${promoId}:`, error)
                 
                 await updateDatabaseRecord(
-                  process.env.PROMOS_TABLE!,
+                  promosTableName!,
                   promoType,
                   promoId,
                   {
@@ -481,7 +440,7 @@ export const promos = async (event: DynamoDBStreamEvent) => {
           }
           
           await updateDatabaseRecord(
-            process.env.PROMOS_TABLE!,
+            promosTableName!,
             newRec.type,
             newRec.id,
             essentialUpdates
@@ -493,7 +452,7 @@ export const promos = async (event: DynamoDBStreamEvent) => {
         if (newRec) {
           const errorMessage = error instanceof Error ? error.message : 'Unexpected error'
           await updateDatabaseRecord(
-            process.env.PROMOS_TABLE!,
+            promosTableName!,
             promoType,
             promoId,
             {

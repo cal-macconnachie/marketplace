@@ -266,28 +266,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { publicApi, type Product } from '@/services/api'
+import { publicApi } from '@/services/api'
 import { useAppStore } from '@/stores/app'
-import ProductsList from './ui/ProductsList.vue'
-import BaseButton from './ui/BaseButton.vue'
+import type { CartItem, Product } from '@marketplace/types'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import SignIn from './SignIn.vue'
 import BaseAlert from './ui/BaseAlert.vue'
+import BaseButton from './ui/BaseButton.vue'
 import BaseModal from './ui/BaseModal.vue'
 import LoadingSpinner from './ui/LoadingSpinner.vue'
-import SignIn from './SignIn.vue'
+import PriceDisplay from './ui/PriceDisplay.vue'
+import ProductCard from './ui/ProductCard.vue'
+import ProductsList from './ui/ProductsList.vue'
+import QuantitySeletor from './ui/QuantitySeletor.vue'
 import ThemeToggle from './ui/ThemeToggle.vue'
 import UserAvatar from './ui/UserAvatar.vue'
-import ProductCard from './ui/ProductCard.vue'
-import QuantitySeletor from './ui/QuantitySeletor.vue'
-import PriceDisplay from './ui/PriceDisplay.vue'
-
-interface CartItem {
-  groupId: string
-  productId: string
-  quantity: number
-  organizationId: string
-}
 
 const router = useRouter()
 const appStore = useAppStore()

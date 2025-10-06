@@ -1,34 +1,16 @@
 import { getStripeClient } from '../stripe/stripe-client'
-import { Product } from '../../handlers/products'
-import { Organization } from '../../handlers/organizations'
-import { 
-  generateTaxCacheKey, 
-  getCachedTaxCalculation, 
-  cacheTaxCalculation 
+import type {
+  Organization, Product 
+} from '@marketplace/types'
+import {
+  generateTaxCacheKey,
+  getCachedTaxCalculation,
+  cacheTaxCalculation
 } from './tax-calculation-cache'
 import { calculateTaxWithStripe } from './stripe-tax-calculation'
-
-export interface ItemsInterface {
-  group_id: string
-  id: string
-  organization_id: string
-  quantity: number
-}
-
-export interface TaxCalculationResult {
-  items: Array<{
-    id: string
-    group_id: string
-    organization_id: string
-    quantity: number
-    amount: number
-    tax_amount: number
-    tax_rate: number
-    currency: string
-  }>
-  total_amount: number
-  total_tax: number
-}
+import type {
+  ItemsInterface, TaxCalculationResult 
+} from '@marketplace/types'
 
 // Main tax calculation function with caching
 export async function calculateTaxesWithCaching(
@@ -93,7 +75,7 @@ export async function calculateTaxesWithCaching(
           stripeAccountId: sellerOrganization?.stripe_account_id
         })
         
-        taxRate = taxCalculation.tax_rate
+        taxRate = taxCalculation.tax_rate ?? 0
         const totalWithTax = Math.round(itemAmount * (1 + taxRate / 100))
         taxAmount = totalWithTax - itemAmount
 
@@ -117,7 +99,7 @@ export async function calculateTaxesWithCaching(
         stripeAccountId: sellerOrganization?.stripe_account_id
       })
       
-      taxRate = taxCalculation.tax_rate
+      taxRate = taxCalculation.tax_rate ?? 0
       const totalWithTax = Math.round(itemAmount * (1 + taxRate / 100))
       taxAmount = totalWithTax - itemAmount
     }

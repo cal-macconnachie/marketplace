@@ -2,48 +2,7 @@ import { APIGatewayProxyEvent } from 'aws-lambda'
 import { createConnectedAccount } from '../../helpers/stripe/create-connected-account'
 import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 import { getOrganizationById } from '../../helpers/organizations/get-organization-by-id'
-
-interface CreateConnectedAccountRequest {
-  companyDetails: {
-    name: string
-    address: {
-      line1: string
-      line2: string
-      city: string
-      state: string
-      postal_code: string
-      country: string
-    }
-    phone: string
-    tax_id: string
-  }
-  individual?: {
-    phone?: string
-    dob?: {
-      day: string
-      month: string
-      year: string
-    }
-    relationship?: {
-      title?: string
-    }
-  }
-  bankDetails: {
-    account_number: string
-    country?: string
-    currency?: string
-    routing_number: string
-    account_holder_name?: string
-    account_holder_type?: 'individual' | 'company'
-  }
-  businessProfile?: {
-    mcc?: string
-    url?: string
-    product_description?: string
-  }
-  refreshUrl: string
-  returnUrl: string
-}
+import { CreateConnectedAccountRequest } from '@marketplace/types'
 
 export const createConnectedAccountHandler = async (event: APIGatewayProxyEvent) => {
   try {

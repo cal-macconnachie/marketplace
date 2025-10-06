@@ -1,6 +1,7 @@
+import { MeterEventParams } from '@marketplace/types'
 import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
 import {
-  logMeterEvent, MeterEventParams 
+  logMeterEvent 
 } from '../../helpers/stripe/log-meter-event'
 
 export const logMeterEventHandler = rateLimitedHandler(async (event) => {

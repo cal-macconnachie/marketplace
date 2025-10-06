@@ -1,39 +1,20 @@
-import { getStripeClient } from './stripe-client'
+import {
+  organizationsTableName, productsTableName, purchasesTableName, usersTableName
+} from '@marketplace/constants'
+import type {
+  MeterEventParams, MeterEventResult,
+  Organization,
+  Product,
+  Purchase,
+  User
+} from '@marketplace/types'
 import { v4 as uuidv4 } from 'uuid'
 import { get } from '../dynamo-helpers/get'
 import { update } from '../dynamo-helpers/update'
-import { Purchase } from '../../handlers/purchases'
-import { Product } from '../../handlers/products'
-import { User } from '../../handlers/users'
 import { calculateTaxesWithCaching } from '../tax/calculate-taxes-with-caching'
 import { generateLocationKey } from '../tax/tax-calculation-cache'
-import { Organization } from '../../handlers/organizations'
 import { calculatePlatformFee } from './calculate-platform-fee'
-
-export interface MeterEventParams {
-  purchaseId: string
-  userId: string
-  value?: string | number
-  timestamp?: number
-  identifier?: string
-  metadata?: Record<string, string>
-}
-
-export interface MeterEventResult {
-  success: boolean
-  event?: {
-    id: string
-    event_name: string
-    identifier: string
-    payload: {
-      stripe_customer_id: string
-      value: string
-    }
-    timestamp: number
-  }
-  error?: string
-  details?: string
-}
+import { getStripeClient } from './stripe-client'
 
 /**
  * Logs a meter event to Stripe for usage-based billing
@@ -87,7 +68,7 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
 
     // Get the purchase
     const purchase = await get<Purchase>({
-      tableName: process.env.PURCHASES_TABLE!,
+      tableName: purchasesTableName!,
       key: {
         user_id: userId,
         id: purchaseId
@@ -117,7 +98,7 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
 
     // Get the product to find the event name
     const product = await get<Product>({
-      tableName: process.env.PRODUCTS_TABLE!,
+      tableName: productsTableName!,
       key: {
         group_id: purchase.product_group_id,
         id: purchase.product_id
@@ -141,7 +122,7 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
 
     // Get the user to get the customer ID
     const user = await get<User>({
-      tableName: process.env.USERS_TABLE!,
+      tableName: usersTableName!,
       key: {
         id: userId
       }
@@ -195,7 +176,7 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
       const productsHash = {[`${product.group_id}:${product.id}`]: product }
       const orgsHash: { [key: string]: Organization } = {}
       const org = await get<Organization>({
-        tableName: process.env.ORGANIZATIONS_TABLE!,
+        tableName: organizationsTableName!,
         key: { id: product.organization_id }
       })
       if (!org) {
@@ -215,7 +196,7 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
       const location = generateLocationKey(user)
 
       const taxAmount = await calculateTaxesWithCaching(items, productsHash, orgsHash, location)
-      const newAmount = newBaseAmount + taxAmount.items[0]?.tax_amount || 0
+      const newAmount = newBaseAmount + (taxAmount.items?.[0]?.tax_amount ?? 0)
       const platformFee = await calculatePlatformFee({
         amount: newAmount,
         organizationId: product.organization_id
@@ -223,7 +204,7 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
 
       // Update purchase amount
       await update<Purchase>({
-        tableName: process.env.PURCHASES_TABLE!,
+        tableName: purchasesTableName!,
         key: {
           user_id: purchase.user_id,
           id: purchase.id
@@ -231,7 +212,7 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
         updates: {
           amount: newAmount,
           base_amount: newBaseAmount,
-          tax_amount: taxAmount.items[0]?.tax_amount || 0,
+          tax_amount: taxAmount.items?.[0]?.tax_amount ?? 0,
           platform_fee_amount: platformFee
         }
       })
@@ -252,7 +233,6 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
           stripe_customer_id: string
           value: string
         },
-        timestamp: meterEvent.timestamp
       }
     }
   } catch (error) {
@@ -264,14 +244,12 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
       return {
         success: false,
         error: `Stripe error: ${stripeError.message}`,
-        details: stripeError.code || stripeError.type
       }
     }
     
     return {
       success: false,
-      error: 'Failed to log meter event',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      error: `Failed to log meter event: ${ error instanceof Error ? error.message : 'Unknown error'}`,
     }
   }
 }
@@ -282,21 +260,6 @@ export const logMeterEvent = async (params: MeterEventParams): Promise<MeterEven
  * @param events - Array of meter event parameters
  * @returns Promise<MeterEventResult[]> - Array of results for each event
  * 
- * @example
- * await batchLogMeterEvents([
- *   {
- *     eventName: 'api_request',
- *     customerId: 'cus_customer123',
- *     value: 50,
- *     metadata: { endpoint: '/api/users' }
- *   },
- *   {
- *     eventName: 'api_request', 
- *     customerId: 'cus_customer123',
- *     value: 25,
- *     metadata: { endpoint: '/api/orders' }
- *   }
- * ])
  */
 export const batchLogMeterEvents = async (
   events: MeterEventParams[]
@@ -315,50 +278,5 @@ export const batchLogMeterEvents = async (
         details: result.reason instanceof Error ? result.reason.message : 'Unknown error'
       }
     }
-  })
-}
-
-/**
- * Helper to log common usage events
- */
-export const logApiUsage = async (
-  purchaseId: string,
-  userId: string,
-  requestCount: number = 1,
-  metadata?: { endpoint?: string; method?: string; [key: string]: string | undefined }
-): Promise<MeterEventResult> => {
-  return logMeterEvent({
-    purchaseId,
-    userId,
-    value: requestCount,
-    metadata: metadata as Record<string, string>
-  })
-}
-
-export const logTokenUsage = async (
-  purchaseId: string,
-  userId: string,
-  tokenCount: number,
-  metadata?: { model?: string; request_id?: string; [key: string]: string | undefined }
-): Promise<MeterEventResult> => {
-  return logMeterEvent({
-    purchaseId,
-    userId,
-    value: tokenCount,
-    metadata: metadata as Record<string, string>
-  })
-}
-
-export const logStorageUsage = async (
-  purchaseId: string,
-  userId: string,
-  bytesUsed: number,
-  metadata?: { storage_type?: string; [key: string]: string | undefined }
-): Promise<MeterEventResult> => {
-  return logMeterEvent({
-    purchaseId,
-    userId,
-    value: bytesUsed,
-    metadata: metadata as Record<string, string>
   })
 }

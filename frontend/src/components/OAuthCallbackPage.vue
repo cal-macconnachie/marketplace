@@ -22,14 +22,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAppStore } from '@/stores/app'
-import { validateState, exchangeCodeForTokens } from '@/utils/oauth'
-import { authAPI } from '@/services/api'
-import BaseCard from '@/components/ui/BaseCard.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseCard from '@/components/ui/BaseCard.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
+import { authAPI } from '@/services/api'
+import { useAppStore } from '@/stores/app'
+import { exchangeCodeForTokens, validateState } from '@/utils/oauth'
+import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const app = useAppStore()

@@ -520,7 +520,8 @@ import EditableSelect from '@/components/ui/EditableSelect.vue'
 import EditableDate from '@/components/ui/EditableDate.vue'
 import AddressSearch from '@/components/ui/AddressSearch.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
-import { authAPI, type Organization } from '@/services/api'
+import { authAPI } from '@/services/api'
+import type { Organization } from '@marketplace/types'
 
 // Define props
 interface Props {

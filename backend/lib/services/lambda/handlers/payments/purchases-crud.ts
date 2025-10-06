@@ -1,16 +1,12 @@
+import { Purchase } from '@marketplace/types'
+import {
+  PurchasesInput, QueryStrategy
+} from '@marketplace/types/internal/query-strategies'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { Purchase } from '../purchases'
-import { update } from '../../helpers/dynamo-helpers/update'
-import { query } from '../../helpers/dynamo-helpers/query'
+import { purchasesTableName } from '@marketplace/constants'
 import { get } from '../../helpers/dynamo-helpers/get'
-
-interface QueryStrategy {
-  type: 'get' | 'query' | 'none'
-  keyConditionExpression?: string
-  expressionAttributeValues?: Record<string, unknown>
-  indexName?: string
-  canSort?: boolean
-}
+import { query } from '../../helpers/dynamo-helpers/query'
+import { update } from '../../helpers/dynamo-helpers/update'
 
 function determineQueryStrategy(purchase: Partial<Purchase>, sortBy: string): QueryStrategy {
   // Direct item lookup - most efficient
@@ -62,15 +58,6 @@ function determineQueryStrategy(purchase: Partial<Purchase>, sortBy: string): Qu
   }
 
   return { type: 'none' }
-}
-
-export interface PurchasesInput {
-  purchase: Partial<Purchase>
-  type?: 'create' | 'update' | 'read'
-  lastEvaluatedKey?: Record<string, unknown>
-  limit?: number
-  sortOrder?: 'ASC' | 'DESC'
-  sortBy?: 'purchased_at' | 'id'
 }
 
 export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
@@ -133,7 +120,7 @@ export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
           }
         }
         const currentPurchase = await get<Purchase>({
-          tableName: process.env.PURCHASES_TABLE!,
+          tableName: purchasesTableName!,
           key: {
             id: purchase.id!,
             user_id: purchase.user_id!
@@ -211,7 +198,7 @@ export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
           }
         }
         const updatedPurchase = await update<Purchase>({
-          tableName: process.env.PURCHASES_TABLE!,
+          tableName: purchasesTableName!,
           key: {
             id: purchase.id,
             user_id: purchase.user_id
@@ -235,7 +222,7 @@ export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
         if (queryStrategy.type === 'get') {
           // Direct item lookup using primary key
           readPurchases = await get<Purchase>({
-            tableName: process.env.PURCHASES_TABLE!,
+            tableName: purchasesTableName!,
             key: {
               id: purchase.id!,
               user_id: purchase.user_id!
@@ -244,7 +231,7 @@ export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
         } else if (queryStrategy.type === 'query' && queryStrategy.keyConditionExpression && queryStrategy.expressionAttributeValues) {
           // Query using primary table or GSI
           readPurchases = await query<Purchase>({
-            tableName: process.env.PURCHASES_TABLE!,
+            tableName: purchasesTableName!,
             keyConditionExpression: queryStrategy.keyConditionExpression,
             expressionAttributeValues: queryStrategy.expressionAttributeValues,
             indexName: queryStrategy.indexName,

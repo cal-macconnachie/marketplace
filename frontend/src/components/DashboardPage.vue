@@ -177,10 +177,10 @@ import PaymentMethodList from '@/components/ui/PaymentMethodList.vue'
 import ProductsList from '@/components/ui/ProductsList.vue'
 import SellerManager from '@/components/ui/SellerManager.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
-import { type PaymentMethod, type Product } from '@/services/api'
 import VendorProducts from './ui/VendorProducts.vue'
 import InfinitePurchasesList from './ui/InfinitePurchasesList.vue'
 import SubscriptionManager from './ui/SubscriptionManager.vue'
+import type { PaymentMethod, Product } from '@marketplace/types'
 
 const app = useAppStore()
 const router = useRouter()

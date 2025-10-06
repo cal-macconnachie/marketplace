@@ -1,44 +1,9 @@
 import { unmarshall } from '@aws-sdk/util-dynamodb'
 import { DynamoDBStreamEvent } from 'aws-lambda'
+import { Purchase } from '@marketplace/types'
 import { putEvents } from '../helpers/eventbridge/put-events'
 import { adjustPurchaseAmount } from '../helpers/purchases/adjust-purchase-amount'
 import { updatePurchasedProductAmount } from '../helpers/purchases/update-purchased-product-amount'
-
-export interface Purchase {
-  id: string
-  user_id: string
-  product_id: string
-  product_group_id: string
-  product_name: string
-  type: 'one_time' | 'subscription' | 'metered_subscription'
-  purchased_at: string
-  organization_id: string
-  payment_method_id: string
-  amount: number
-  original_amount?: number
-  currency: string
-  cart_id?: string
-  platform_fee_amount?: number
-  original_platform_fee_amount?: number
-  connected_account_id?: string
-  destination_charge_id?: string
-  transfer_id?: string
-  tax_amount?: number
-  original_tax_amount?: number
-  base_amount?: number
-  original_base_amount?: number
-  seller_organization_id?: string
-  applied_discount?: {
-    type: 'promotion_code' | 'coupon'
-    code?: string
-    coupon?: {
-      id: string
-      amount_off: number
-      percent_off: number
-    }
-  },
-  status: 'completed' | 'pending' | 'failed'
-}
 
 export const purchases =  async (event: DynamoDBStreamEvent) => {
   for (const record of event.Records) {

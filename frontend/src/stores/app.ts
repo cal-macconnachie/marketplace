@@ -3,21 +3,10 @@ import { defineStore } from 'pinia'
 import {
   authAPI,
   publicApi,
-  apiClient,
-  type RegisterRequest,
-  type LoginRequest,
-  type AuthResponse,
-  type User,
-  type CreatePaymentMethodRequest,
-  type PaymentMethod,
-  type Organization,
-  type Product,
-  type TaxCalculationRequest,
-  type TaxCalculationResult,
-  type Purchase,
-  type PurchasedProduct,
+  apiClient
 } from '@/services/api'
 import { dedupedConcatInPlace } from '@/utils/dedupedConcatInPlace'
+import type { AuthResponse, CreatePaymentMethodRequest, LoginRequest, Organization, PaymentMethod, Product, Purchase, PurchasedProduct, RegisterRequest, TaxCalculationRequest, TaxCalculationResult, User } from '@marketplace/types'
 interface ProductFormData {
   key?: {
     group_id: string

@@ -1,6 +1,7 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { get } from '../../helpers/dynamo-helpers/get'
-import { Product } from '../products'
+import { Product } from '@marketplace/types'
+import { productsTableName } from '@marketplace/constants'
 export const publicProductFields: (keyof Product)[] = [
   'id',
   'name',
@@ -33,7 +34,7 @@ export const publicGetProduct = async (event: APIGatewayProxyEvent) => {
       }
     }
 
-    const tableName = process.env.PRODUCTS_TABLE
+    const tableName = productsTableName
     if (!tableName) {
       return {
         statusCode: 500,
@@ -126,7 +127,7 @@ export const getProduct = async (
       }
     }
 
-    const tableName = process.env.PRODUCTS_TABLE
+    const tableName = productsTableName
     if (!tableName) {
       return {
         statusCode: 500,

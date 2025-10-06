@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { User } from '../users'
+import { User } from '@marketplace/types'
 import { createUpdateUser } from '../../helpers/users/create-update-user'
 
 export const createUser = async (event: APIGatewayProxyEvent) => {

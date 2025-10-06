@@ -1,6 +1,8 @@
+import {
+  Purchase, PurchasedProduct
+} from '@marketplace/types'
 import Stripe from 'stripe'
-import { PurchasedProduct } from '../../handlers/products'
-import { Purchase } from '../../handlers/purchases'
+import { purchasedProductsTableName } from '@marketplace/constants'
 import { update } from '../dynamo-helpers/update'
 
 export const updatePurchasedProductFromPurchase = async ({
@@ -13,7 +15,7 @@ export const updatePurchasedProductFromPurchase = async ({
   subscriptionItem: Stripe.SubscriptionItem
 }): Promise<PurchasedProduct> => {
   const updatedPurchasedProduct = await update<PurchasedProduct>({
-    tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+    tableName: purchasedProductsTableName!,
     key: {
       organization_id: existingPurchasedProduct.organization_id,
       id: existingPurchasedProduct.id

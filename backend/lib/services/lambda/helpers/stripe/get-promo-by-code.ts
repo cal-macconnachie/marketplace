@@ -1,20 +1,14 @@
+import type { PromoLookupResult } from '@marketplace/types'
+import { promosTableName } from '@marketplace/constants'
 import { query } from "../dynamo-helpers/query"
 
-export interface PromoLookupResult {
-  id: string
-  type: 'coupon' | 'promotion_code'
-  code?: string
-  active?: boolean
-  stripeId?: string
-}
-
 export async function getPromoByCode(code: string): Promise<PromoLookupResult | null> {
-  if (!process.env.PROMOS_TABLE) {
+  if (!promosTableName) {
     throw new Error('PROMOS_TABLE environment variable is not set')
   }
 
   const result = await query<PromoLookupResult>({
-    tableName: process.env.PROMOS_TABLE,
+    tableName: promosTableName,
     indexName: 'code-index',
     keyConditionExpression: '#code = :code',
     expressionAttributeNames: {

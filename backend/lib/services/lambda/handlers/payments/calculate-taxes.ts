@@ -1,13 +1,18 @@
+import {
+  productsTableName, usersTableName
+} from '@marketplace/constants'
+import {
+  ItemsInterface,
+  Organization, Product,
+  User
+} from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { get } from '../../helpers/dynamo-helpers/get'
-import { User } from '../users'
-import { Organization } from '../organizations'
 import { getOrganizationById } from '../../helpers/organizations/get-organization-by-id'
-import { Product } from '../products'
-import { generateLocationKey } from '../../helpers/tax/tax-calculation-cache'
 import {
-  calculateTaxesWithCaching, ItemsInterface 
+  calculateTaxesWithCaching
 } from '../../helpers/tax/calculate-taxes-with-caching'
+import { generateLocationKey } from '../../helpers/tax/tax-calculation-cache'
 
 export const calculateTaxes = async (event: APIGatewayProxyEvent) => {
   try {
@@ -35,7 +40,7 @@ export const calculateTaxes = async (event: APIGatewayProxyEvent) => {
     let ip: string | undefined
     if (userId) {
       user = await get<User>({
-        tableName: process.env.USERS_TABLE!,
+        tableName: usersTableName!,
         key: { id: userId }
       })
 
@@ -70,7 +75,7 @@ export const calculateTaxes = async (event: APIGatewayProxyEvent) => {
         productId
       ] = key.split(':')
       return get<Product>({
-        tableName: process.env.PRODUCTS_TABLE!,
+        tableName: productsTableName!,
         key: {
           id: productId,
           group_id: groupId

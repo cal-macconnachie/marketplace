@@ -1,19 +1,23 @@
+import {
+  organizationsTableName, paymentMethodsTableName, usersTableName
+} from '@marketplace/constants'
+import {
+  Organization, PaymentMethod,
+  User
+} from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { User } from '../users'
 import { v4 } from 'uuid'
 import { create } from '../../helpers/dynamo-helpers/create'
 import { get } from '../../helpers/dynamo-helpers/get'
-import { getUserByEmail } from '../../helpers/users/get-user-by-email'
-import { Organization } from '../organizations'
-import { PaymentMethod } from '../payment-methods'
-import { getStripeClient } from '../../helpers/stripe/stripe-client'
-import { purchaseProducts } from '../../helpers/stripe/purchase-products'
 import { update } from '../../helpers/dynamo-helpers/update'
 import {
   checkRateLimit,
   getRateLimitKey
 } from '../../helpers/rate-limiting/dynamo-rate-limiter'
+import { purchaseProducts } from '../../helpers/stripe/purchase-products'
+import { getStripeClient } from '../../helpers/stripe/stripe-client'
 import { convertAddressToCodes } from '../../helpers/tax/address-code-converter'
+import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 
 interface GuestCheckoutRequest {
   user: {
@@ -293,7 +297,7 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
       const organizationId = v4()
       
       user = await create<User>({
-        tableName: process.env.USERS_TABLE!,
+        tableName: usersTableName!,
         key: { email: body.user.email },
         record: {
           id: userId,
@@ -310,7 +314,7 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
 
       // Create organization for the user
       await create<Organization>({
-        tableName: process.env.ORGANIZATIONS_TABLE!,
+        tableName: organizationsTableName!,
         key: { id: organizationId },
         record: {
           id: organizationId,
@@ -334,7 +338,7 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
       
       // Refresh user data to check if stripe_id was set by the stream
       const updatedUser = await get<User>({
-        tableName: process.env.USERS_TABLE!,
+        tableName: usersTableName!,
         key: { id: user.id }
       })
       
@@ -385,7 +389,7 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
     })
 
     const paymentMethod = await create<PaymentMethod>({
-      tableName: process.env.PAYMENT_METHODS_TABLE!,
+      tableName: paymentMethodsTableName!,
       key: {
         user_id: user.id,
         id: paymentMethodId
@@ -403,13 +407,13 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
 
     // Update organization default payment method if not set
     const organization = await get<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: { id: user.organization_id }
     })
 
     if (organization && !organization.default_payment_method) {
       await update<Organization>({
-        tableName: process.env.ORGANIZATIONS_TABLE!,
+        tableName: organizationsTableName!,
         key: { id: organization.id },
         updates: {
           default_payment_method: {

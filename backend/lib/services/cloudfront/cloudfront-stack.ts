@@ -17,10 +17,8 @@ import {
   Duration, Fn
 } from 'aws-cdk-lib'
 import { Construct } from 'constructs'
-import {
-  CloudFrontDistributionDefinition,
-  cloudFrontDefinitions
-} from './cloudfront-definitions'
+import { CloudFrontDistributionDefinition } from '@marketplace/types'
+import { cloudFrontDefinitions } from './cloudfront-definitions'
 import {
   Certificate, CertificateValidation
 } from 'aws-cdk-lib/aws-certificatemanager'

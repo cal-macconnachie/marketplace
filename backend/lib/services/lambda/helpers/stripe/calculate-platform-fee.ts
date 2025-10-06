@@ -1,4 +1,4 @@
-import { Organization } from '../../handlers/organizations'
+import { Organization } from '@marketplace/types'
 import { getOrganizationById } from '../organizations/get-organization-by-id'
 const organizationsCache: { [key: string]: Organization | null } = {}
 export const calculatePlatformFee = async ({

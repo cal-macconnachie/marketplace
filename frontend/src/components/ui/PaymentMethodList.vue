@@ -247,11 +247,11 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { PaymentMethod } from '@/services/api'
 import { authAPI } from '@/services/api'
 import { useAppStore } from '@/stores/app'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
+import type { PaymentMethod } from '@marketplace/types'
 
 interface Props {
   paymentMethods?: PaymentMethod[]

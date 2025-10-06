@@ -1,17 +1,4 @@
-export interface ValidationRule {
-  message: string
-  validator: (value: string) => boolean
-}
-
-export interface FieldValidation {
-  rules: ValidationRule[]
-  touched: boolean
-  error: string | null
-}
-
-export interface FormValidation {
-  [key: string]: FieldValidation
-}
+import type { ValidationRule, FormValidation } from '@marketplace/types'
 
 export const validationRules = {
   required: (message = 'This field is required'): ValidationRule => ({

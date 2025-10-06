@@ -183,13 +183,12 @@ import {
 } from '@stripe/stripe-js'
 import { useAppStore } from '@/stores/app'
 import {
-  authAPI,
-  type CreatePaymentMethodRequest,
-  type CreatePaymentMethodResponse,
+  authAPI
 } from '@/services/api'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseAlert from '@/components/ui/BaseAlert.vue'
 import PaymentVerificationModal from '@/components/ui/PaymentVerificationModal.vue'
+import type { CreatePaymentMethodRequest, CreatePaymentMethodResponse } from '@marketplace/types'
 
 interface Emits {
   (e: 'paymentMethodAdded'): void

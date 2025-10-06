@@ -1,9 +1,10 @@
 import {
-  DynamoDBClient, QueryCommand 
+  DynamoDBClient, QueryCommand
 } from '@aws-sdk/client-dynamodb'
 import {
-  marshall, unmarshall 
+  marshall, unmarshall
 } from '@aws-sdk/util-dynamodb'
+import type { QueryAllInput } from '@marketplace/types'
 
 const dynamo = new DynamoDBClient({})
 
@@ -15,23 +16,21 @@ export async function query<T>({
   filterExpression,
   indexName,
   limit,
-  scanIndexForward = true,
   exclusiveStartKey,
   sortOrder = 'DESC'
 }: {
   tableName: string
   keyConditionExpression: string
-  expressionAttributeValues: Record<string, unknown>
+  expressionAttributeValues?: Record<string, unknown>
   expressionAttributeNames?: Record<string, string>
   filterExpression?: string
   indexName?: string
   limit?: number
-  scanIndexForward?: boolean
   exclusiveStartKey?: Record<string, unknown>
   sortOrder?: 'ASC' | 'DESC'
 }): Promise<{ items: T[]; lastEvaluatedKey?: Record<string, unknown> }> {
   // Remove empty string values from expressionAttributeValues and exclusiveStartKey
-  Object.keys(expressionAttributeValues).forEach((k) => {
+  Object.keys(expressionAttributeValues ?? {}).forEach((k) => {
     if ((expressionAttributeValues as Record<string, unknown>)[k] === '') {
       delete (expressionAttributeValues as Record<string, unknown>)[k]
     }
@@ -60,16 +59,6 @@ export async function query<T>({
   return {
     items, lastEvaluatedKey 
   }
-}
-export interface QueryAllInput {
-  tableName: string
-  keyConditionExpression: string
-  expressionAttributeValues: Record<string, unknown>
-  expressionAttributeNames?: Record<string, string>
-  filterExpression?: string
-  indexName?: string
-  scanIndexForward?: boolean
-  sortOrder?: 'ASC' | 'DESC'
 }
 export async function queryAll<T>(params: QueryAllInput): Promise<T[]> {
   let items: T[] = []

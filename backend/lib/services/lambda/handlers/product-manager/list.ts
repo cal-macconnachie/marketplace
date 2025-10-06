@@ -1,17 +1,18 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import {
-  query, queryAll 
+  query, queryAll
 } from '../../helpers/dynamo-helpers/query'
 import { scan } from '../../helpers/dynamo-helpers/scan'
-import { Product } from '../products'
+import { Product } from '@marketplace/types'
 import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
 import { publicProductFields } from './get'
+import { productsTableName } from '@marketplace/constants'
 
 export const listProducts = async (
   request: APIGatewayProxyEvent
 ) => {
   try {
-    const tableName = process.env.PRODUCTS_TABLE
+    const tableName = productsTableName
     if (!tableName) {
       return {
         statusCode: 500,
@@ -124,7 +125,7 @@ export const publicListProducts = rateLimitedHandler(async (event: APIGatewayPro
       items?: Product[],
       lastEvaluatedKey?: Record<string, unknown>
     } = { message: 'Public product listing is disabled' }
-    const tableName = process.env.PRODUCTS_TABLE
+    const tableName = productsTableName
     if (tableName == null) throw new Error('PRODUCTS_TABLE environment variable not set')
     const {
       exclusive_start_key: exclusiveStartKey,

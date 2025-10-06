@@ -51,11 +51,11 @@
   </div>
 </template>
 <script setup lang="ts">
-import type { PurchasedProduct } from '@/services/api'
 import { authAPI } from '@/services/api'
 import { useAppStore } from '@/stores/app'
 import { computed, onMounted, ref } from 'vue'
 import BaseButton from './BaseButton.vue'
+import type { PurchasedProduct } from '@marketplace/types'
 
 interface Props {
   expanded?: boolean

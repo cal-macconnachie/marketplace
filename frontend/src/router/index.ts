@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, type NavigationGuardNext, type RouteLocationNormalized} from 'vue-router'
 import { useAppStore } from '@/stores/app'
 
 const routes = [
@@ -46,11 +46,11 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
   const app = useAppStore()
   // If route requires auth and user is not authenticated, redirect to /auth
   if (to.meta.requiresAuth && !app.isAuthenticated) {
-    next({ path: '/auth' })
+    next({ path: '/marketplace' })
   } else {
     next()
   }

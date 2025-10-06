@@ -1,31 +1,5 @@
+import type { BrowserCart, CheckoutData, MessageData } from '@marketplace/types'
 import { minify } from 'terser'
-
-// Type definitions for the iframe onload script context
-interface CartItem {
-  groupId: string
-  productId: string
-  quantity: number
-  organizationId: string
-}
-
-interface Cart {
-  [key: string]: CartItem
-}
-
-interface MessageData {
-  type: string
-  data?: {
-    [key: string]: unknown
-  }
-  source?: string
-  height?: string
-}
-
-interface CheckoutData {
-  items: CartItem[]
-  timestamp: number
-  domain: string
-}
 
 // Global interface extensions for the iframe context
 declare global {
@@ -77,7 +51,7 @@ function iframeOnloadHandler(this: HTMLIFrameElement): void {
       quantity: number
       action: 'add' | 'remove'
     },
-    cart: Cart,
+    cart: BrowserCart,
   ): void => {
     const itemKey = `${cartData.groupId}_${cartData.productId}`
 
@@ -116,7 +90,7 @@ function iframeOnloadHandler(this: HTMLIFrameElement): void {
     additionalParams?: Record<string, string>,
   ): string | null => {
     try {
-      const cart: Cart = JSON.parse(localStorage.getItem(cartKey) || '{}')
+      const cart: BrowserCart = JSON.parse(localStorage.getItem(cartKey) || '{}')
       const cartArray = Object.values(cart)
       const cartData: CheckoutData = {
         items: cartArray,
@@ -152,7 +126,7 @@ function iframeOnloadHandler(this: HTMLIFrameElement): void {
   }
 
   const handleCartLinkRequest = (): void => {
-    const cart: Cart = JSON.parse(localStorage.getItem(cartKey) || '{}')
+    const cart: BrowserCart = JSON.parse(localStorage.getItem(cartKey) || '{}')
     const cartArray = Object.values(cart)
 
     if (cartArray.length > 0) {
@@ -192,7 +166,7 @@ function iframeOnloadHandler(this: HTMLIFrameElement): void {
 
       switch (type) {
         case 'request-initial-cart': {
-          const cart: Cart = JSON.parse(localStorage.getItem(cartKey) || '{}')
+          const cart: BrowserCart = JSON.parse(localStorage.getItem(cartKey) || '{}')
           iframe.contentWindow?.postMessage(
             {
               type: 'initial-cart-data',
@@ -218,7 +192,7 @@ function iframeOnloadHandler(this: HTMLIFrameElement): void {
 
         case 'cart-updated': {
           if (messageData) {
-            const cart: Cart = JSON.parse(localStorage.getItem(cartKey) || '{}')
+            const cart: BrowserCart = JSON.parse(localStorage.getItem(cartKey) || '{}')
             handleCartUpdate(
               messageData as {
                 groupId: string

@@ -1,13 +1,16 @@
+import {
+  organizationsTableName, productsTableName
+} from '@marketplace/constants'
+import {
+  Organization,
+  Product, Purchase, User
+} from '@marketplace/types'
 import Stripe from 'stripe'
-import { Purchase } from '../../handlers/purchases'
-import { User } from '../../handlers/users'
-import { getOrganizationById } from '../organizations/get-organization-by-id'
-import { getStripeClient } from './stripe-client'
 import { batchGet } from '../dynamo-helpers/batch-get'
-import { Product } from '../../handlers/products'
-import { getProductPriceId } from './get-product-price-id'
 import { update } from '../dynamo-helpers/update'
-import { Organization } from '../../handlers/organizations'
+import { getOrganizationById } from '../organizations/get-organization-by-id'
+import { getProductPriceId } from './get-product-price-id'
+import { getStripeClient } from './stripe-client'
 
 export const handleSubscription = async ({
   purchases,
@@ -33,7 +36,7 @@ export const handleSubscription = async ({
     return acc
   }, {}))
   const products = await batchGet<Product>({
-    tableName: process.env.PRODUCTS_TABLE!,
+    tableName: productsTableName!,
     keys: uniqueProductKeys
   })
   const pricesHash = (await Promise.all(products.map(async (product) => {
@@ -177,7 +180,7 @@ export const handleSubscription = async ({
   // add subscription id to organization if it was created
   if (subscription && !subscriptionId) {
     await update<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: { id: organization.id },
       updates: {
         stripe_subscription_ids: {

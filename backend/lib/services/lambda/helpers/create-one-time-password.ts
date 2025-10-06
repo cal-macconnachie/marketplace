@@ -1,12 +1,6 @@
+import type { OneTimePassword } from '@marketplace/types'
+import { oneTimeCodesTableName } from '@marketplace/constants'
 import { create } from './dynamo-helpers/create'
-
-export interface OneTimePassword {
-  email: string
-  type: string
-  one_time_password: string
-  expires_at: number
-  created_at: string
-}
 
 export const createOneTimePassword = async ({
   email,
@@ -17,7 +11,7 @@ export const createOneTimePassword = async ({
 }) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString()
   await create<OneTimePassword>({
-    tableName: process.env.ONE_TIME_CODES_TABLE!,
+    tableName: oneTimeCodesTableName!,
     key: {
       email,
       type

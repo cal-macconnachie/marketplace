@@ -1,9 +1,10 @@
+import { organizationsTableName } from '@marketplace/constants'
+import { Organization } from '@marketplace/types'
 import { get } from '../dynamo-helpers/get'
-import { Organization } from '../../handlers/organizations'
 
 export const getOrganizationById = async (id: string): Promise<Organization | undefined> => {
   return get<Organization>({
-    tableName: process.env.ORGANIZATIONS_TABLE!,
+    tableName: organizationsTableName!,
     key: { id }
   })
 }

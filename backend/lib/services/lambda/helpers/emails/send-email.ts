@@ -1,17 +1,8 @@
 import {
-  InvokeCommand, LambdaClient 
+  InvokeCommand, LambdaClient
 } from '@aws-sdk/client-lambda'
 import { fromTemporaryCredentials } from '@aws-sdk/credential-providers'
-
-export interface SendEmailParams {
-    to: string
-    cc?: string[]
-    bcc?: string[]
-    reply_to?: string
-    from?: string
-    subject: string
-    body: string
-}
+import type { SendEmailParams } from '@marketplace/types'
 /*
 Use this function to wire up your email sending logic.
 

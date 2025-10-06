@@ -1,9 +1,10 @@
-import { User } from "../../handlers/users"
+import { usersTableName } from '@marketplace/constants'
+import { User } from '@marketplace/types'
 import { query } from "../dynamo-helpers/query"
 
 export async function getUserByEmail(email: string): Promise<User | undefined> {
   const { items } = await query<User>({
-    tableName: process.env.USERS_TABLE! || 'users-dev',
+    tableName: usersTableName! || 'users-dev',
     indexName: 'email-index',
     keyConditionExpression: '#email = :email',
     expressionAttributeNames: {

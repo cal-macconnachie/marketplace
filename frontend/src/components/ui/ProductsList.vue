@@ -484,7 +484,6 @@
 </template>
 <script setup lang="ts">
 import { ref, nextTick, onMounted, onUnmounted } from 'vue'
-import type { Product } from '@/services/api'
 import { generateEmbedCode } from '@/utils/embedScript'
 import ProductCard from './ProductCard.vue'
 import BaseButton from './BaseButton.vue'
@@ -494,6 +493,7 @@ import PriceDisplay from './PriceDisplay.vue'
 import ProductBadge from './ProductBadge.vue'
 import ImageCarousel from './ImageCarousel.vue'
 import QuantitySelector from './QuantitySeletor.vue'
+import type { Product } from '@marketplace/types'
 
 interface Props {
   products?: Product[]

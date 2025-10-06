@@ -1,4 +1,5 @@
 import { TransactWriteItem } from '@aws-sdk/client-dynamodb'
+import { purchaseCartsTableName, purchasesTableName } from '@marketplace/constants'
 import { transactWrite } from '../dynamo-helpers/transact-write'
 
 export const updatePurchaseStatus = async ({
@@ -25,7 +26,7 @@ export const updatePurchaseStatus = async ({
 
   transactions.push({
     Update: {
-      TableName: process.env.PURCHASES_TABLE!,
+      TableName: purchasesTableName!,
       Key: {
         user_id: { S: userId },
         id: { S: purchaseId }
@@ -46,7 +47,7 @@ export const updatePurchaseStatus = async ({
   if (cartId) {
     transactions.push({
       Update: {
-        TableName: process.env.PURCHASE_CARTS_TABLE!,
+        TableName: purchaseCartsTableName!,
         Key: {
           user_id: { S: userId },
           id: { S: cartId }

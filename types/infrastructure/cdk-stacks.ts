@@ -1,0 +1,61 @@
+/**
+ * CDK Stack output types and interfaces
+ * Used for cross-stack references and outputs
+ * @internal Backend only
+ */
+
+import type * as cdk from 'aws-cdk-lib'
+import type * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
+import type * as cognito from 'aws-cdk-lib/aws-cognito'
+import type * as route53 from 'aws-cdk-lib/aws-route53'
+import type * as s3 from 'aws-cdk-lib/aws-s3'
+
+/**
+ * Outputs from the MarketplaceInfrastructureStack
+ * Used by MarketplaceLambdaStack for cross-stack references
+ */
+export interface MarketplaceInfrastructureStackOutputs {
+  tables: Record<string, dynamodb.Table>
+  userPool: cognito.UserPool
+  userPoolClient: cognito.UserPoolClient
+  buckets: { [bucketName: string]: s3.IBucket }
+  websiteUrls: { [bucketName: string]: string }
+  hostedZones: { [zoneName: string]: route53.IHostedZone }
+}
+
+/**
+ * Props for the MarketplaceLambdaStack
+ */
+export interface MarketplaceLambdaStackProps extends cdk.StackProps {
+  envName?: string
+  infrastructureOutputs: MarketplaceInfrastructureStackOutputs
+}
+
+/**
+ * Props for CognitoStack construct
+ */
+export interface CognitoStackProps {
+  envName: string
+  postAuthTriggerFunction: any // Lambda Function type from aws-cdk-lib
+}
+
+/**
+ * Props for DdbTablesConstruct
+ */
+export interface DdbTablesConstructProps {
+  envName: string
+}
+
+/**
+ * Props for LambdaConstruct
+ */
+export interface LambdaConstructProps {
+  envVars: Record<string, string>
+  envName: string
+  tables?: Record<string, dynamodb.Table>
+  queues?: Record<string, { queue: any; queueArn: string; queueName: string }>
+  buckets?: Record<string, s3.IBucket>
+  userPool: cognito.UserPool
+  userPoolClient: cognito.UserPoolClient
+  hostedZones?: Record<string, route53.IHostedZone>
+}

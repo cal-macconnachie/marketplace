@@ -1,18 +1,10 @@
 import Stripe from 'stripe'
 import { getStripeClient } from '../../helpers/stripe/stripe-client'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-
-export interface UpdateCouponRequest {
-  id: string
-  name?: string
-  metadata?: Record<string, string>
-}
-
-export interface UpdatePromotionCodeRequest {
-  id: string
-  active?: boolean
-  metadata?: Record<string, string>
-}
+import type {
+  UpdateCouponRequest,
+  UpdatePromotionCodeRequest
+} from '@marketplace/types'
 
 export const updatePromos = async (request: APIGatewayProxyEvent) => {
   try {

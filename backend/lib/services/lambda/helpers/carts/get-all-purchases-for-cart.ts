@@ -1,10 +1,11 @@
-import { Purchase } from '../../handlers/purchases'
+import { Purchase } from '@marketplace/types'
+import { purchasesTableName } from '@marketplace/constants'
 import { query } from '../dynamo-helpers/query'
 
 export const getAllPurchasesForCart = async (cartId: string): Promise<Purchase[]> => {
   try {
     const result = await query<Purchase>({
-      tableName: process.env.PURCHASES_TABLE!,
+      tableName: purchasesTableName!,
       indexName: 'cart_id-index',
       keyConditionExpression: 'cart_id = :cart_id',
       expressionAttributeValues: {

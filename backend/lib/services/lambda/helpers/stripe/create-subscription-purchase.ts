@@ -1,13 +1,12 @@
-import { Organization } from '../../handlers/organizations'
-import { Product } from '../../handlers/products'
-import { Purchase } from '../../handlers/purchases'
-import { User } from '../../handlers/users'
+import {
+  Product, Purchase, User, Organization, ItemsInterface 
+} from '@marketplace/types'
 import { getPromoByCode } from './get-promo-by-code'
 import { getStripeClient } from './stripe-client'
 import { v4 } from 'uuid'
 import { calculatePlatformFee } from './calculate-platform-fee'
 import {
-  calculateTaxesWithCaching, ItemsInterface 
+  calculateTaxesWithCaching 
 } from '../tax/calculate-taxes-with-caching'
 import { generateLocationKey } from '../tax/tax-calculation-cache'
 
@@ -204,7 +203,7 @@ export const createSubscriptionPurchase = async ({
     customerLocation
   )
 
-  const taxAmount = taxResult.items[0]?.tax_amount || 0
+  const taxAmount = taxResult.items?.[0]?.tax_amount || 0
   const totalAmount = finalAmount + taxAmount
 
   // Calculate platform fee on the post-tax total

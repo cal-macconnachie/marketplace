@@ -2,9 +2,9 @@
   <div class="loading-container"><LoadingSpinner :loading="true" :size="100" /></div>
 </template>
 <script setup lang="ts">
-import { useRoute, useRouter } from 'vue-router'
-import { onMounted } from 'vue'
 import { useAppStore } from '@/stores/app'
+import { onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import LoadingSpinner from './ui/LoadingSpinner.vue'
 
 const route = useRoute()

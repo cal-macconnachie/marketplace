@@ -1,15 +1,15 @@
-import { Organization } from "../../handlers/organizations"
-import { PaymentMethod } from "../../handlers/payment-methods"
 import {
-  Product, 
-} from "../../handlers/products"
-import { Purchase } from '../../handlers/purchases'
-import { User } from "../../handlers/users"
-import { get } from "../dynamo-helpers/get"
-import { createOneTimePurchase } from "./one-time-purchase"
-import { createPurchaseCart } from '../create-purchase-cart'
+  organizationsTableName, paymentMethodsTableName, productsTableName, usersTableName
+} from '@marketplace/constants'
+import {
+  Organization, PaymentMethod,
+  Product, Purchase, User
+} from '@marketplace/types'
 import { setCartPurchases } from '../add-purchase'
+import { createPurchaseCart } from '../create-purchase-cart'
+import { get } from "../dynamo-helpers/get"
 import { createSubscriptionPurchase } from './create-subscription-purchase'
+import { createOneTimePurchase } from "./one-time-purchase"
 
 export const purchaseProducts = async ({
   userId,
@@ -51,11 +51,11 @@ export const purchaseProducts = async ({
   ]: [User | undefined, PaymentMethod | undefined, (Product | undefined)[]
 ] = await Promise.all([
   get<User>({
-    tableName: process.env.USERS_TABLE!,
+    tableName: usersTableName!,
     key: { id: userId }
   }),
   paymentMethodId ? get<PaymentMethod>({
-    tableName: process.env.PAYMENT_METHODS_TABLE!,
+    tableName: paymentMethodsTableName!,
     key: {
       user_id: userId,
       id: paymentMethodId
@@ -63,7 +63,7 @@ export const purchaseProducts = async ({
   }) : Promise.resolve(undefined),
   await Promise.all(uniqueProductKeys.map(async (key) => {
     return get<Product>({
-      tableName: process.env.PRODUCTS_TABLE!,
+      tableName: productsTableName!,
       key
     })
   }))
@@ -79,7 +79,7 @@ export const purchaseProducts = async ({
     throw new Error(`Some Products not found: ${JSON.stringify(uniqueProductKeys)}`)
   }
   const organization = await get<Organization>({
-    tableName: process.env.ORGANIZATIONS_TABLE!,
+    tableName: organizationsTableName!,
     key: { id: user.organization_id }
   })
 
@@ -99,14 +99,14 @@ export const purchaseProducts = async ({
       user
     ] = await Promise.all([
       get<PaymentMethod>({
-        tableName: process.env.PAYMENT_METHODS_TABLE!,
+        tableName: paymentMethodsTableName!,
         key: {
           user_id: organization.default_payment_method.user_id,
           id: organization.default_payment_method.id
         }
       }),
       currentUserHasOrgPaymentMethod ? Promise.resolve(user) : get<User>({
-        tableName: process.env.USERS_TABLE!,
+        tableName: usersTableName!,
         key: { id: organization.default_payment_method.user_id }
       })
     ])
@@ -149,7 +149,7 @@ export const purchaseProducts = async ({
   const sellerOrganizations = await Promise.all(
     uniqueSellerOrgIds.map(orgId =>
       get<Organization>({
-        tableName: process.env.ORGANIZATIONS_TABLE!,
+        tableName: organizationsTableName!,
         key: { id: orgId }
       })
     )

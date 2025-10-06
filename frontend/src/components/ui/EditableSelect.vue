@@ -83,11 +83,7 @@
 
 <script setup lang="ts">
 import { ref, nextTick, computed, reactive } from 'vue'
-
-export interface SelectOption {
-  value: string
-  label: string
-}
+import type { SelectOption } from '@marketplace/types'
 
 interface Props {
   value: string

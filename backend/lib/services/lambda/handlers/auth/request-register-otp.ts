@@ -1,6 +1,8 @@
+import { oneTimeCodesTableName } from '@marketplace/constants'
+import { OneTimePassword } from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import {
-  createOneTimePassword, OneTimePassword
+  createOneTimePassword
 } from '../../helpers/create-one-time-password'
 import { get } from '../../helpers/dynamo-helpers/get'
 import { sendRegistrationEmail } from '../../helpers/emails/send-registration-email'
@@ -20,7 +22,7 @@ export const requestRegisterOtp = rateLimitedHandler(async function (event: APIG
     }
   }
   const otp = await get<OneTimePassword>({
-    tableName: process.env.ONE_TIME_CODES_TABLE!,
+    tableName: oneTimeCodesTableName!,
     key: {
       email,
       type: 'registration'

@@ -1,6 +1,7 @@
+import { paymentMethodsTableName } from '@marketplace/constants'
+import { PaymentMethod } from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { get } from '../../helpers/dynamo-helpers/get'
-import { PaymentMethod } from '../payment-methods'
 import { update } from '../../helpers/dynamo-helpers/update'
 
 export const archivePaymentMethod = async (event: APIGatewayProxyEvent) => {
@@ -20,7 +21,7 @@ export const archivePaymentMethod = async (event: APIGatewayProxyEvent) => {
       }
     }
     const paymentMethod = await get<PaymentMethod>({
-      tableName: process.env.PAYMENT_METHODS_TABLE!,
+      tableName: paymentMethodsTableName!,
       key: {
         user_id,
         id
@@ -38,7 +39,7 @@ export const archivePaymentMethod = async (event: APIGatewayProxyEvent) => {
       }
     }
     await update<PaymentMethod>({
-      tableName: process.env.PAYMENT_METHODS_TABLE!,
+      tableName: paymentMethodsTableName!,
       key: {
         user_id,
         id

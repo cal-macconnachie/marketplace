@@ -164,13 +164,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { publicApi, type Product } from '@/services/api'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
-import QuantitySeletor from './ui/QuantitySeletor.vue'
-import PriceDisplay from './ui/PriceDisplay.vue'
+import { publicApi } from '@/services/api'
+import type { Product } from '@marketplace/types'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import ImageCarousel from './ui/ImageCarousel.vue'
+import PriceDisplay from './ui/PriceDisplay.vue'
+import QuantitySeletor from './ui/QuantitySeletor.vue'
 
 const route = useRoute()
 const groupId = ref(

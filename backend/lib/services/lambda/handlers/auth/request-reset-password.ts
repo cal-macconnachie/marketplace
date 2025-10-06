@@ -1,6 +1,8 @@
+import { oneTimeCodesTableName } from '@marketplace/constants'
+import { OneTimePassword } from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import {
-  createOneTimePassword, OneTimePassword 
+  createOneTimePassword
 } from '../../helpers/create-one-time-password'
 import { get } from '../../helpers/dynamo-helpers/get'
 import { sendResetPasswordEmail } from '../../helpers/emails/send-reset-password-email'
@@ -20,7 +22,7 @@ export const requestResetPassword = rateLimitedHandler(async function (event: AP
     }
   }
   const otp = await get<OneTimePassword>({
-    tableName: process.env.ONE_TIME_CODES_TABLE!,
+    tableName: oneTimeCodesTableName!,
     key: {
       email,
       type: 'password-reset'

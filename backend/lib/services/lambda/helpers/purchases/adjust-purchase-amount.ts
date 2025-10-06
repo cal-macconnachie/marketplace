@@ -1,10 +1,8 @@
-import { Purchase } from '../../handlers/purchases'
+import {
+  AdjustPurchaseAmountParams, Purchase
+} from '@marketplace/types'
+import { purchasesTableName } from '@marketplace/constants'
 import { update } from '../dynamo-helpers/update'
-
-interface AdjustPurchaseAmountParams {
-  purchase: Purchase
-  correctAmount: number
-}
 
 /**
  * Adjusts a purchase's amount fields to match a correct total amount.
@@ -27,7 +25,7 @@ export const adjustPurchaseAmount = async ({
 
   // Update the purchase record
   const updatedPurchase = await update<Purchase>({
-    tableName: process.env.PURCHASES_TABLE!,
+    tableName: purchasesTableName!,
     key: {
       user_id: purchase.user_id,
       id: purchase.id

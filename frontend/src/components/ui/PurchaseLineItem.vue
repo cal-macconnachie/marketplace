@@ -175,12 +175,12 @@
 
 <script setup lang="ts">
 import { defineProps, computed, ref, onMounted, onUnmounted } from 'vue'
-import type { Purchase } from '@/services/api'
 import { authAPI } from '@/services/api'
 import { useAppStore } from '@/stores/app'
 import LoadingSpinner from './LoadingSpinner.vue'
 import QuantitySelector from './QuantitySeletor.vue'
 import BaseButton from './BaseButton.vue'
+import type { Purchase } from '@marketplace/types'
 
 const { purchase, viewerType = 'purchaser' } = defineProps<{
   purchase: Purchase

@@ -1,7 +1,8 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { deleteItem } from '../../helpers/dynamo-helpers/delete'
 import { get } from '../../helpers/dynamo-helpers/get'
-import { Product } from '../products'
+import { Product } from '@marketplace/types'
+import { productsTableName } from '@marketplace/constants'
 
 export const deleteProduct = async (
   request: APIGatewayProxyEvent
@@ -26,7 +27,7 @@ export const deleteProduct = async (
       }
     }
 
-    const tableName = process.env.PRODUCTS_TABLE
+    const tableName = productsTableName
     if (!tableName) {
       return {
         statusCode: 500,

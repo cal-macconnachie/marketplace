@@ -1,11 +1,15 @@
+import {
+  organizationsTableName, usersTableName
+} from '@marketplace/constants'
+import {
+  Organization, User
+} from '@marketplace/types'
+import isEqual from "lodash.isequal"
+import { v4 } from "uuid"
 import { create } from "../dynamo-helpers/create"
 import { update } from "../dynamo-helpers/update"
-import { User } from "../../handlers/users"
-import { v4 } from "uuid"
-import isEqual from "lodash.isequal"
-import { getUserByEmail } from "./get-user-by-email"
-import { Organization } from '../../handlers/organizations'
 import { getOrganizationById } from '../organizations/get-organization-by-id'
+import { getUserByEmail } from "./get-user-by-email"
 
 export const createUpdateUser = async (userInput: Partial<User>) => {
   if (userInput.email == null) throw new Error('Email is required to create user')
@@ -44,7 +48,7 @@ export const createUpdateUser = async (userInput: Partial<User>) => {
     }
     if (Object.keys(userInput).length === 0) return existingUser
     user = await update<User>({
-      tableName: process.env.USERS_TABLE!,
+      tableName: usersTableName!,
       key: { id: userId },
       updates: {
         ...userInput
@@ -54,7 +58,7 @@ export const createUpdateUser = async (userInput: Partial<User>) => {
   } else {
     const orgId = userInput.organization_id ?? v4()
     user = await create<User>({
-      tableName: process.env.USERS_TABLE!,
+      tableName: usersTableName!,
       key: { email: userInput.email },
       record: {
         ...userInput,
@@ -67,7 +71,7 @@ export const createUpdateUser = async (userInput: Partial<User>) => {
     })
     if (!userInput.organization_id) {
       await create<Organization>({
-        tableName: process.env.ORGANIZATIONS_TABLE!,
+        tableName: organizationsTableName!,
         key: { id: orgId },
         record: {
           id: orgId,

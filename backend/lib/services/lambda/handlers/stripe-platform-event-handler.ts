@@ -1,33 +1,33 @@
+import {
+  organizationsTableName,
+  paymentMethodsTableName,
+  productsTableName, purchasedProductsTableName, purchasesTableName, usersTableName
+} from '@marketplace/constants'
+import {
+  Organization,
+  PaymentMethod,
+  Product,
+  Purchase,
+  PurchasedProduct,
+  User
+} from '@marketplace/types'
 import { EventBridgeEvent } from 'aws-lambda'
 import Stripe from 'stripe'
-import { getUserByStripeId } from '../helpers/users/get-user-by-stripe-id'
-import { updatePurchaseStatus } from '../helpers/carts/update-purchase-status'
-import { PurchasedProduct } from './products'
-import { createPurchasedProductFromPurchase } from '../helpers/carts/create-purchased-product-from-purchase'
-import { createPurchasedProductForMeterSubscription } from '../helpers/carts/create-purchased-product-for-meter-subscription'
-import { getStripeClient } from '../helpers/stripe/stripe-client'
-import { create } from '../helpers/dynamo-helpers/create'
-import { Purchase } from './purchases'
 import { v4 } from 'uuid'
+import { createPurchasedProductForMeterSubscription } from '../helpers/carts/create-purchased-product-for-meter-subscription'
+import { createPurchasedProductFromPurchase } from '../helpers/carts/create-purchased-product-from-purchase'
+import { queryPurchasedProductsBySubscriptionItem } from '../helpers/carts/query-purchased-products-by-subscription-item'
+import { updatePurchaseStatus } from '../helpers/carts/update-purchase-status'
+import { updatePurchasedProductFromPurchase } from '../helpers/carts/update-purchased-product-from-purchase'
+import { createPurchaseCart } from '../helpers/create-purchase-cart'
 import { batchGet } from '../helpers/dynamo-helpers/batch-get'
-import { Product } from './products'
+import { create } from '../helpers/dynamo-helpers/create'
 import { get } from '../helpers/dynamo-helpers/get'
 import { update } from '../helpers/dynamo-helpers/update'
-import { Organization } from './organizations'
 import { adjustPurchaseAmount } from '../helpers/purchases/adjust-purchase-amount'
-import { queryPurchasedProductsBySubscriptionItem } from '../helpers/carts/query-purchased-products-by-subscription-item'
-import { updatePurchasedProductFromPurchase } from '../helpers/carts/update-purchased-product-from-purchase'
-import { PaymentMethod } from './payment-methods'
-import { User } from './users'
-import { createPurchaseCart } from '../helpers/create-purchase-cart'
 import { calculatePlatformFee } from '../helpers/stripe/calculate-platform-fee'
-export interface Cart {
-  user_id: string
-  id: string
-  purchases: { [purchaseId: string]: 'pending' | 'completed' | 'failed' }
-  payment_method_id: string
-  created_at: string
-}
+import { getStripeClient } from '../helpers/stripe/stripe-client'
+import { getUserByStripeId } from '../helpers/users/get-user-by-stripe-id'
 
 export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe Event', Stripe.Event>) => {
   const type = event.detail.type
@@ -46,7 +46,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
         try {
           // Get the payment method from DynamoDB
           const paymentMethod = await get<PaymentMethod>({
-            tableName: process.env.PAYMENT_METHODS_TABLE!,
+            tableName: paymentMethodsTableName!,
             key: {
               user_id: userId,
               id: paymentMethodId
@@ -72,7 +72,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
 
               // Update payment method status to active
               await update<PaymentMethod>({
-                tableName: process.env.PAYMENT_METHODS_TABLE!,
+                tableName: paymentMethodsTableName!,
                 key: {
                   user_id: userId,
                   id: paymentMethodId
@@ -84,19 +84,19 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
 
               // Get user and org to set as org default if needed
               const user = await get<User>({
-                tableName: process.env.USERS_TABLE!,
+                tableName: usersTableName!,
                 key: { id: userId }
               })
 
               if (user) {
                 const org = await get<Organization>({
-                  tableName: process.env.ORGANIZATIONS_TABLE!,
+                  tableName: organizationsTableName!,
                   key: { id: user.organization_id }
                 })
 
                 if (org && org.default_payment_method == null) {
                   await update<Organization>({
-                    tableName: process.env.ORGANIZATIONS_TABLE!,
+                    tableName: organizationsTableName!,
                     key: { id: org.id },
                     updates: {
                       default_payment_method: {
@@ -131,7 +131,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
         try {
           // Get the payment method from DynamoDB
           const paymentMethod = await get<PaymentMethod>({
-            tableName: process.env.PAYMENT_METHODS_TABLE!,
+            tableName: paymentMethodsTableName!,
             key: {
               user_id: userId,
               id: paymentMethodId
@@ -141,7 +141,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
           if (paymentMethod && paymentMethod.status === 'pending_verification') {
             // Update payment method status to failed
             await update<PaymentMethod>({
-              tableName: process.env.PAYMENT_METHODS_TABLE!,
+              tableName: paymentMethodsTableName!,
               key: {
                 user_id: userId,
                 id: paymentMethodId
@@ -192,7 +192,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
       // atomic update users org to add purchased products to purchased_products array
       if (purchasedProducts.length > 0) {
         const createPromises = purchasedProducts.map(product => create<PurchasedProduct>({
-          tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+          tableName: purchasedProductsTableName!,
           key: {
             organization_id: user?.organization_id,
             id: product.id
@@ -291,7 +291,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
 
                 if (productGroupId && productId) {
                   const product = await get<Product>({
-                    tableName: process.env.PRODUCTS_TABLE!,
+                    tableName: productsTableName!,
                     key: {
                       group_id: productGroupId,
                       id: productId
@@ -346,7 +346,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
           const subscription = await stripe.subscriptions.retrieve(subscriptionId)
           const cartId = subscription.metadata?.cart_id
           const organization = await get<Organization>({
-            tableName: process.env.ORGANIZATIONS_TABLE!,
+            tableName: organizationsTableName!,
             key: { id: user.organization_id }
           })
 
@@ -383,7 +383,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                   try {
                     // Get the purchase to adjust amounts
                     const purchase = await get<Purchase>({
-                      tableName: process.env.PURCHASES_TABLE!,
+                      tableName: purchasesTableName!,
                       key: {
                         user_id: user.id,
                         id: purchaseId
@@ -461,7 +461,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
             }
 
             const products = productKeys.length > 0 ? await batchGet<Product>({
-              tableName: process.env.PRODUCTS_TABLE!,
+              tableName: productsTableName!,
               keys: productKeys
             }) : []
 
@@ -498,7 +498,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                     if (existingPurchasedProduct) {
                       try {
                         const purchase = await get<Purchase>({
-                          tableName: process.env.PURCHASES_TABLE!,
+                          tableName: purchasesTableName!,
                           key: {
                             user_id: user.id,
                             id: existingPurchasedProduct.purchase_id
@@ -555,7 +555,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                           }
 
                           await create<Purchase>({
-                            tableName: process.env.PURCHASES_TABLE!,
+                            tableName: purchasesTableName!,
                             key: {
                               user_id: newPurchase.user_id,
                               id: newPurchase.id
@@ -571,7 +571,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
 
                           // Reset the purchased product amount to zero and update purchase_id for next period
                           await update({
-                            tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+                            tableName: purchasedProductsTableName!,
                             key: {
                               organization_id: existingPurchasedProduct.organization_id,
                               id: existingPurchasedProduct.id
@@ -616,7 +616,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                       }
 
                       await create<Purchase>({
-                        tableName: process.env.PURCHASES_TABLE!,
+                        tableName: purchasesTableName!,
                         key: {
                           user_id: newPurchase.user_id,
                           id: newPurchase.id
@@ -659,7 +659,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
             // Only create purchased products that didn't exist before (fallback case)
             if (newPurchasedProductsToCreate.length > 0) {
               const createPromises = newPurchasedProductsToCreate.map(product => create<PurchasedProduct>({
-                tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+                tableName: purchasedProductsTableName!,
                 key: {
                   organization_id: user?.organization_id,
                   id: product.id
@@ -700,7 +700,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
           // For initial purchases, create all purchased products
           if (isInitialPurchase && purchasedProducts.length > 0) {
             const createPromises = purchasedProducts.map(product => create<PurchasedProduct>({
-              tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+              tableName: purchasedProductsTableName!,
               key: {
                 organization_id: user?.organization_id,
                 id: product.id
@@ -733,7 +733,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
           const subscription = await stripe.subscriptions.retrieve(subscriptionId)
           const cartId = subscription.metadata?.cart_id
           const organization = await get<Organization>({
-            tableName: process.env.ORGANIZATIONS_TABLE!,
+            tableName: organizationsTableName!,
             key: { id: user.organization_id }
           })
 
@@ -757,7 +757,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                   try {
                     // Get the purchase to use its cart_id
                     const purchase = await get<Purchase>({
-                      tableName: process.env.PURCHASES_TABLE!,
+                      tableName: purchasesTableName!,
                       key: {
                         user_id: user.id,
                         id: purchaseId
@@ -836,7 +836,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
             }
 
             const products = productKeys.length > 0 ? await batchGet<Product>({
-              tableName: process.env.PRODUCTS_TABLE!,
+              tableName: productsTableName!,
               keys: productKeys
             }) : []
 
@@ -867,7 +867,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                     if (existingPurchasedProduct) {
                       try {
                         const purchase = await get<Purchase>({
-                          tableName: process.env.PURCHASES_TABLE!,
+                          tableName: purchasesTableName!,
                           key: {
                             user_id: user.id,
                             id: existingPurchasedProduct.purchase_id
@@ -923,7 +923,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                       }
 
                       await create<Purchase>({
-                        tableName: process.env.PURCHASES_TABLE!,
+                        tableName: purchasesTableName!,
                         key: {
                           user_id: newPurchase.user_id,
                           id: newPurchase.id
@@ -1032,7 +1032,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
           // Create all purchased products
           if (purchasedProducts.length > 0) {
             const createPromises = purchasedProducts.map(product => create({
-              tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+              tableName: purchasedProductsTableName!,
               key: {
                 organization_id: user.organization_id,
                 id: product.id
@@ -1113,7 +1113,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
           // Create all purchased products
           if (purchasedProducts.length > 0) {
             const createPromises = purchasedProducts.map(product => create({
-              tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+              tableName: purchasedProductsTableName!,
               key: {
                 organization_id: user.organization_id,
                 id: product.id

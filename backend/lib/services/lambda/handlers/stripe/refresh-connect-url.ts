@@ -1,8 +1,9 @@
+import { organizationsTableName } from '@marketplace/constants'
+import { Organization } from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { getStripeClient } from '../../helpers/stripe/stripe-client'
-import { getOrganizationById } from '../../helpers/organizations/get-organization-by-id'
 import { update } from '../../helpers/dynamo-helpers/update'
-import { Organization } from '../organizations'
+import { getOrganizationById } from '../../helpers/organizations/get-organization-by-id'
+import { getStripeClient } from '../../helpers/stripe/stripe-client'
 
 export const refreshConnectUrl = async (event: APIGatewayProxyEvent) => {
   const stripe = getStripeClient()
@@ -63,7 +64,7 @@ export const refreshConnectUrl = async (event: APIGatewayProxyEvent) => {
       type: 'account_onboarding'
     })
     await update<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: { id: organization_id },
       updates: {
         onboarding_url: accountLink.url

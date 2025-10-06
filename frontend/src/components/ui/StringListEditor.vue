@@ -5,7 +5,7 @@
         <div v-for="(item, index) in items" :key="`item-${index}`" class="list-item">
           <BaseInput
             :model-value="item"
-            @update:model-value="(value) => updateItem(index, value)"
+            @update:model-value="(value: any) => updateItem(index, value)"
           />
           <BaseButton variant="danger" size="sm" type="button" @click="removeItem(index)">
             <svg

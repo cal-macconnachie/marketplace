@@ -165,11 +165,11 @@
 </template>
 
 <script setup lang="ts">
-import type { Product } from '@/services/api'
 import BaseCard from './BaseCard.vue'
 import PriceDisplay from './PriceDisplay.vue'
 import ProductBadge from './ProductBadge.vue'
 import ImageCarousel from './ImageCarousel.vue'
+import type { Product } from '@marketplace/types'
 interface Props {
   product: Product
   compact?: boolean

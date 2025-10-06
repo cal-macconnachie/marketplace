@@ -1,6 +1,7 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { update } from '../../helpers/dynamo-helpers/update'
-import { Product } from '../products'
+import { Product } from '@marketplace/types'
+import { productsTableName } from '@marketplace/constants'
 
 export const updateProduct = async (
   request: APIGatewayProxyEvent
@@ -56,7 +57,7 @@ export const updateProduct = async (
       }
     }
 
-    const tableName = process.env.PRODUCTS_TABLE
+    const tableName = productsTableName
     if (!tableName) {
       return {
         statusCode: 500,

@@ -1,4 +1,4 @@
-import { User } from '../../handlers/users'
+import { User } from '@marketplace/types'
 import { calculatePlatformFee } from './calculate-platform-fee'
 import { getStripeClient } from './stripe-client'
 

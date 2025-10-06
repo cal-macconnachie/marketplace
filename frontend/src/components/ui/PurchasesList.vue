@@ -15,9 +15,9 @@
 
 <script setup lang="ts">
 import { defineProps, defineEmits, ref, onMounted, onUnmounted } from 'vue'
-import type { Purchase } from '@/services/api'
 import PurchaseLineItem from './PurchaseLineItem.vue'
 import LoadingSpinner from './LoadingSpinner.vue'
+import type { Purchase } from '@marketplace/types'
 
 const {
   purchases,

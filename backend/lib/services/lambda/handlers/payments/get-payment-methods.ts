@@ -1,9 +1,12 @@
+import { paymentMethodsTableName } from '@marketplace/constants'
+import {
+  PaymentMethod, QueryAllInput
+} from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { get } from '../../helpers/dynamo-helpers/get'
 import {
-  queryAll, QueryAllInput 
+  queryAll
 } from '../../helpers/dynamo-helpers/query'
-import { PaymentMethod } from '../payment-methods'
 
 export const getPaymentMethods = async (event: APIGatewayProxyEvent) => {
   try {
@@ -16,7 +19,7 @@ export const getPaymentMethods = async (event: APIGatewayProxyEvent) => {
       return {
         statusCode: 200,
         body: JSON.stringify((await get<PaymentMethod>({
-          tableName: process.env.PAYMENT_METHODS_TABLE!,
+          tableName: paymentMethodsTableName!,
           key: {
             user_id,
             id
@@ -31,7 +34,7 @@ export const getPaymentMethods = async (event: APIGatewayProxyEvent) => {
     }
     if (user_id) {
       const params: QueryAllInput = {
-        tableName: process.env.PAYMENT_METHODS_TABLE!,
+        tableName: paymentMethodsTableName!,
         keyConditionExpression: '#userId = :userId',
         expressionAttributeNames: {
           '#userId': 'user_id',
@@ -42,6 +45,9 @@ export const getPaymentMethods = async (event: APIGatewayProxyEvent) => {
       }
       if (!include_archived) {
         params.filterExpression = 'attribute_not_exists(archived) OR archived = :archived'
+        if (params.expressionAttributeValues == null) {
+          params.expressionAttributeValues = {}
+        }
         params.expressionAttributeValues[':archived'] = false
       }
       return {

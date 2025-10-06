@@ -1,11 +1,15 @@
+import {
+  organizationsTableName, paymentMethodsTableName, usersTableName
+} from '@marketplace/constants'
+import {
+  Organization,
+  PaymentMethod, User
+} from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { create } from '../../helpers/dynamo-helpers/create'
-import { PaymentMethod } from '../payment-methods'
-import { getStripeClient } from '../../helpers/stripe/stripe-client'
 import { get } from '../../helpers/dynamo-helpers/get'
-import { User } from '../users'
-import { Organization } from '../organizations'
 import { update } from '../../helpers/dynamo-helpers/update'
+import { getStripeClient } from '../../helpers/stripe/stripe-client'
 
 export const createPaymentMethod = async (event: APIGatewayProxyEvent) => {
   try {
@@ -29,7 +33,7 @@ export const createPaymentMethod = async (event: APIGatewayProxyEvent) => {
       }
     }
     const user = await get<User>({
-      tableName: process.env.USERS_TABLE!,
+      tableName: usersTableName!,
       key: {
         id: user_id
       }
@@ -44,7 +48,7 @@ export const createPaymentMethod = async (event: APIGatewayProxyEvent) => {
       throw new Error('User must be an org admin to add payment methods')
     }
     const org = await get<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: {
         id: user.organization_id
       }
@@ -96,7 +100,7 @@ export const createPaymentMethod = async (event: APIGatewayProxyEvent) => {
     }
 
     const paymentMethod = await create<PaymentMethod>({
-      tableName: process.env.PAYMENT_METHODS_TABLE!,
+      tableName: paymentMethodsTableName!,
       key: {
         user_id,
         id
@@ -115,7 +119,7 @@ export const createPaymentMethod = async (event: APIGatewayProxyEvent) => {
     // Only set as org default if verification succeeded and org has no default
     if (org.default_payment_method == null && setupIntent.status === 'succeeded') {
       await update<Organization>({
-        tableName: process.env.ORGANIZATIONS_TABLE!,
+        tableName: organizationsTableName!,
         key: {
           id: org.id
         },
@@ -128,6 +132,7 @@ export const createPaymentMethod = async (event: APIGatewayProxyEvent) => {
       })
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const responseBody: any = {
       ...paymentMethod
     }

@@ -1,10 +1,11 @@
+import { usersTableName } from '@marketplace/constants'
+import { User } from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import {
-  getOrganizationUsers 
-} from '../../helpers/organizations/get-organization-users'
 import { get } from '../../helpers/dynamo-helpers/get'
-import { User } from '../users'
 import { queryAll } from '../../helpers/dynamo-helpers/query'
+import {
+  getOrganizationUsers
+} from '../../helpers/organizations/get-organization-users'
 
 export const getUsers = async (event: APIGatewayProxyEvent) => {
   try {
@@ -18,7 +19,7 @@ export const getUsers = async (event: APIGatewayProxyEvent) => {
     if (id) return {
       statusCode: 200,
       body: JSON.stringify(await get<User>({
-        tableName: process.env.USERS_TABLE!,
+        tableName: usersTableName!,
         key: { id }
       })),
       headers: {
@@ -38,7 +39,7 @@ export const getUsers = async (event: APIGatewayProxyEvent) => {
     }
     if (email) {
       const users = await queryAll<User>({
-        tableName: process.env.USERS_TABLE!,
+        tableName: usersTableName!,
         indexName: 'email-index',
         keyConditionExpression: 'email = :email',
         expressionAttributeValues: {
@@ -68,7 +69,7 @@ export const getUsers = async (event: APIGatewayProxyEvent) => {
     }
     if (stripeId) {
       const users = await queryAll<User>({
-        tableName: process.env.USERS_TABLE!,
+        tableName: usersTableName!,
         indexName: 'stripe_id-index',
         keyConditionExpression: 'stripe_id = :stripe_id',
         expressionAttributeValues: {
@@ -98,7 +99,7 @@ export const getUsers = async (event: APIGatewayProxyEvent) => {
     }
     if (cognitoId) {
       const users = await queryAll<User>({
-        tableName: process.env.USERS_TABLE!,
+        tableName: usersTableName!,
         indexName: 'cognito_id-index',
         keyConditionExpression: 'cognito_id = :cognito_id',
         expressionAttributeValues: {

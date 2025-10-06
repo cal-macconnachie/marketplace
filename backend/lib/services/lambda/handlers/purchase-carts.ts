@@ -3,7 +3,7 @@ import {
 } from 'aws-lambda'
 import { unmarshall } from '@aws-sdk/util-dynamodb'
 import { putEvents } from '../helpers/eventbridge/put-events'
-import { Cart } from './stripe-platform-event-handler'
+import { Cart } from '@marketplace/types'
 
 // Helper function to get all purchases for a cart
 

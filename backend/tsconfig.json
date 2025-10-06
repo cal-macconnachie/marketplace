@@ -25,8 +25,22 @@
     "allowSyntheticDefaultImports": true,
     "typeRoots": [
       "./node_modules/@types"
-    ]
+    ],
+    "paths": {
+      "@marketplace/types": ["../types/index.ts"],
+      "@marketplace/types/*": ["../types/*"],
+      "@marketplace/constants": ["../constants/src/index.ts"],
+      "@marketplace/constants/*": ["../constants/src/*"]
+    }
   },
+  "references": [
+    {
+      "path": "../types"
+    },
+    {
+      "path": "../constants"
+    }
+  ],
   "exclude": [
     "node_modules",
     "cdk.out"

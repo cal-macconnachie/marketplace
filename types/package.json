@@ -1,0 +1,16 @@
+{
+  "name": "@marketplace/types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types for Marketplace monorepo",
+  "main": "index.ts",
+  "types": "index.ts",
+  "private": true,
+  "exports": {
+    ".": "./index.ts",
+    "./entities/*": "./entities/*.ts",
+    "./api/*": "./api/*/*.ts",
+    "./internal/*": "./internal/*.ts",
+    "./infrastructure/*": "./infrastructure/*.ts",
+    "./utils/*": "./utils/*.ts"
+  }
+}

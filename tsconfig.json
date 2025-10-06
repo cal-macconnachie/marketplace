@@ -2,6 +2,12 @@
   "files": [],
   "references": [
     {
+      "path": "./types"
+    },
+    {
+      "path": "./constants"
+    },
+    {
       "path": "./backend"
     },
     {

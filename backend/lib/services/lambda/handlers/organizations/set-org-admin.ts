@@ -1,6 +1,7 @@
+import { usersTableName } from '@marketplace/constants'
+import { User } from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { get } from '../../helpers/dynamo-helpers/get'
-import { User } from '../users'
 import { update } from '../../helpers/dynamo-helpers/update'
 
 export const setOrgAdmin = async (event: APIGatewayProxyEvent) => {
@@ -31,11 +32,11 @@ export const setOrgAdmin = async (event: APIGatewayProxyEvent) => {
     requestedUser
   ] = await Promise.all([
     get<User>({
-      tableName: process.env.USERS_TABLE!,
+      tableName: usersTableName!,
       key: { id: requestingUserId }
     }),
     get<User>({
-      tableName: process.env.USERS_TABLE!,
+      tableName: usersTableName!,
       key: { id: userId }
     })
   ])
@@ -92,7 +93,7 @@ export const setOrgAdmin = async (event: APIGatewayProxyEvent) => {
   return {
     statusCode: 200,
     body: JSON.stringify(await update<User>({
-      tableName: process.env.USERS_TABLE!,
+      tableName: usersTableName!,
       key: { id: userId },
       updates: {
         is_organization_admin: admin

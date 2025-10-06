@@ -2,10 +2,7 @@ import { Construct } from 'constructs'
 import {
   aws_apigateway as apiGW,
   aws_iam,
-  aws_dynamodb as dynamodb,
-  aws_sqs as sqs,
   aws_lambda_event_sources as lambdaEventSources,
-  aws_s3,
   Duration
 } from 'aws-cdk-lib'
 import {
@@ -17,21 +14,11 @@ import {
 } from './lambda-defaults'
 import { createNativeBundlingConfig } from './bundling-configs'
 import * as path from 'node:path'
-import {
-  LambdaEndpointDefinition, lambdaEndpointDefinitions
-} from './lambda-endpoint-definitions'
+import type {
+  LambdaEndpointDefinition, LambdaConstructProps 
+} from '@marketplace/types'
+import { lambdaEndpointDefinitions } from './lambda-endpoint-definitions'
 import * as cdk from 'aws-cdk-lib'
-
-export interface LambdaConstructProps {
-  envVars: Record<string, string>
-  envName: string
-  tables?: Record<string, dynamodb.Table>
-  queues?: Record<string, { queue: sqs.IQueue; queueArn: string; queueName: string }>
-  buckets?: Record<string, aws_s3.IBucket>
-  userPool: cdk.aws_cognito.UserPool
-  userPoolClient: cdk.aws_cognito.UserPoolClient
-  hostedZones?: Record<string, cdk.aws_route53.IHostedZone>
-}
 
 export class LambdaConstruct extends Construct {
   public readonly lambdas: Record<string, unknown> = {}
@@ -111,6 +98,7 @@ export class LambdaConstruct extends Construct {
       // Prepare environment variables, including table names if needed
       const lambdaEnv: Record<string, string> = {
         NODE_ENV: envName,
+        ENV_NAME: envName,
         ...def.environment?.reduce((acc: { [envKey: string]: string }, key: string) => {
           const value = envVars[`${key}_${envName.toUpperCase()}`] ?? envVars[key]
           if (value) {
@@ -120,16 +108,6 @@ export class LambdaConstruct extends Construct {
           }
           return acc
         }, {})
-      }
-      // Add table environment variables
-      if (props.tables) {
-        for (const tableName of Object.keys(props.tables)) {
-          const table = props.tables[tableName]
-          if (table) {
-            const envVarName = `${tableName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}_TABLE`
-            lambdaEnv[envVarName] = table.tableName
-          }
-        }
       }
       // Add queue environment variables
       if (def.queues && props.queues) {

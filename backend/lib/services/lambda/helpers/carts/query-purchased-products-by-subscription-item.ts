@@ -1,4 +1,5 @@
-import { PurchasedProduct } from '../../handlers/products'
+import { PurchasedProduct } from '@marketplace/types'
+import { purchasedProductsTableName } from '@marketplace/constants'
 import { queryAll } from '../dynamo-helpers/query'
 
 export const queryPurchasedProductsBySubscriptionItem = async ({
@@ -7,7 +8,7 @@ export const queryPurchasedProductsBySubscriptionItem = async ({
   subscriptionItemId: string
 }): Promise<PurchasedProduct[]> => {
   const result = await queryAll<PurchasedProduct>({
-    tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+    tableName: purchasedProductsTableName!,
     indexName: 'subscription_item_id-index',
     keyConditionExpression: '#subscription_item_id = :subscription_item_id',
     expressionAttributeNames: {

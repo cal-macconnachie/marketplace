@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
-
-export type Theme = 'light' | 'dark' | 'system'
+import type { Theme } from '@marketplace/types'
 
 export const useThemeStore = defineStore('theme', () => {
   const theme = ref<Theme>('system')

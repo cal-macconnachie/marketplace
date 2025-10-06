@@ -1,10 +1,16 @@
-import Stripe from 'stripe'
-import { User } from '../../handlers/users'
-import { get } from '../dynamo-helpers/get'
-import { getStripeClient } from './stripe-client'
-import { update } from '../dynamo-helpers/update'
+import {
+  organizationsTableName,
+  usersTableName
+} from '@marketplace/constants'
+import {
+  Organization,
+  User
+} from '@marketplace/types'
 import getCurrencyByCountry from 'country-to-currency'
-import { Organization } from '../../handlers/organizations'
+import Stripe from 'stripe'
+import { get } from '../dynamo-helpers/get'
+import { update } from '../dynamo-helpers/update'
+import { getStripeClient } from './stripe-client'
 
 // Validation functions
 const validateBankAccount = (bankDetails: {
@@ -134,7 +140,7 @@ export const createConnectedAccount = async ({
     const stripe = getStripeClient()
 
     const user = await get<User>({
-      tableName: process.env.USERS_TABLE!,
+      tableName: usersTableName!,
       key: {
         id: userId
       }
@@ -143,7 +149,7 @@ export const createConnectedAccount = async ({
       throw new Error('User not found')
     }
     const organization = await get<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: {
         id: user.organization_id
       }
@@ -322,7 +328,6 @@ export const createConnectedAccount = async ({
         '5411': 'txcd_10000000', // Grocery Stores
         '5812': 'txcd_20030000', // Restaurants
         '5541': 'txcd_11000000', // Gas Stations
-        '5651': 'txcd_10000000', // Clothing Stores
         '7991': 'txcd_20030000', // Recreation Services
         '8999': 'txcd_30070000'  // Professional Services
       }
@@ -652,7 +657,7 @@ export const createConnectedAccount = async ({
     if (currency == null) currency = account.default_currency
 
     await update<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: {
         id: organization.id
       },

@@ -1,5 +1,6 @@
+import { organizationsTableName } from '@marketplace/constants'
+import { Organization } from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { Organization } from '../organizations'
 import { update } from '../../helpers/dynamo-helpers/update'
 
 export const updateOrganizationHandler = async (event: APIGatewayProxyEvent) => {
@@ -37,7 +38,7 @@ export const updateOrganizationHandler = async (event: APIGatewayProxyEvent) => 
       }
     }
     const org = await update<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: { id: partialOrganization.id },
       updates: {
         ...partialOrganization,

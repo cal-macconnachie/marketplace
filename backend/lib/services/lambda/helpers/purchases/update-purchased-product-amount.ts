@@ -1,4 +1,5 @@
-import { PurchasedProduct } from '../../handlers/products'
+import { PurchasedProduct } from '@marketplace/types'
+import { purchasedProductsTableName } from '@marketplace/constants'
 import { query } from '../dynamo-helpers/query'
 import { update } from '../dynamo-helpers/update'
 
@@ -10,7 +11,7 @@ export const updatePurchasedProductAmount = async ({
   amount: number
 }) => {
   const { items: purchasedProducts } = await query<PurchasedProduct>({
-    tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+    tableName: purchasedProductsTableName!,
     indexName: 'purchase_id-index',
     keyConditionExpression: 'purchase_id = :purchase_id',
     expressionAttributeValues: {
@@ -23,7 +24,7 @@ export const updatePurchasedProductAmount = async ({
   }
   const purchasedProduct = purchasedProducts[0]
   await update({
-    tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+    tableName: purchasedProductsTableName!,
     key: {
       organization_id: purchasedProduct.organization_id,
       id: purchasedProduct.id

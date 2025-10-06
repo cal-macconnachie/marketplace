@@ -1,11 +1,15 @@
+import {
+  organizationsTableName, usersTableName
+} from '@marketplace/constants'
+import {
+  Organization, User
+} from '@marketplace/types'
 import { v4 } from "uuid"
-import { Organization } from "../../handlers/organizations"
+import { create } from "../dynamo-helpers/create"
 import { deleteItem } from "../dynamo-helpers/delete"
 import { get } from "../dynamo-helpers/get"
 import { update } from "../dynamo-helpers/update"
 import { getOrganizationUsers } from "./get-organization-users"
-import { create } from "../dynamo-helpers/create"
-import { User } from "../../handlers/users"
 
 export const removeUserFromOrganization = async ({
   orgId,
@@ -15,7 +19,7 @@ export const removeUserFromOrganization = async ({
   userId: string
 }): Promise<void> => {
   const org = await get<Organization>({
-    tableName: process.env.ORGANIZATIONS_TABLE!,
+    tableName: organizationsTableName!,
     key: {
       id: orgId
     }
@@ -30,7 +34,7 @@ export const removeUserFromOrganization = async ({
   if (orgDefaultPaymentMethod != null && orgDefaultPaymentMethod.user_id === userId) {
     // we need to remove the default_payment_method and purchased products
     await update<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: {
         id: orgId
       },
@@ -44,7 +48,7 @@ export const removeUserFromOrganization = async ({
   if (orgUsers.length === 1) {
     // If this was the last user, we can delete the organization
     await deleteItem({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: {
         id: orgId
       }
@@ -54,7 +58,7 @@ export const removeUserFromOrganization = async ({
   const newOrgId = v4()
   await Promise.all([
     create<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: {
         id: newOrgId
       },
@@ -67,7 +71,7 @@ export const removeUserFromOrganization = async ({
       }
     }),
     update<User>({
-      tableName: process.env.USERS_TABLE!,
+      tableName: usersTableName!,
       key: {
         id: userId
       },

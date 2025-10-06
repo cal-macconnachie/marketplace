@@ -1,10 +1,7 @@
 import Stripe from 'stripe'
-import { Organization } from '../../handlers/organizations'
-
-export interface TaxCalculationResult {
-  tax_amount: number
-  tax_rate: number
-}
+import type {
+  Organization, TaxCalculationResult 
+} from '@marketplace/types'
 
 // Helper function to calculate tax with Stripe API
 export async function calculateTaxWithStripe(

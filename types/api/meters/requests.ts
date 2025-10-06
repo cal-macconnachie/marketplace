@@ -1,31 +1,30 @@
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export interface HandlerResponse<T = any> {
-  statusCode: number
-  data?: T
-  error?: string
-  details?: string
-  headers?: {
-    [key: string]: string | number | boolean
-  }
-}
+import type { BillingMeter } from '../../entities/meter'
+import { HandlerResponse } from '../../internal/handler-utils'
+import { DeactivateMeterResponse, MeterResponse } from './responses'
 
-export interface BillingMeter {
-  id?: string
+/**
+ * Request to create a billing meter
+ */
+export interface CreateMeterRequest {
   display_name: string
   event_name: string
   default_aggregation: {
-    formula: 'sum' | 'count' | 'last'
+    formula: 'count' | 'sum'
   }
-  status?: 'active' | 'inactive'
-  created?: number
-  updated?: number
-  account_id?: string
 }
 
-export interface CreateMeterRequest {
+/**
+ * Request to create a meter (internal handler format)
+ * @internal Backend only
+ */
+export interface CreateMeterHandlerRequest {
   body: BillingMeter
 }
 
+/**
+ * Request to list meters
+ * @internal Backend only
+ */
 export interface ListMetersRequest {
   queryStringParameters?: {
     status?: 'active' | 'inactive'
@@ -34,6 +33,10 @@ export interface ListMetersRequest {
   }
 }
 
+/**
+ * Request to deactivate a meter
+ * @internal Backend only
+ */
 export interface DeactivateMeterRequest {
   pathParameters: {
     id: string
@@ -41,11 +44,6 @@ export interface DeactivateMeterRequest {
   queryStringParameters?: {
     account_id?: string
   }
-}
-
-export interface MeterResponse {
-  message: string
-  meter: BillingMeter
 }
 
 export type CreateMeterHandler = (
@@ -58,4 +56,4 @@ export type ListMetersHandler = (
 
 export type DeactivateMeterHandler = (
   request: DeactivateMeterRequest
-) => Promise<HandlerResponse<{ message: string; meter: BillingMeter }>>
+) => Promise<HandlerResponse<DeactivateMeterResponse>>

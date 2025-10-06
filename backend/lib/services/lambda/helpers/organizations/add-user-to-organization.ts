@@ -1,5 +1,9 @@
-import { Organization } from "../../handlers/organizations"
-import { User } from "../../handlers/users"
+import {
+  organizationsTableName, usersTableName
+} from '@marketplace/constants'
+import {
+  Organization, User
+} from '@marketplace/types'
 import { get } from "../dynamo-helpers/get"
 import { update } from "../dynamo-helpers/update"
 import { getStripeClient } from "../stripe/stripe-client"
@@ -15,7 +19,7 @@ export const addUserToOrganization = async ({
 }) => {
   // ensure user exists
   const user = await get<User>({
-    tableName: process.env.USERS_TABLE!,
+    tableName: usersTableName!,
     key: {
       id: userId
     }
@@ -29,13 +33,13 @@ export const addUserToOrganization = async ({
     newOrg
   ] = await Promise.all([
     user.organization_id ? get<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: {
         id: user.organization_id
       }
     }) : Promise.resolve(undefined),
     get<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: {
         id: organizationId
       }
@@ -57,7 +61,7 @@ export const addUserToOrganization = async ({
   if (userHasActiveSubscription && !newOrgHasSubscriptions && !newOrg.default_payment_method) {
     // transfer the subscription to the new org
     await update<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: { id: oldOrg.id },
       updates: {
         stripe_subscription_ids: {},
@@ -65,7 +69,7 @@ export const addUserToOrganization = async ({
       }
     })
     await update<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: { id: organizationId },
       updates: {
         stripe_subscription_ids: oldOrg.stripe_subscription_ids || {},
@@ -87,7 +91,7 @@ export const addUserToOrganization = async ({
     }
     
     await update<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: { id: oldOrg.id },
       updates: {
         stripe_subscription_ids: {},
@@ -96,7 +100,7 @@ export const addUserToOrganization = async ({
     })
   }
   await update<User>({
-    tableName: process.env.USERS_TABLE!,
+    tableName: usersTableName!,
     key: {
       id: userId
     },

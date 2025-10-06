@@ -1,11 +1,15 @@
+import {
+  organizationsTableName, purchasedProductsTableName, usersTableName
+} from '@marketplace/constants'
+import {
+  Organization, PurchasedProduct,
+  User
+} from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { get } from '../../helpers/dynamo-helpers/get'
-import { User } from '../users'
-import { Organization } from '../organizations'
-import { getStripeClient } from '../../helpers/stripe/stripe-client'
-import { update } from '../../helpers/dynamo-helpers/update'
-import { PurchasedProduct } from '../products'
 import { query } from '../../helpers/dynamo-helpers/query'
+import { update } from '../../helpers/dynamo-helpers/update'
+import { getStripeClient } from '../../helpers/stripe/stripe-client'
 
 export async function cancelSubscription(event: APIGatewayProxyEvent) {
   try {
@@ -30,14 +34,14 @@ export async function cancelSubscription(event: APIGatewayProxyEvent) {
     }
     // ensure this user is an organization admin for the subscription
     const user = await get<User>({
-      tableName: process.env.USERS_TABLE!,
+      tableName: usersTableName!,
       key: { id: userId }
     })
     if (!user || !user.is_organization_admin) {
       throw new Error(`User is not an organization admin: ${userId}`)
     }
     const organization = await get<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: { id: user.organization_id }
     })
     if (!organization) {
@@ -77,7 +81,7 @@ export async function cancelSubscription(event: APIGatewayProxyEvent) {
       delete updatedSubscriptionIds[accountId]
 
       await update<Organization>({
-        tableName: process.env.ORGANIZATIONS_TABLE!,
+        tableName: organizationsTableName!,
         key: { id: user.organization_id },
         updates: {
           stripe_subscription_ids: updatedSubscriptionIds
@@ -86,7 +90,7 @@ export async function cancelSubscription(event: APIGatewayProxyEvent) {
 
       // Mark all purchased products with this subscription as cancelled
       const purchasedProducts = await query<PurchasedProduct>({
-        tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+        tableName: purchasedProductsTableName!,
         keyConditionExpression: 'organization_id = :organizationId',
         filterExpression: 'subscription_id = :subscriptionId',
         expressionAttributeValues: {
@@ -97,7 +101,7 @@ export async function cancelSubscription(event: APIGatewayProxyEvent) {
 
       for (const product of purchasedProducts.items ?? []) {
         await update<PurchasedProduct>({
-          tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+          tableName: purchasedProductsTableName!,
           key: {
             organization_id: product.organization_id,
             id: product.id
@@ -150,7 +154,7 @@ export async function cancelSubscription(event: APIGatewayProxyEvent) {
 
       // Mark the specific purchased product as cancelled
       await update<PurchasedProduct>({
-        tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+        tableName: purchasedProductsTableName!,
         key: {
           organization_id: purchased_product.organization_id,
           id: purchased_product.id

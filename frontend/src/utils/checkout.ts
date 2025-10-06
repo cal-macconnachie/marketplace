@@ -1,4 +1,5 @@
-import { cartService, type CartItem } from './cart'
+import type { CartItem } from '@marketplace/types'
+import { cartService } from './cart'
 
 export class CheckoutService {
   /**

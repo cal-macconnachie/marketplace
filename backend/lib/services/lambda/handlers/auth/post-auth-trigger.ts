@@ -1,7 +1,7 @@
 import { PostAuthenticationTriggerEvent } from 'aws-lambda'
 import { createUpdateUser } from '../../helpers/users/create-update-user'
 import { v4 } from 'uuid'
-import { User } from '../users'
+import { User } from '@marketplace/types'
 import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 
 export const postAuthTrigger = async (event: PostAuthenticationTriggerEvent) => {

@@ -2,11 +2,12 @@ import {
   CognitoIdentityProviderClient,
   SignUpCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
+import { oneTimeCodesTableName } from '@marketplace/constants'
+import { OneTimePassword } from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { createUpdateUser } from '../../helpers/users/create-update-user'
-import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
-import { OneTimePassword } from '../../helpers/create-one-time-password'
 import { get } from '../../helpers/dynamo-helpers/get'
+import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
+import { createUpdateUser } from '../../helpers/users/create-update-user'
 import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 
 const cognitoClient = new CognitoIdentityProviderClient({})
@@ -30,7 +31,7 @@ export const register = rateLimitedHandler(async (event: APIGatewayProxyEvent) =
   // Verify OTP
 
   const otp = await get<OneTimePassword>({
-    tableName: process.env.ONE_TIME_CODES_TABLE!,
+    tableName: oneTimeCodesTableName!,
     key: {
       email,
       type: 'registration'

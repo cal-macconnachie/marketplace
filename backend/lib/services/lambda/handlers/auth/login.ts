@@ -3,7 +3,7 @@ import {
   InitiateAuthCommand
 } from '@aws-sdk/client-cognito-identity-provider'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { User } from '../users'
+import { User } from '@marketplace/types'
 import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 import { createUpdateUser } from '../../helpers/users/create-update-user'
 

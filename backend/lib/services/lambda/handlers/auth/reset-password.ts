@@ -1,10 +1,11 @@
 import {
-  AdminSetUserPasswordCommand, CognitoIdentityProviderClient 
+  AdminSetUserPasswordCommand, CognitoIdentityProviderClient
 } from "@aws-sdk/client-cognito-identity-provider"
+import { oneTimeCodesTableName } from '@marketplace/constants'
+import { OneTimePassword } from '@marketplace/types'
 import { APIGatewayProxyEvent } from "aws-lambda"
-import { get } from '../../helpers/dynamo-helpers/get'
-import { OneTimePassword } from '../../helpers/create-one-time-password'
 import { deleteItem } from '../../helpers/dynamo-helpers/delete'
+import { get } from '../../helpers/dynamo-helpers/get'
 import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
 const cognitoClient = new CognitoIdentityProviderClient({})
 
@@ -34,7 +35,7 @@ export const resetPassword = rateLimitedHandler(async function (event: APIGatewa
     }
   }
   const oneTimePassword = await get<OneTimePassword>({
-    tableName: process.env.ONE_TIME_CODES_TABLE!,
+    tableName: oneTimeCodesTableName!,
     key: {
       email,
       type: 'password-reset'
@@ -56,7 +57,7 @@ export const resetPassword = rateLimitedHandler(async function (event: APIGatewa
     // Best-effort delete of the OTP to prevent reuse
     try {
       await deleteItem({
-        tableName: process.env.ONE_TIME_CODES_TABLE!,
+        tableName: oneTimeCodesTableName!,
         key: {
           email, type: 'password-reset' 
         }

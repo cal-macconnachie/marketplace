@@ -2,12 +2,8 @@ import {
   aws_dynamodb as dynamodb
 } from 'aws-cdk-lib'
 import { Construct } from 'constructs'
+import type { DdbTablesConstructProps } from '@marketplace/types'
 import { ddbTableDefinitions } from './ddb-table-definitions'
-
-// Add DdbTablesConstructProps interface
-export interface DdbTablesConstructProps {
-  envName: string
-}
 
 // Helper to map string type to CDK AttributeType
 function toAttributeType(type: 'S' | 'N' | 'B'): dynamodb.AttributeType {

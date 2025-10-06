@@ -1,17 +1,14 @@
+import type {
+  DeleteCouponRequest,
+  DeletePromotionCodeRequest
+} from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
+import { promosTableName } from '@marketplace/constants'
 import { deleteItem } from '../../helpers/dynamo-helpers/delete'
-
-export interface DeleteCouponRequest {
-  id: string
-}
-
-export interface DeletePromotionCodeRequest {
-  id: string
-}
 
 export const deletePromo = async (request: APIGatewayProxyEvent) => {
   try {
-    if (!process.env.PROMOS_TABLE) {
+    if (!promosTableName) {
       throw new Error('PROMOS_TABLE environment variable is not set')
     }
 
@@ -26,7 +23,7 @@ export const deletePromo = async (request: APIGatewayProxyEvent) => {
 
       // Delete DynamoDB record which will trigger Stripe deletion
       await deleteItem({
-        tableName: process.env.PROMOS_TABLE,
+        tableName: promosTableName,
         key: {
           type: 'promotion_code',
           id: promoRequest.id
@@ -54,7 +51,7 @@ export const deletePromo = async (request: APIGatewayProxyEvent) => {
 
       // Delete DynamoDB record which will trigger Stripe deletion
       await deleteItem({
-        tableName: process.env.PROMOS_TABLE,
+        tableName: promosTableName,
         key: {
           type: 'coupon',
           id: couponRequest.id

@@ -1,12 +1,15 @@
-import { Purchase } from '../handlers/purchases'
-import { Product } from '../handlers/products'
-import {
-  create, createTransaction 
-} from './dynamo-helpers/create'
-import { atomicUpdate } from './dynamo-helpers/atomic-update'
 import { TransactWriteItem } from '@aws-sdk/client-dynamodb'
-import { updateTransaction } from './dynamo-helpers/update'
+import type {
+  Product,
+  Purchase
+} from '@marketplace/types'
+import { purchaseCartsTableName, purchasesTableName } from '@marketplace/constants'
+import { atomicUpdate } from './dynamo-helpers/atomic-update'
+import {
+  create, createTransaction
+} from './dynamo-helpers/create'
 import { transactWrite } from './dynamo-helpers/transact-write'
+import { updateTransaction } from './dynamo-helpers/update'
 
 export async function addPurchase(purchase: Omit<Purchase, 'status'>, product?: Product): Promise<Purchase> {
   let finalPurchase: Purchase = {
@@ -23,7 +26,7 @@ export async function addPurchase(purchase: Omit<Purchase, 'status'>, product?: 
   }
 
   finalPurchase = await create<Purchase>({
-    tableName: process.env.PURCHASES_TABLE!,
+    tableName: purchasesTableName!,
     key: {
       user_id: finalPurchase.user_id,
       id: finalPurchase.id
@@ -34,7 +37,7 @@ export async function addPurchase(purchase: Omit<Purchase, 'status'>, product?: 
   // add purchase to cart purchases array using atomic updates
   if (finalPurchase.cart_id) {
     await atomicUpdate({
-      tableName: process.env.PURCHASE_CARTS_TABLE!,
+      tableName: purchaseCartsTableName!,
       key: {
         user_id: finalPurchase.user_id,
         id: finalPurchase.cart_id
@@ -69,12 +72,12 @@ export async function setCartPurchases({
       status: 'pending'
     }
     transactions.push(createTransaction({
-      tableName: process.env.PURCHASES_TABLE!,
+      tableName: purchasesTableName!,
       record: newPurchase
     }))
   }
   transactions.push(updateTransaction({
-    tableName: process.env.PURCHASE_CARTS_TABLE!,
+    tableName: purchaseCartsTableName!,
     key: {
       user_id: userId,
       id: cartId

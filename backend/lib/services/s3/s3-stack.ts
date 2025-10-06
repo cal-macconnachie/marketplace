@@ -6,16 +6,18 @@ import {
   HttpMethods,
   StorageClass,
   IBucket,
-  BucketPolicy
 } from 'aws-cdk-lib/aws-s3'
 import {
   RemovalPolicy, Duration
 } from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import {
-  S3BucketDefinition, s3Definitions
+  s3Definitions
 } from './s3-bucket-definitions'
-import { PolicyStatement, Effect, AnyPrincipal } from 'aws-cdk-lib/aws-iam'
+import {
+  PolicyStatement, Effect, AnyPrincipal 
+} from 'aws-cdk-lib/aws-iam'
+import { S3BucketDefinition } from '@marketplace/types'
 interface S3ConstructProps {
   envName?: string
 }

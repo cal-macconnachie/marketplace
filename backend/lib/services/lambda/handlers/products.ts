@@ -2,61 +2,9 @@ import { AttributeValue } from '@aws-sdk/client-dynamodb'
 import { unmarshall } from '@aws-sdk/util-dynamodb'
 import { DynamoDBStreamEvent } from 'aws-lambda'
 import Stripe from 'stripe'
+import { Product } from '@marketplace/types'
 import { update } from '../helpers/dynamo-helpers/update'
-export interface Product {
-  group_id: string
-  id: string
-  organization_id: string
-  name: string
-  description: string
-  active: boolean
-  is_public: boolean
-  metadata?: Record<string, string>
-  tax_code?: string
-  images?: string[]
-  default_price_data: {
-    currency: string
-    unit_amount: number
-    recurring?: {
-      interval: 'day' | 'week' | 'month' | 'year'
-      interval_count?: number
-      usage_type?: 'licensed' | 'metered'
-    }
-    meter?: string // Billing meter ID for usage-based pricing
-    meter_event?: string // Event name for usage-based pricing
-    unit_label: string // Label for the unit of measure
-    tax_behavior?: 'exclusive' | 'inclusive' | 'unspecified'
-  }
-  marketing_features?: {
-    name: string
-  }[]
-  statement_descriptor?: string
-  persist_update: boolean
-  price_id?: string // Optional, used for linking to a price if applicable
-  error?: string // Error message from Stripe operations
-  last_processed_at?: string // ISO timestamp of last processing
-  price_version?: number // Version number for price changes
-  account_id: string // ID of the Stripe account associated with the product
-}
-
-export type PurchasedProduct = {
-  id: string
-  organization_id: string
-  product_id: string
-  group_id: string
-  name: string
-  metadata?: Record<string, string>
-  user_id?: string
-  in_good_standing_until?: number
-  amount: number
-  currency: string
-  purchase_id: string
-  subscription_id?: string
-  subscription_item_id?: string
-  cancelled?: boolean
-  created_at: string
-  updated_at: string
-}
+import { productsTableName } from '@marketplace/constants'
 
 let stripe: Stripe | undefined
 
@@ -254,7 +202,7 @@ export const handler = async (event: DynamoDBStreamEvent) => {
       stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
     }
     
-    if (process.env.PRODUCTS_TABLE == null || process.env.PRODUCTS_TABLE === '') {
+    if (productsTableName == null || productsTableName === '') {
       throw new Error('PRODUCTS_TABLE environment variable is not set')
     }
     
@@ -370,7 +318,7 @@ export const handler = async (event: DynamoDBStreamEvent) => {
                 
                 // Store error in database
                 await updateDatabaseRecord(
-                  process.env.PRODUCTS_TABLE!,
+                  productsTableName,
                   newRec.group_id,
                   productId,
                   { persist_update: false },
@@ -435,7 +383,7 @@ export const handler = async (event: DynamoDBStreamEvent) => {
                 
                 // Store error in database
                 await updateDatabaseRecord(
-                  process.env.PRODUCTS_TABLE!,
+                  productsTableName!,
                   newRec.group_id,
                   productId,
                   { persist_update: false },
@@ -516,7 +464,7 @@ export const handler = async (event: DynamoDBStreamEvent) => {
           
           if (Object.keys(changedAttributes).length > 0) {
             await updateDatabaseRecord(
-              process.env.PRODUCTS_TABLE!,
+              productsTableName!,
               newRec.group_id,
               stripeProduct.id,
               changedAttributes
@@ -530,7 +478,7 @@ export const handler = async (event: DynamoDBStreamEvent) => {
         if (newRec) {
           const errorMessage = error instanceof Error ? error.message : 'Unexpected error'
           await updateDatabaseRecord(
-            process.env.PRODUCTS_TABLE!,
+            productsTableName!,
             newRec.group_id,
             productId,
             { persist_update: false },

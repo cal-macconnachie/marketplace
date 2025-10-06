@@ -1,8 +1,9 @@
+import { purchasedProductsTableName } from '@marketplace/constants'
+import { PurchasedProduct } from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { getOrganizationById } from '../../helpers/organizations/get-organization-by-id'
-import { PurchasedProduct } from '../products'
-import { update } from '../../helpers/dynamo-helpers/update'
 import { queryAll } from '../../helpers/dynamo-helpers/query'
+import { update } from '../../helpers/dynamo-helpers/update'
+import { getOrganizationById } from '../../helpers/organizations/get-organization-by-id'
 
 export const assignProducts = async (event: APIGatewayProxyEvent) => {
   try {
@@ -44,7 +45,7 @@ export const assignProducts = async (event: APIGatewayProxyEvent) => {
       }
     }
     const purchasedProducts = await queryAll<PurchasedProduct>({
-      tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+      tableName: purchasedProductsTableName!,
       keyConditionExpression: 'organization_id = :orgId',
       expressionAttributeValues: {
         ':orgId': organizationId
@@ -58,7 +59,7 @@ export const assignProducts = async (event: APIGatewayProxyEvent) => {
         continue
       }
       await update<PurchasedProduct>({
-        tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+        tableName: purchasedProductsTableName!,
         key: {
           organization_id: organizationId,
           id: pp.id

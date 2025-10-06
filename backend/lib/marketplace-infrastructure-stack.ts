@@ -7,19 +7,7 @@ import path from 'path'
 import { S3Construct } from './services/s3/s3-stack'
 import { Route53Construct } from './services/route53/route53-stack'
 import * as ssm from 'aws-cdk-lib/aws-ssm'
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
-import * as cognito from 'aws-cdk-lib/aws-cognito'
-import * as route53 from 'aws-cdk-lib/aws-route53'
-import * as s3 from 'aws-cdk-lib/aws-s3'
-
-export interface MarketplaceInfrastructureStackOutputs {
-  tables: Record<string, dynamodb.Table>
-  userPool: cognito.UserPool
-  userPoolClient: cognito.UserPoolClient
-  buckets: { [bucketName: string]: s3.IBucket }
-  websiteUrls: { [bucketName: string]: string }
-  hostedZones: { [zoneName: string]: route53.IHostedZone }
-}
+import type { MarketplaceInfrastructureStackOutputs } from '@marketplace/types'
 
 export class MarketplaceInfrastructureStack extends cdk.Stack {
   public readonly outputs: MarketplaceInfrastructureStackOutputs

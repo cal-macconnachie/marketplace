@@ -1,12 +1,4 @@
-export interface CartItem {
-  groupId: string
-  productId: string
-  quantity: number
-}
-
-export interface Cart {
-  [key: string]: CartItem
-}
+import type { CartItem, BrowserCart, SerializedCartData } from '@marketplace/types'
 
 export class CartService {
   constructor() {
@@ -17,18 +9,19 @@ export class CartService {
     return 'cart'
   }
 
-  getCart(): Cart {
+  getCart(): BrowserCart {
     const cartKey = this.getCartKey()
     const cartData = localStorage.getItem(cartKey)
-    return cartData ? JSON.parse(cartData) : {}
+    if (!cartData) throw new Error('BrowserCart is empty')
+    return JSON.parse(cartData)
   }
 
-  private saveCart(cart: Cart): void {
+  private saveCart(cart: BrowserCart): void {
     const cartKey = this.getCartKey()
     localStorage.setItem(cartKey, JSON.stringify(cart))
   }
 
-  private calculateTotalItems(cart: Cart): number {
+  private calculateTotalItems(cart: BrowserCart): number {
     return Object.values(cart).reduce((total, item) => total + item.quantity, 0)
   }
 
@@ -43,6 +36,7 @@ export class CartService {
         groupId,
         productId,
         quantity,
+        organizationId: '', // To be filled in at checkout
       }
     }
 
@@ -103,7 +97,7 @@ export class CartService {
     const cartArray = Object.values(cart)
 
     // Convert to base64 encoded JSON for URL safety
-    const cartData = {
+    const cartData: SerializedCartData = {
       items: cartArray,
       timestamp: Date.now(),
       domain: window.location.href,
@@ -125,7 +119,7 @@ export class CartService {
       // Check if cart is not too old (24 hours)
       const maxAge = 24 * 60 * 60 * 1000 // 24 hours in ms
       if (Date.now() - cartData.timestamp > maxAge) {
-        console.warn('Cart data is older than 24 hours, may be stale')
+        console.warn('BrowserCart data is older than 24 hours, may be stale')
       }
 
       return cartData.items

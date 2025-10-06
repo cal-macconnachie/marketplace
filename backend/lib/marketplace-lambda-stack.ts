@@ -2,12 +2,7 @@ import * as cdk from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import { LambdaConstruct } from './services/lambda/lambda-stack'
 import { CloudFrontConstruct } from './services/cloudfront/cloudfront-stack'
-import type { MarketplaceInfrastructureStackOutputs } from './marketplace-infrastructure-stack'
-
-export interface MarketplaceLambdaStackProps extends cdk.StackProps {
-  envName?: string
-  infrastructureOutputs: MarketplaceInfrastructureStackOutputs
-}
+import type { MarketplaceLambdaStackProps } from '@marketplace/types'
 
 export class MarketplaceLambdaStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: MarketplaceLambdaStackProps) {
@@ -16,6 +11,7 @@ export class MarketplaceLambdaStack extends cdk.Stack {
     const { infrastructureOutputs } = props
 
     const envVars = {
+      'ENV_NAME': envName,
       'USER_POOL_CLIENT_ID': infrastructureOutputs.userPoolClient.userPoolClientId,
       'USER_POOL_ID': infrastructureOutputs.userPool.userPoolId,
       'STRIPE_SECRET_KEY': `${envName === 'dev' ? process.env.STRIPE_SECRET_KEY_DEV : process.env.STRIPE_SECRET_KEY_PROD}`,

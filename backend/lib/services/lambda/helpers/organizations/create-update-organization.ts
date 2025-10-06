@@ -1,15 +1,16 @@
+import { organizationsTableName } from '@marketplace/constants'
+import { Organization } from '@marketplace/types'
 import isEqual from 'lodash.isequal'
-import { Organization } from '../../handlers/organizations'
+import { v4 } from 'uuid'
+import { create } from '../dynamo-helpers/create'
 import { get } from '../dynamo-helpers/get'
 import { update } from '../dynamo-helpers/update'
-import { create } from '../dynamo-helpers/create'
-import { v4 } from 'uuid'
 
 export const createUpdateOrganization = async (org: Partial<Organization>): Promise<Organization> => {
   let existingOrg: Organization | undefined
   if (org.id != null) {
     existingOrg = await get<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: {
         id: org.id
       }
@@ -25,7 +26,7 @@ export const createUpdateOrganization = async (org: Partial<Organization>): Prom
     }
     if (Object.keys(org).length === 0) return existingOrg
     finalOrg = await update<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: {
         id: org.id
       },
@@ -37,7 +38,7 @@ export const createUpdateOrganization = async (org: Partial<Organization>): Prom
     })
   } else {
     finalOrg = await create<Organization>({
-      tableName: process.env.ORGANIZATIONS_TABLE!,
+      tableName: organizationsTableName!,
       key: {
         id: org.id
       },

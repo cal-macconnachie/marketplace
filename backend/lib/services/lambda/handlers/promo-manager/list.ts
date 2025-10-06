@@ -1,30 +1,15 @@
+import type {
+  ListCouponsRequest,
+  ListPromotionCodesRequest,
+  Promo
+} from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
+import { promosTableName } from '@marketplace/constants'
 import { query } from '../../helpers/dynamo-helpers/query'
-import { Promo } from '../promos'
-
-export interface ListCouponsRequest {
-  limit?: number
-  starting_after?: string
-  ending_before?: string
-  created?: number | { gt?: number; gte?: number; lt?: number; lte?: number }
-  account_id?: string
-}
-
-export interface ListPromotionCodesRequest {
-  coupon?: string
-  customer?: string
-  code?: string
-  limit?: number
-  starting_after?: string
-  ending_before?: string
-  created?: number | { gt?: number; gte?: number; lt?: number; lte?: number }
-  active?: boolean
-  account_id?: string
-}
 
 export const listPromos = async (request: APIGatewayProxyEvent) => {
   try {
-    if (!process.env.PROMOS_TABLE) {
+    if (!promosTableName) {
       throw new Error('PROMOS_TABLE environment variable is not set')
     }
 
@@ -35,7 +20,7 @@ export const listPromos = async (request: APIGatewayProxyEvent) => {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const queryParams: any = {
-        tableName: process.env.PROMOS_TABLE,
+        tableName: promosTableName,
         keyConditionExpression: '#type = :type',
         expressionAttributeNames: {
           '#type': 'type'
@@ -99,7 +84,7 @@ export const listPromos = async (request: APIGatewayProxyEvent) => {
       // Query DynamoDB for coupons
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const queryParams: any = {
-        tableName: process.env.PROMOS_TABLE,
+        tableName: promosTableName,
         keyConditionExpression: '#type = :type',
         expressionAttributeNames: {
           '#type': 'type'

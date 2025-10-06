@@ -1,19 +1,8 @@
+import {
+  AddressCodes, AddressInput 
+} from '@marketplace/types'
 import { countryToAlpha2 } from 'country-to-iso'
 import { iso31662 } from 'iso-3166'
-
-interface AddressInput {
-  country: string
-  state: string
-  city?: string
-  postal_code?: string
-}
-
-interface AddressCodes {
-  country: string
-  state: string
-  city?: string
-  postal_code?: string
-}
 
 // Helper function to convert state/province name to ISO 3166-2 subdivision code
 function getStateCode(stateName: string, countryCode: string): string {

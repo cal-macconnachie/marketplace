@@ -1,14 +1,4 @@
-/**
- * OAuth utility functions for Google authentication via AWS Cognito
- */
-
-interface CognitoConfig {
-  region: string
-  userPoolId: string
-  clientId: string
-  domain: string
-  redirectUri: string
-}
+import type { CognitoConfig } from '@marketplace/types'
 
 /**
  * Get Cognito configuration from environment variables

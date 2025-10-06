@@ -1,4 +1,5 @@
-import { User } from "../../handlers/users"
+import { usersTableName } from '@marketplace/constants'
+import { User } from '@marketplace/types'
 import { update } from "../dynamo-helpers/update"
 import { getOrganizationUsers } from "./get-organization-users"
 
@@ -12,7 +13,7 @@ export const setInGoodStanding = async ({
   const orgUsers = await getOrganizationUsers({ orgId: organizationId })
   for (const user of orgUsers) {
     await update<User>({
-      tableName: process.env.USERS_TABLE!,
+      tableName: usersTableName!,
       key: { id: user.id },
       updates: {
         in_good_standing_until: inGoodStandingUntil ?? ''

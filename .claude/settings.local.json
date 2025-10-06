@@ -1,10 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "WebSearch",
-      "Bash(yarn type-check)"
+      "Bash(yarn install)",
+      "Bash(yarn:*)"
     ],
-    "deny": [],
+    "deny": [
+      "Bash(git commit*)",
+      "Bash(git push*)"
+    ],
     "ask": []
   }
 }

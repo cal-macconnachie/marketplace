@@ -1,9 +1,10 @@
-import { User } from "../../handlers/users"
+import { usersTableName } from '@marketplace/constants'
+import { User } from '@marketplace/types'
 import { query } from "../dynamo-helpers/query"
 
 export async function getUserByStripeId(stripeId: string): Promise<User | undefined> {
   const { items } = await query<User>({
-    tableName: process.env.USERS_TABLE! || 'users-dev',
+    tableName: usersTableName! || 'users-dev',
     indexName: 'stripe_id-index',
     keyConditionExpression: '#stripeId = :stripeId',
     expressionAttributeNames: {

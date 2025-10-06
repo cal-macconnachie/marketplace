@@ -1,8 +1,10 @@
+import {
+  Purchase, PurchasedProduct
+} from '@marketplace/types'
 import Stripe from 'stripe'
-import { PurchasedProduct } from '../../handlers/products'
-import { Purchase } from '../../handlers/purchases'
-import { get } from '../dynamo-helpers/get'
 import { v4 } from 'uuid'
+import { purchasesTableName } from '@marketplace/constants'
+import { get } from '../dynamo-helpers/get'
 
 export const createPurchasedProductForMeterSubscription = async ({
   purchaseKey,
@@ -15,7 +17,7 @@ export const createPurchasedProductForMeterSubscription = async ({
   subscriptionItem: Stripe.SubscriptionItem
 }): Promise<PurchasedProduct> => {
   const purchase = await get<Purchase>({
-    tableName: process.env.PURCHASES_TABLE!,
+    tableName: purchasesTableName!,
     key: {
       id: purchaseKey.purchaseId,
       user_id: purchaseKey.userId

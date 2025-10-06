@@ -1,6 +1,7 @@
+import { usersTableName } from '@marketplace/constants'
+import { User } from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { update } from '../../helpers/dynamo-helpers/update'
-import { User } from '../users'
 
 export const updateUser = async (event: APIGatewayProxyEvent) => {
   const { body } = event
@@ -23,7 +24,7 @@ export const updateUser = async (event: APIGatewayProxyEvent) => {
       }
     }
     const user = await update<User>({
-      tableName: process.env.USERS_TABLE!,
+      tableName: usersTableName!,
       key: {
         id
       },

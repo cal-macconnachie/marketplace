@@ -1,10 +1,14 @@
+import {
+  purchasesTableName, usersTableName
+} from '@marketplace/constants'
+import {
+  Purchase, User
+} from '@marketplace/types'
 import { EventBridgeEvent } from 'aws-lambda'
-import { Purchase } from '../purchases'
-import { batchGet } from '../../helpers/dynamo-helpers/batch-get'
-import { createDestinationCharge } from '../../helpers/stripe/create-destination-charge'
-import { get } from '../../helpers/dynamo-helpers/get'
-import { User } from '../users'
 import { updatePurchaseStatus } from '../../helpers/carts/update-purchase-status'
+import { batchGet } from '../../helpers/dynamo-helpers/batch-get'
+import { get } from '../../helpers/dynamo-helpers/get'
+import { createDestinationCharge } from '../../helpers/stripe/create-destination-charge'
 import { handleSubscription } from '../../helpers/stripe/handle-subscription'
 interface PurchaseKey {
   user_id: string
@@ -20,7 +24,7 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
       purchase_keys
     } = event.detail
     const purchases = await batchGet<Purchase>({
-      tableName: process.env.PURCHASES_TABLE!,
+      tableName: purchasesTableName!,
       keys: purchase_keys.map(({
         user_id,
         id
@@ -30,7 +34,7 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
       }))
     })
     const user = await get<User>({
-      tableName: process.env.USERS_TABLE!,
+      tableName: usersTableName!,
       key: {
         id: purchases[0].user_id
       }

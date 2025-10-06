@@ -1,20 +1,17 @@
-import {
-  Product 
-} from "../../handlers/products"
-import { User } from "../../handlers/users"
 import { getPromoByCode } from "./get-promo-by-code"
 import { getStripeClient } from "./stripe-client"
-import { Organization } from "../../handlers/organizations"
 import { v4 } from 'uuid'
 import {
   calculatePlatformFee, 
 } from './calculate-platform-fee'
 import {
-  calculateTaxesWithCaching, ItemsInterface 
+  calculateTaxesWithCaching 
 } from '../tax/calculate-taxes-with-caching'
 import { generateLocationKey } from '../tax/tax-calculation-cache'
-import { Purchase } from '../../handlers/purchases'
-
+import {
+  Product, Purchase, User, Organization, 
+  ItemsInterface
+} from '@marketplace/types'
 export const createOneTimePurchase = async ({
   promotionCode,
   couponId,
@@ -145,7 +142,7 @@ export const createOneTimePurchase = async ({
     customerLocation
   )
 
-  const taxAmount = taxResult.items[0]?.tax_amount || 0
+  const taxAmount = taxResult.items?.[0]?.tax_amount ?? 0
   const totalAmount = finalAmount + taxAmount
 
   // Calculate platform fee on the post-tax total (align with Stripe)

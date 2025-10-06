@@ -1,52 +1,15 @@
+import type {
+  CreatePromoRequest,
+  CreatePromotionCodeRequest,
+  Promo
+} from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
+import { promosTableName } from '@marketplace/constants'
 import { create } from '../../helpers/dynamo-helpers/create'
-import { Promo } from '../promos'
-
-export interface CreateCouponRequest {
-  name: string
-  id?: string
-  percent_off?: number
-  amount_off?: number
-  currency?: string
-  duration: 'once' | 'repeating' | 'forever'
-  duration_in_months?: number
-  max_redemptions?: number
-  redeem_by?: number
-  applies_to?: {
-    products?: string[]
-  }
-  account_id: string
-}
-
-export interface CreatePromotionCodeRequest {
-  coupon: string
-  code?: string
-  customer?: string
-  expires_at?: number
-  max_redemptions?: number
-  restrictions?: {
-    first_time_transaction?: boolean
-    minimum_amount?: number
-    minimum_amount_currency?: string
-  }
-  account_id: string
-}
-
-export interface CreatePromoRequest extends CreateCouponRequest {
-  code?: string
-  customer?: string
-  expires_at?: number
-  promo_max_redemptions?: number
-  restrictions?: {
-    first_time_transaction?: boolean
-    minimum_amount?: number
-    minimum_amount_currency?: string
-  }
-}
 
 export const createPromo = async (request: APIGatewayProxyEvent) => {
   try {
-    if (!process.env.PROMOS_TABLE) {
+    if (!promosTableName) {
       throw new Error('PROMOS_TABLE environment variable is not set')
     }
     const body = JSON.parse(request.body ?? '{}')
@@ -78,7 +41,7 @@ export const createPromo = async (request: APIGatewayProxyEvent) => {
       }
 
       await create({
-        tableName: process.env.PROMOS_TABLE,
+        tableName: promosTableName,
         key: {
           type: promoRecord.type,
           id: promoRecord.id
@@ -146,7 +109,7 @@ export const createPromo = async (request: APIGatewayProxyEvent) => {
       }
 
       await create({
-        tableName: process.env.PROMOS_TABLE,
+        tableName: promosTableName,
         key: {
           type: couponRecord.type,
           id: couponRecord.id
@@ -174,7 +137,7 @@ export const createPromo = async (request: APIGatewayProxyEvent) => {
         }
 
         await create({
-          tableName: process.env.PROMOS_TABLE,
+          tableName: promosTableName,
           key: {
             type: promoCodeRecord.type,
             id: promoCodeRecord.id

@@ -1,9 +1,10 @@
 import {
-  APIGatewayProxyEvent, APIGatewayProxyResult 
+  APIGatewayProxyEvent, APIGatewayProxyResult
 } from 'aws-lambda'
 import { get } from '../../helpers/dynamo-helpers/get'
-import { Product } from '../products'
+import { Product } from '@marketplace/types'
 import { queryAll } from '../../helpers/dynamo-helpers/query'
+import { productsTableName } from '@marketplace/constants'
 
 export const getProducts = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {    
@@ -15,7 +16,7 @@ export const getProducts = async (event: APIGatewayProxyEvent): Promise<APIGatew
     // Case 1: Get specific product by group_id and id
     if (id && groupId) {
       const product = await get<Product>({
-        tableName: process.env.PRODUCTS_TABLE!,
+        tableName: productsTableName!,
         key: {
           group_id: groupId,
           id
@@ -36,7 +37,7 @@ export const getProducts = async (event: APIGatewayProxyEvent): Promise<APIGatew
     // Case 2: Get all products in a specific group
     if (groupId) {
       const products = await queryAll<Product>({
-        tableName: process.env.PRODUCTS_TABLE!,
+        tableName: productsTableName!,
         keyConditionExpression: 'group_id = :group_id',
         expressionAttributeValues: {
           ':group_id': groupId

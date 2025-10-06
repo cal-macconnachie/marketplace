@@ -1,9 +1,7 @@
 import Stripe from 'stripe'
 import { getStripeClient } from '../../helpers/stripe/stripe-client'
-import {
-  BillingMeter 
-} from './types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
+import { BillingMeter } from '@marketplace/types'
 
 export const createMeter = async (
   request: APIGatewayProxyEvent

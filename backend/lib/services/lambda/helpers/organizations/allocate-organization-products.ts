@@ -1,12 +1,15 @@
-import { Organization } from "../../handlers/organizations"
-import { PurchasedProduct } from "../../handlers/products"
-import { User } from "../../handlers/users"
+import {
+  purchasedProductsTableName, usersTableName
+} from '@marketplace/constants'
+import {
+  Organization, PurchasedProduct, User
+} from '@marketplace/types'
 import { queryAll } from '../dynamo-helpers/query'
 import { update } from "../dynamo-helpers/update"
 
 export const allocateOrganizationProducts = async (organization: Organization) => {
   const purchasedProducts = await queryAll<PurchasedProduct>({
-    tableName: process.env.PURCHASED_PRODUCTS_TABLE!,
+    tableName: purchasedProductsTableName!,
     keyConditionExpression: 'organization_id = :orgId',
     expressionAttributeValues: {
       ':orgId': organization.id
@@ -25,7 +28,7 @@ export const allocateOrganizationProducts = async (organization: Organization) =
     for (const userId in userPurchasedProducts) {
       const products = userPurchasedProducts[userId]
       await update<User>({
-        tableName: process.env.USERS_TABLE!,
+        tableName: usersTableName!,
         key: { id: userId },
         updates: {
           products

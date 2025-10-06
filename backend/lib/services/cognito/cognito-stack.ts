@@ -1,13 +1,9 @@
 import * as cdk from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import {
-  aws_cognito as cognito, aws_lambda as lambda 
+  aws_cognito as cognito, aws_lambda as lambda
 } from 'aws-cdk-lib'
-
-export interface CognitoStackProps {
-  envName: string
-  postAuthTriggerFunction: lambda.Function
-}
+import type { CognitoStackProps } from '@marketplace/types'
 
 export class CognitoStack extends Construct {
   public readonly userPool: cognito.UserPool

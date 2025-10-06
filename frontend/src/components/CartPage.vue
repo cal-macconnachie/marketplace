@@ -416,12 +416,8 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  type Product,
   publicApi,
   authAPI,
-  type Organization,
-  type PaymentMethod,
-  type TaxCalculationItem,
 } from '@/services/api'
 import { type PaymentMethod as StripePaymentMethod } from '@stripe/stripe-js'
 import { useAppStore } from '@/stores/app'
@@ -438,19 +434,7 @@ import ProductCard from './ui/ProductCard.vue'
 import PriceDisplay from './ui/PriceDisplay.vue'
 import SignIn from './SignIn.vue'
 import AddressSearch from './ui/AddressSearch.vue'
-
-interface CartItem {
-  groupId: string
-  productId: string
-  quantity: number
-  organizationId: string
-}
-
-interface CheckoutData {
-  items: CartItem[]
-  timestamp: number
-  domain: string
-}
+import type { CartItem, CheckoutData, Organization, PaymentMethod, Product, TaxCalculationItem } from '@marketplace/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -627,7 +611,7 @@ const taxesByCurrency = computed(() => {
         const amount = product.default_price_data.unit_amount * effectiveQuantity
 
         // Find the tax rate for this item from the tax calculation
-        const taxItem = appStore.taxCalculation?.items.find(
+        const taxItem = appStore.taxCalculation?.items?.find(
           (item) => item.id === cartItem.productId && item.group_id === cartItem.groupId,
         )
 

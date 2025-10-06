@@ -12,7 +12,8 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@marketplace/constants': fileURLToPath(new URL('../constants/src/index.ts', import.meta.url))
     },
   },
 })
