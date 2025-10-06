@@ -1,0 +1,59 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import { useAppStore } from '@/stores/app'
+
+const routes = [
+  {
+    path: '/',
+    name: 'Dashboard',
+    component: () => import('@/components/DashboardPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/auth',
+    name: 'SignIn',
+    component: () => import('@/components/SignIn.vue'),
+  },
+  {
+    path: '/marketplace',
+    name: 'Marketplace',
+    component: () => import('@/components/MarketplacePage.vue'),
+  },
+  {
+    path: '/auth/callback',
+    name: 'OAuthCallback',
+    component: () => import('@/components/OAuthCallbackPage.vue'),
+  },
+  {
+    path: '/refresh-stripe-account/:orgId',
+    name: 'RefreshStripeAccount',
+    component: () => import('@/components/RefreshStripePage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/public/:group_id/:id',
+    name: 'EmbeddableProduct',
+    component: () => import('@/components/EmbeddableProductPage.vue'),
+  },
+  {
+    path: '/cart',
+    name: 'Cart',
+    component: () => import('@/components/CartPage.vue'),
+  },
+]
+
+const router = createRouter({
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes,
+})
+
+router.beforeEach((to, from, next) => {
+  const app = useAppStore()
+  // If route requires auth and user is not authenticated, redirect to /auth
+  if (to.meta.requiresAuth && !app.isAuthenticated) {
+    next({ path: '/auth' })
+  } else {
+    next()
+  }
+})
+
+export default router

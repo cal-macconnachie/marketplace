@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(grep:*)",
+      "WebFetch(domain:developer.chrome.com)",
+      "WebFetch(domain:keithjgrant.com)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

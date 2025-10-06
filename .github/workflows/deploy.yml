@@ -1,35 +1,100 @@
-name: deploy
+name: Deploy Monorepo
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+
 on:
   push:
     branches:
       - dev
       - prod
+  workflow_dispatch:
+    inputs:
+      force-deploy:
+        description: 'Force deploy all services'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
-  setup:
+  # Detect which services changed
+  detect-changes:
     runs-on: ubuntu-latest
     outputs:
+      backend: ${{ steps.filter.outputs.backend || github.event.inputs.force-deploy == 'true' }}
+      frontend: ${{ steps.filter.outputs.frontend || github.event.inputs.force-deploy == 'true' }}
       env-name: ${{ steps.env.outputs.env-name }}
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'yarn'
+          fetch-depth: 0
 
-      - name: Ensure Yarn is installed
-        run: corepack enable
+      - name: Check for changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
 
       - name: Set environment
         id: env
         run: echo "env-name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
 
-  build:
+  # Detect lambda changes (for faster deployments)
+  detect-lambda-changes:
     runs-on: ubuntu-latest
-    needs: setup
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    outputs:
+      lambda-only: ${{ steps.check.outputs.lambda-only }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if only lambda changes
+        id: check
+        run: |
+          # Get list of changed files
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # Check if the before commit exists (it may not after force push/squash)
+            if git cat-file -e ${{ github.event.before }} 2>/dev/null; then
+              FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+            else
+              # Fallback to comparing with previous commit
+              FILES=$(git diff --name-only HEAD~1 HEAD)
+            fi
+          else
+            FILES=$(git diff --name-only HEAD~1 HEAD)
+          fi
+
+          # Check if changes are only in lambda handlers
+          LAMBDA_ONLY=true
+          while IFS= read -r file; do
+            if [[ ! "$file" =~ ^backend/lib/services/lambda/handlers/ ]] && [[ "$file" =~ ^backend/ ]]; then
+              LAMBDA_ONLY=false
+              break
+            fi
+          done <<< "$FILES"
+
+          echo "lambda-only=$LAMBDA_ONLY" >> $GITHUB_OUTPUT
+          echo "Lambda only changes: $LAMBDA_ONLY"
+
+  # Backend infrastructure deployment (DynamoDB, Cognito, S3, Route53)
+  deploy-infrastructure:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, detect-lambda-changes]
+    # Only deploy infrastructure if changes are NOT lambda-only
+    if: needs.detect-changes.outputs.backend == 'true' && needs.detect-lambda-changes.outputs.lambda-only == 'false'
     env:
       APPLE_CLIENT_ID: ${{ secrets.APPLE_CLIENT_ID }}
       APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
@@ -49,7 +114,7 @@ jobs:
       CLOUDFRONT_AUTH_USERNAME: ${{ secrets.CLOUDFRONT_AUTH_USERNAME }}
       CLOUDFRONT_AUTH_PASSWORD: ${{ secrets.CLOUDFRONT_AUTH_PASSWORD }}
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Node.js
@@ -61,73 +126,12 @@ jobs:
       - name: Ensure Yarn is installed
         run: corepack enable
 
-      - name: Install AWS CDK
-        run: yarn global add aws-cdk
-
-      - name: Install project dependencies
-        run: yarn install
-
-      # - name: Lint
-      #   run: yarn lint
-
-      # - name: Test
-      #   run: yarn test --ci
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
 
       - name: CDK Synth
-        run: cdk synth -c envName=${{ needs.setup.outputs.env-name }}
-
-      - name: Upload CDK artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: cdk-out
-          path: cdk.out/
-          retention-days: 1
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: [setup, build]
-    env:
-      APPLE_CLIENT_ID: ${{ secrets.APPLE_CLIENT_ID }}
-      APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
-      APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-      STRIPE_EVENT_DESTINATION_DEV: ${{ secrets.STRIPE_EVENT_DESTINATION_DEV }}
-      STRIPE_EVENT_DESTINATION_PLATFORM_DEV: ${{ secrets.STRIPE_EVENT_DESTINATION_PLATFORM_DEV }}
-      STRIPE_EVENT_DESTINATION_PROD: ${{ secrets.STRIPE_EVENT_DESTINATION_PROD }}
-      STRIPE_EVENT_DESTINATION_PLATFORM_PROD: ${{ secrets.STRIPE_EVENT_DESTINATION_PLATFORM_PROD }}
-      STRIPE_SECRET_KEY_DEV: ${{ secrets.STRIPE_SECRET_KEY_DEV }}
-      STRIPE_SECRET_KEY_PROD: ${{ secrets.STRIPE_SECRET_KEY_PROD }}
-      EMAIL_AWS_REGION: ${{ secrets.EMAIL_AWS_REGION }}
-      EMAIL_LAMBDA_ARN: ${{ secrets.EMAIL_LAMBDA_ARN }}
-      EMAIL_ASSUME_ROLE_ARN: ${{ secrets.EMAIL_ASSUME_ROLE_ARN }}
-      CLOUDFRONT_AUTH_USERNAME: ${{ secrets.CLOUDFRONT_AUTH_USERNAME }}
-      CLOUDFRONT_AUTH_PASSWORD: ${{ secrets.CLOUDFRONT_AUTH_PASSWORD }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'yarn'
-
-      - name: Ensure Yarn is installed
-        run: corepack enable
-
-      - name: Install AWS CDK
-        run: yarn global add aws-cdk
-
-      - name: Install project dependencies
-        run: yarn install
-
-      - name: Download CDK artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: cdk-out
-          path: cdk.out/
+        working-directory: backend
+        run: npx cdk synth -c envName=${{ needs.detect-changes.outputs.env-name }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -136,6 +140,160 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
-      - name: CDK Deploy
-        run: cdk deploy --all --require-approval never -c envName=${{ needs.setup.outputs.env-name }}
+      - name: CDK Deploy Infrastructure
+        working-directory: backend
+        run: npx cdk deploy MarketplaceInfrastructure-${{ needs.detect-changes.outputs.env-name }} --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }}
 
+  # Backend lambda deployment (API Gateway, Lambdas, CloudFront)
+  deploy-lambdas:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, detect-lambda-changes, deploy-infrastructure]
+    # Deploy lambdas if backend changes detected, and infrastructure either succeeded or was skipped
+    if: |
+      always() &&
+      needs.detect-changes.outputs.backend == 'true' &&
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
+    env:
+      APPLE_CLIENT_ID: ${{ secrets.APPLE_CLIENT_ID }}
+      APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+      APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      STRIPE_EVENT_DESTINATION_DEV: ${{ secrets.STRIPE_EVENT_DESTINATION_DEV }}
+      STRIPE_EVENT_DESTINATION_PROD: ${{ secrets.STRIPE_EVENT_DESTINATION_PROD }}
+      STRIPE_EVENT_DESTINATION_PLATFORM_DEV: ${{ secrets.STRIPE_EVENT_DESTINATION_PLATFORM_DEV }}
+      STRIPE_EVENT_DESTINATION_PLATFORM_PROD: ${{ secrets.STRIPE_EVENT_DESTINATION_PLATFORM_PROD }}
+      STRIPE_SECRET_KEY_DEV: ${{ secrets.STRIPE_SECRET_KEY_DEV }}
+      STRIPE_SECRET_KEY_PROD: ${{ secrets.STRIPE_SECRET_KEY_PROD }}
+      EMAIL_AWS_REGION: ${{ secrets.EMAIL_AWS_REGION }}
+      EMAIL_LAMBDA_ARN: ${{ secrets.EMAIL_LAMBDA_ARN }}
+      EMAIL_ASSUME_ROLE_ARN: ${{ secrets.EMAIL_ASSUME_ROLE_ARN }}
+      CLOUDFRONT_AUTH_USERNAME: ${{ secrets.CLOUDFRONT_AUTH_USERNAME }}
+      CLOUDFRONT_AUTH_PASSWORD: ${{ secrets.CLOUDFRONT_AUTH_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'yarn'
+
+      - name: Ensure Yarn is installed
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: CDK Synth
+        working-directory: backend
+        run: npx cdk synth -c envName=${{ needs.detect-changes.outputs.env-name }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: CDK Deploy Lambdas
+        working-directory: backend
+        run: npx cdk deploy MarketplaceLambda-${{ needs.detect-changes.outputs.env-name }} --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }}
+
+  # Frontend deployment (S3 + CloudFront)
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, deploy-lambdas]
+    # Always run after lambdas if lambdas runs, otherwise run if frontend changed
+    if: |
+      always() &&
+      needs.detect-changes.outputs.frontend == 'true' &&
+      (needs.deploy-lambdas.result == 'success' || needs.deploy-lambdas.result == 'skipped')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'yarn'
+
+      - name: Ensure Yarn is installed
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          mask-aws-account-id: 'no'
+
+      - name: Get CloudFormation outputs
+        id: cfn-outputs
+        run: |
+          ENV_NAME="${{ needs.detect-changes.outputs.env-name }}"
+
+          # Get outputs from infrastructure stack
+          BUCKET_NAME=$(aws cloudformation describe-stacks \
+            --stack-name "MarketplaceInfrastructure-${ENV_NAME}" \
+            --query "Stacks[0].Outputs[?OutputKey=='MarketplaceBucketName'].OutputValue" \
+            --output text)
+          COGNITO_REGION=$(aws cloudformation describe-stacks \
+            --stack-name "MarketplaceInfrastructure-${ENV_NAME}" \
+            --query "Stacks[0].Outputs[?OutputKey=='CognitoRegion'].OutputValue" \
+            --output text)
+          COGNITO_USER_POOL_ID=$(aws cloudformation describe-stacks \
+            --stack-name "MarketplaceInfrastructure-${ENV_NAME}" \
+            --query "Stacks[0].Outputs[?OutputKey=='CognitoUserPoolId'].OutputValue" \
+            --output text)
+          COGNITO_CLIENT_ID=$(aws cloudformation describe-stacks \
+            --stack-name "MarketplaceInfrastructure-${ENV_NAME}" \
+            --query "Stacks[0].Outputs[?OutputKey=='CognitoClientId'].OutputValue" \
+            --output text)
+
+          # Get outputs from lambda stack
+          DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+            --stack-name "MarketplaceLambda-${ENV_NAME}" \
+            --query "Stacks[0].Outputs[?OutputKey=='MarketplaceDistributionId'].OutputValue" \
+            --output text)
+
+          # Set outputs
+          echo "bucket-name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+          echo "distribution-id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
+          echo "cognito-region=$COGNITO_REGION" >> $GITHUB_OUTPUT
+          echo "cognito-user-pool-id=$COGNITO_USER_POOL_ID" >> $GITHUB_OUTPUT
+          echo "cognito-client-id=$COGNITO_CLIENT_ID" >> $GITHUB_OUTPUT
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          # From GitHub secrets
+          VITE_GOOGLE_PLACES_API_KEY: ${{ secrets.VITE_GOOGLE_PLACES_API_KEY }}
+          VITE_STRIPE_PUBLISHABLE_KEY: ${{ needs.detect-changes.outputs.env-name == 'dev' && secrets.VITE_STRIPE_PUBLISHABLE_KEY_DEV || secrets.VITE_STRIPE_PUBLISHABLE_KEY_PROD }}
+          # From stack outputs
+          VITE_COGNITO_REGION: ${{ steps.cfn-outputs.outputs.cognito-region }}
+          VITE_COGNITO_USER_POOL_ID: ${{ steps.cfn-outputs.outputs.cognito-user-pool-id }}
+          VITE_COGNITO_CLIENT_ID: ${{ steps.cfn-outputs.outputs.cognito-client-id }}
+          # Environment name
+          VITE_API_ENV: ${{ needs.detect-changes.outputs.env-name }}
+        run: yarn build
+
+      - name: Upload to S3 bucket
+        run: |
+          aws s3 sync ./frontend/dist s3://${{ steps.cfn-outputs.outputs.bucket-name }} --delete
+
+      - name: Invalidate CloudFront cache
+        uses: chetan/invalidate-cloudfront-action@v2
+        env:
+          DISTRIBUTION: ${{ steps.cfn-outputs.outputs.distribution-id }}
+          PATHS: '/*'
+          AWS_REGION: 'us-east-1'
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

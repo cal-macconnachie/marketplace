@@ -1,0 +1,1971 @@
+<template>
+  <div class="cart-page">
+    <div class="container">
+      <!-- Header -->
+      <header class="cart-header">
+        <div v-if="source" class="source-badge">From: {{ sourceHostname }}</div>
+      </header>
+
+      <!-- Loading State -->
+      <div v-if="productsLoading" class="loading-state">
+        <LoadingSpinner size="64" />
+      </div>
+
+      <!-- Error State -->
+      <BaseAlert
+        v-else-if="error"
+        variant="error"
+        title="Cart Error"
+        :message="error"
+        :show="true"
+      />
+
+      <!-- Cart Content -->
+      <div v-else class="cart-layout">
+        <!-- Empty Cart -->
+        <div v-if="cartItems.length === 0" class="empty-cart">
+          <div class="empty-icon">
+            <div class="empty-icon__scene">
+              <div class="empty-icon__ground"></div>
+              <div class="empty-icon__blocker empty-icon__blocker--left"></div>
+              <div class="empty-icon__blocker empty-icon__blocker--right"></div>
+              <svg
+                width="64"
+                height="64"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                class="empty-icon__cart"
+              >
+                <circle cx="8" cy="21" r="1"></circle>
+                <circle cx="19" cy="21" r="1"></circle>
+                <path
+                  d="m2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43h-15.12"
+                ></path>
+              </svg>
+            </div>
+          </div>
+          <h2>Your cart is empty</h2>
+          <p>Add some products to get started with your purchase.</p>
+
+          <BaseButton @click="goBack" variant="primary" size="md" class="back-to-products-btn">
+            Back to Products
+          </BaseButton>
+        </div>
+
+        <!-- Cart Items -->
+        <div v-else class="cart-content">
+          <!-- Checkout Section -->
+          <div class="checkout-section">
+            <BaseCard class="checkout-card">
+              <h2 class="section-title">Checkout</h2>
+
+              <!-- Authentication Status -->
+              <div v-if="appStore.isAuthenticated" class="auth-status authenticated">
+                <div class="auth-icon">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </div>
+                <div class="auth-info">
+                  <p class="auth-label">Signed in as</p>
+                  <p class="auth-name">{{ appStore.fullName }}</p>
+                </div>
+              </div>
+
+              <!-- Payment Method Section -->
+              <div class="payment-section">
+                <!-- Loading payment methods (show when authenticated and either loading OR haven't loaded yet) -->
+                <div
+                  v-if="
+                    appStore.isAuthenticated &&
+                    (appStore.paymentMethodsLoading ||
+                      (!appStore.hasPaymentMethods &&
+                        appStore.paymentMethods.length === 0 &&
+                        !paymentMethodsInitialized))
+                  "
+                  class="payment-loading"
+                >
+                  <LoadingSpinner size="32" />
+                  <p class="loading-text">Loading payment methods...</p>
+                </div>
+
+                <!-- Logged in user with existing payment method -->
+                <div
+                  v-else-if="appStore.isAuthenticated && appStore.hasPaymentMethods"
+                  class="existing-payment"
+                >
+                  <AddressSearch
+                    class="address-search"
+                    label="Billing Address"
+                    :value="formatAddress(appStore.user?.address ?? {}) || ''"
+                    field="address"
+                    @update="handleFieldUpdate"
+                    :loading="fieldUpdating === 'address'"
+                  />
+                  <PaymentMethodList
+                    :payment-methods="appStore.paymentMethods"
+                    :show-selection="true"
+                    :selected-payment-method-id="selectedPaymentMethod?.id"
+                    @payment-method-selected="handlePaymentMethodSelected"
+                  />
+                </div>
+
+                <!-- Logged in user without payment method -->
+                <div v-else-if="appStore.isAuthenticated" class="add-payment-method">
+                  <AddressSearch
+                    label="Billing Address"
+                    :value="formatAddress(appStore.user?.address ?? {}) || ''"
+                    field="address"
+                    @update="handleFieldUpdate"
+                    :loading="fieldUpdating === 'address'"
+                  />
+                  <PaymentMethodForm
+                    :has-existing-payment-method="false"
+                    @payment-method-added="handlePaymentMethodAdded"
+                  />
+                </div>
+
+                <!-- Guest user - default to showing auth options -->
+                <div v-else class="guest-payment-section">
+                  <!-- Default auth section -->
+                  <div v-if="!showGuestCheckout" class="default-auth-section">
+                    <div class="auth-prompt">
+                      <div class="auth-icon primary">
+                        <svg
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                      </div>
+                      <div class="auth-message">
+                        <h3>Sign in or Create Account</h3>
+                        <p v-if="hasSubscriptionItems">
+                          Your cart contains subscription items. An account is required to manage
+                          your subscriptions.
+                        </p>
+                        <p v-else>
+                          Sign in to save your payment information and track your orders.
+                        </p>
+                        <div class="auth-actions">
+                          <BaseButton
+                            @click="
+                              () => {
+                                authMode = 'signin'
+                                showAuthForm = true
+                              }
+                            "
+                            variant="primary"
+                            size="sm"
+                          >
+                            Sign In
+                          </BaseButton>
+                          <BaseButton
+                            @click="
+                              () => {
+                                authMode = 'signup'
+                                showAuthForm = true
+                              }
+                            "
+                            variant="outline"
+                            size="sm"
+                          >
+                            Create Account
+                          </BaseButton>
+                        </div>
+                        <div v-if="!hasSubscriptionItems" class="guest-option">
+                          <BaseButton @click="showGuestCheckout = true" variant="ghost" size="sm">
+                            Continue as Guest
+                          </BaseButton>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Guest checkout form (only for non-subscription items) -->
+                  <div
+                    v-else-if="showGuestCheckout && !hasSubscriptionItems"
+                    class="guest-payment-form"
+                  >
+                    <div class="guest-checkout-header">
+                      <div class="guest-checkout-title">
+                        <BaseButton @click="showGuestCheckout = false" variant="ghost" size="sm">
+                          ← Back to Sign In
+                        </BaseButton>
+                      </div>
+                    </div>
+                    <GuestCheckoutForm
+                      :requires-shipping="requiresShipping"
+                      @form-updated="handleGuestFormUpdated"
+                      @form-completed="handleGuestFormCompleted"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Cart Summary -->
+            </BaseCard>
+          </div>
+
+          <!-- Items List -->
+          <div class="cart-items-section">
+            <div class="cart-items">
+              <div v-for="(item, index) in cartItems" :key="`${item.groupId}:${item.productId}`">
+                <div
+                  v-if="index === 0 || item.organizationId !== cartItems[index - 1]?.organizationId"
+                  class="org-headline"
+                >
+                  {{ orgHash[item.organizationId]?.name || item.organizationId }}
+                  <hr />
+                </div>
+                <div class="cart-item-wrapper">
+                  <button
+                    class="remove-item-btn"
+                    @click="removeItem(index)"
+                    title="Remove item from cart"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <polyline points="3,6 5,6 21,6"></polyline>
+                      <path
+                        d="m19,6v14a2,2 0 0,1-2,2H7a2,2 0 0,1-2-2V6m3,0V4a2,2 0 0,1,2-2h4a2,2 0 0,1,2,2v2"
+                      ></path>
+                      <line x1="10" y1="11" x2="10" y2="17"></line>
+                      <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
+                  </button>
+                  <ProductCard
+                    :product="productHash[`${item.groupId}:${item.productId}`]"
+                    :compact="true"
+                    :quantity="item.quantity"
+                  >
+                    <template #actions>
+                      <div
+                        class="quantity-container"
+                        v-if="
+                          !productHash[`${item.groupId}:${item.productId}`]?.default_price_data
+                            ?.recurring ||
+                          productHash[`${item.groupId}:${item.productId}`]?.default_price_data
+                            ?.recurring?.usage_type !== 'metered'
+                        "
+                      >
+                        <QuantitySeletor
+                          :min="1"
+                          :max="99"
+                          v-model.number="item.quantity"
+                          size="xs"
+                        />
+                      </div>
+                    </template>
+                  </ProductCard>
+                </div>
+              </div>
+            </div>
+            <div class="cart-summary">
+              <!-- One-time payments -->
+              <template v-if="Object.keys(subtotalsByTypeAndCurrency.oneTime).length > 0">
+                <div class="payment-type-section">
+                  <div
+                    v-for="(amount, currency) in subtotalsByTypeAndCurrency.oneTime"
+                    :key="`oneTime-${currency}`"
+                    class="summary-row"
+                  >
+                    <span class="summary-label">One-time Payments:</span>
+                    <span class="summary-value">
+                      <PriceDisplay :amount="amount" :currency="currency" size="sm" />
+                    </span>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Recurring payments -->
+              <template v-if="Object.keys(subtotalsByTypeAndCurrency.recurring).length > 0">
+                <div class="payment-type-section">
+                  <div
+                    v-for="(recurringData, recurringKey) in subtotalsByTypeAndCurrency.recurring"
+                    :key="`recurring-${recurringKey}`"
+                    class="summary-row"
+                  >
+                    <span class="summary-label">Recurring Payments:</span>
+                    <span class="summary-value">
+                      <PriceDisplay
+                        :amount="recurringData.amount"
+                        :currency="recurringKey.split('-')[0]"
+                        size="sm"
+                        :recurring="true"
+                        :interval="recurringData.interval"
+                        :interval_count="recurringData.interval_count"
+                        :usage_type="recurringData.usage_type"
+                        :unit="recurringData.unit_label || recurringData.unit"
+                      />
+                    </span>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Total Due Now -->
+              <template v-if="Object.keys(totalDueNow).length > 0">
+                <div class="summary-row summary-row-top">
+                  <span class="summary-label">Subtotal:</span>
+                  <span class="summary-value">
+                    <div
+                      v-for="(amount, currency) in totalDueNow"
+                      :key="`total-${currency}`"
+                      class="total-amount"
+                    >
+                      <PriceDisplay :amount="amount" :currency="currency" size="sm" />
+                    </div>
+                  </span>
+                </div>
+                <div class="summary-row">
+                  <span class="summary-label">Taxes:</span>
+                  <span class="summary-value">
+                    <div v-if="appStore.taxLoading" class="tax-loading">
+                      <LoadingSpinner size="16" />
+                    </div>
+                    <div v-else-if="Object.keys(taxesByCurrency).length > 0" class="total-amount">
+                      <div v-for="(amount, currency) in taxesByCurrency" :key="`tax-${currency}`">
+                        <PriceDisplay :amount="amount" :currency="currency" size="sm" />
+                      </div>
+                    </div>
+                    <div v-else class="total-amount">
+                      <span class="tax-placeholder">--</span>
+                    </div>
+                  </span>
+                </div>
+                <div class="summary-row total">
+                  <span class="summary-label">Total:</span>
+                  <span class="summary-value">
+                    <div
+                      v-for="(amount, currency) in totalWithTax"
+                      :key="`total-${currency}`"
+                      class="total-amount"
+                    >
+                      <PriceDisplay :amount="amount" :currency="currency" size="sm" />
+                    </div>
+                  </span>
+                </div>
+              </template>
+            </div>
+
+            <!-- Error Display -->
+            <BaseAlert
+              v-if="checkoutError"
+              variant="error"
+              title="Checkout Error"
+              :message="checkoutError"
+              :show="true"
+              dismissible
+              @dismiss="checkoutError = null"
+            />
+
+            <!-- Checkout Actions -->
+            <div class="checkout-actions">
+              <BaseButton
+                @click="handleCheckout"
+                :loading="processingCheckout"
+                :disabled="!canProceedToCheckout || processingCheckout"
+                variant="primary"
+                full-width
+                size="lg"
+              >
+                <template v-if="processingCheckout"> Processing... </template>
+                <template v-else-if="!appStore.isAuthenticated && hasSubscriptionItems">
+                  Sign In Required
+                </template>
+                <template v-else> Complete Purchase </template>
+              </BaseButton>
+
+              <p class="checkout-disclaimer">
+                By completing your purchase, you agree to our terms of service and privacy policy.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Authentication Modal -->
+    <BaseModal v-model:show="showAuthForm" size="md" :hide-scrollbar="true">
+      <SignIn :initial-mode="authMode" :is-modal="true" @auth-success="handleAuthSuccess" />
+    </BaseModal>
+  </div>
+</template>
+<script lang="ts" setup>
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  type Product,
+  publicApi,
+  authAPI,
+  type Organization,
+  type PaymentMethod,
+  type TaxCalculationItem,
+} from '@/services/api'
+import { type PaymentMethod as StripePaymentMethod } from '@stripe/stripe-js'
+import { useAppStore } from '@/stores/app'
+import LoadingSpinner from './ui/LoadingSpinner.vue'
+import BaseAlert from './ui/BaseAlert.vue'
+import BaseCard from './ui/BaseCard.vue'
+import BaseButton from './ui/BaseButton.vue'
+import BaseModal from './ui/BaseModal.vue'
+import PaymentMethodForm from './ui/PaymentMethodForm.vue'
+import PaymentMethodList from './ui/PaymentMethodList.vue'
+import GuestCheckoutForm from './ui/GuestCheckoutForm.vue'
+import QuantitySeletor from './ui/QuantitySeletor.vue'
+import ProductCard from './ui/ProductCard.vue'
+import PriceDisplay from './ui/PriceDisplay.vue'
+import SignIn from './SignIn.vue'
+import AddressSearch from './ui/AddressSearch.vue'
+
+interface CartItem {
+  groupId: string
+  productId: string
+  quantity: number
+  organizationId: string
+}
+
+interface CheckoutData {
+  items: CartItem[]
+  timestamp: number
+  domain: string
+}
+
+const route = useRoute()
+const router = useRouter()
+const appStore = useAppStore()
+
+const error = ref<string | null>(null)
+const checkoutError = ref<string | null>(null)
+const fieldUpdating = ref<string | null>(null)
+const updateError = ref<string | null>(null)
+const source = ref<string | null>(null)
+const cartItems = ref<CartItem[]>([])
+const productHash = ref<Record<string, Product>>({})
+const orgHash = ref<Record<string, Organization>>({})
+const productsLoading = ref(true)
+const processingCheckout = ref(false)
+const requiresShipping = ref(false)
+const selectedPaymentMethod = ref<PaymentMethod | null>(null)
+const showAuthForm = ref(false)
+const authMode = ref<'signin' | 'signup'>('signin')
+const showGuestCheckout = ref(false)
+const guestFormData = ref<{
+  firstName: string
+  lastName: string
+  email: string
+  address: {
+    line1: string
+    line2: string
+    city: string
+    state: string
+    postalCode: string
+    country: string
+  }
+  paymentMethod: PaymentMethod
+} | null>(null)
+const userIpAddress = ref<string | null>(null)
+const paymentMethodsInitialized = ref(false)
+
+// Computed properties
+const sourceHostname = computed(() => {
+  if (!source.value) return null
+
+  try {
+    // If source is a full URL, extract hostname
+    if (source.value.startsWith('http://') || source.value.startsWith('https://')) {
+      const url = new URL(source.value)
+      return url.hostname
+    }
+    // If it's already just a hostname, return as-is
+    return source.value
+  } catch {
+    // Fallback if URL parsing fails
+    return source.value
+  }
+})
+
+const hasSubscriptionItems = computed(() => {
+  return cartItems.value.some((item) => {
+    const product = productHash.value[`${item.groupId}:${item.productId}`]
+    return product?.default_price_data?.recurring
+  })
+})
+
+const canProceedToCheckout = computed(() => {
+  if (appStore.isAuthenticated) {
+    return appStore.hasPaymentMethods && selectedPaymentMethod.value
+  } else {
+    // For guest users, they can't checkout with subscriptions
+    if (hasSubscriptionItems.value) {
+      return false
+    }
+    return guestFormData.value
+  }
+})
+
+const subtotalsByTypeAndCurrency = computed(() => {
+  const oneTime: Record<string, number> = {}
+  const recurring: Record<
+    string,
+    {
+      amount: number
+      interval: 'day' | 'week' | 'month' | 'year'
+      interval_count: number
+      usage_type: 'licensed' | 'metered'
+      unit?: string
+      unit_label?: string
+    }
+  > = {}
+
+  cartItems.value.forEach((item) => {
+    const product = productHash.value[`${item.groupId}:${item.productId}`]
+    if (product?.default_price_data) {
+      const currency = product.default_price_data.currency
+      // For metered products, always use quantity of 1
+      const effectiveQuantity =
+        product.default_price_data.recurring?.usage_type === 'metered' ? 1 : item.quantity
+      const amount = product.default_price_data.unit_amount * effectiveQuantity
+
+      if (product.default_price_data.recurring) {
+        const interval = product.default_price_data.recurring.interval
+        const interval_count = product.default_price_data.recurring.interval_count || 1
+        const usage_type = product.default_price_data.recurring.usage_type || 'licensed'
+        let unit = 'unit'
+        const unit_label = product.default_price_data.unit_label
+        if (usage_type === 'metered' && product.metadata?.unit) {
+          unit = product.metadata.unit
+        }
+
+        // Create a key that groups by currency, interval, interval_count, and usage_type
+        const recurringKey = `${currency}-${interval}-${interval_count}-${usage_type}-${unit}`
+
+        if (!recurring[recurringKey]) {
+          recurring[recurringKey] = {
+            amount: 0,
+            interval,
+            interval_count,
+            usage_type,
+            unit,
+            unit_label,
+          }
+        }
+        recurring[recurringKey].amount += amount
+      } else {
+        // One-time payment
+        if (!oneTime[currency]) {
+          oneTime[currency] = 0
+        }
+        oneTime[currency] += amount
+      }
+    }
+  })
+
+  return { oneTime, recurring }
+})
+
+const totalDueNow = computed(() => {
+  const totals: Record<string, number> = {}
+
+  cartItems.value.forEach((item) => {
+    const product = productHash.value[`${item.groupId}:${item.productId}`]
+    if (product?.default_price_data) {
+      const currency = product.default_price_data.currency
+      // For metered products, always use quantity of 1
+      const effectiveQuantity =
+        product.default_price_data.recurring?.usage_type === 'metered' ? 1 : item.quantity
+      const amount = product.default_price_data.unit_amount * effectiveQuantity
+
+      // Include one-time payments and licensed subscriptions (charged immediately)
+      if (
+        !product.default_price_data.recurring ||
+        product.default_price_data.recurring.usage_type === 'licensed'
+      ) {
+        if (!totals[currency]) {
+          totals[currency] = 0
+        }
+        totals[currency] += amount
+      }
+    }
+  })
+
+  return totals
+})
+
+const taxesByCurrency = computed(() => {
+  const taxes: Record<string, number> = {}
+
+  if (appStore.taxCalculation?.items) {
+    cartItems.value.forEach((cartItem) => {
+      const product = productHash.value[`${cartItem.groupId}:${cartItem.productId}`]
+      if (product?.default_price_data) {
+        const currency = product.default_price_data.currency
+        // For metered products, always use quantity of 1
+        const effectiveQuantity =
+          product.default_price_data.recurring?.usage_type === 'metered' ? 1 : cartItem.quantity
+        const amount = product.default_price_data.unit_amount * effectiveQuantity
+
+        // Find the tax rate for this item from the tax calculation
+        const taxItem = appStore.taxCalculation?.items.find(
+          (item) => item.id === cartItem.productId && item.group_id === cartItem.groupId,
+        )
+
+        if (taxItem?.tax_rate) {
+          const taxAmount = amount * (taxItem.tax_rate / 100)
+          if (!taxes[currency]) {
+            taxes[currency] = 0
+          }
+          taxes[currency] += taxAmount
+        }
+      }
+    })
+  }
+
+  return taxes
+})
+
+const totalWithTax = computed(() => {
+  const totals: Record<string, number> = {}
+
+  // Start with subtotal
+  Object.entries(totalDueNow.value).forEach(([currency, amount]) => {
+    totals[currency] = amount
+  })
+
+  // Add calculated taxes
+  Object.entries(taxesByCurrency.value).forEach(([currency, taxAmount]) => {
+    if (!totals[currency]) {
+      totals[currency] = 0
+    }
+    totals[currency] += taxAmount
+  })
+
+  return totals
+})
+
+// Event handlers
+const goBack = () => {
+  if (source.value) {
+    // If source is already a full URL, use it directly
+    if (source.value.startsWith('http://') || source.value.startsWith('https://')) {
+      window.location.href = source.value
+    } else {
+      // If it's just a hostname, add https://
+      window.location.href = `https://${source.value}`
+    }
+  } else if (document.referrer && document.referrer !== window.location.href) {
+    window.history.back()
+  } else {
+    // Fallback to going back in history
+    window.history.back()
+  }
+}
+
+const removeItem = async (index: number) => {
+  const removedItem = cartItems.value[index]
+  cartItems.value.splice(index, 1)
+
+  // Update localStorage to reflect the removal
+  try {
+    const cart = JSON.parse(localStorage.getItem(getCartStorageKey()) || '{}')
+    const itemKey = `${removedItem.groupId}_${removedItem.productId}`
+    delete cart[itemKey]
+    localStorage.setItem(getCartStorageKey(), JSON.stringify(cart))
+  } catch (error) {
+    console.error('Error updating localStorage after item removal:', error)
+  }
+
+  // Recalculate taxes when items are removed
+  await calculateTaxes()
+}
+
+const handlePaymentMethodSelected = (paymentMethod: PaymentMethod) => {
+  selectedPaymentMethod.value = paymentMethod
+}
+
+const handlePaymentMethodAdded = async () => {
+  if (appStore.user?.id) {
+    await appStore.getPaymentMethods(appStore.user.id)
+    paymentMethodsInitialized.value = true
+  }
+}
+
+async function handleFieldUpdate(
+  field: string,
+  value: string | { [key: string]: string | undefined },
+) {
+  if (!appStore.user?.id) {
+    return
+  }
+
+  fieldUpdating.value = field
+  updateError.value = null
+  if (field === 'address') {
+    if (typeof value === 'object' && value !== null) {
+      const addressValue = value as {
+        line_1?: string
+        line_2?: string
+        city?: string
+        state?: string
+        country?: string
+        postal_code?: string
+      }
+      appStore.user.address = {
+        line_1: addressValue.line_1 || '',
+        line_2: addressValue.line_2,
+        city: addressValue.city || '',
+        state: addressValue.state || '',
+        country: addressValue.country || '',
+        postal_code: addressValue.postal_code || '',
+      }
+    } else {
+      appStore.user.address = parseAddress(value as string)
+    }
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(appStore.user as any)[field] = value as string
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let updateData: any = {}
+    if (field === 'address') {
+      if (typeof value === 'object' && value !== null) {
+        updateData = {
+          address: value,
+        }
+      } else {
+        updateData = {
+          address: parseAddress(value as string),
+        }
+      }
+    } else {
+      updateData[field] = value as string
+    }
+
+    const result = await appStore.updateUser(updateData)
+
+    if (!result.success) {
+      updateError.value = result.error || 'Failed to update field'
+    }
+  } catch (error) {
+    updateError.value = 'Failed to update field'
+    console.error('Field update error:', error)
+  } finally {
+    fieldUpdating.value = null
+  }
+}
+
+function formatAddress(address: {
+  line_1?: string
+  line_2?: string
+  city?: string
+  state?: string
+  country?: string
+  postal_code?: string
+}) {
+  if (!address) return ''
+  const parts = [
+    address.line_1,
+    address.line_2,
+    address.city,
+    address.state,
+    address.country,
+    address.postal_code,
+  ].filter(Boolean)
+  return parts.join(', ')
+}
+
+function parseAddress(addressString: string) {
+  const parts = addressString.split(',').map((part) => part.trim())
+  return {
+    line_1: parts[0] || '',
+    line_2: parts[1] || undefined,
+    city: parts[2] || '',
+    state: parts[3] || '',
+    country: parts[4] || '',
+    postal_code: parts[5] || '',
+  }
+}
+
+const handleAuthSuccess = async () => {
+  showAuthForm.value = false
+
+  // Ensure we have the latest user data after authentication
+  await appStore.fetchCurrentUser()
+
+  // For cart page - aggressively poll for stripe_id creation every second
+  if (appStore.user && !appStore.user.stripe_id) {
+    const pollForStripeId = async (attempts = 0) => {
+      const maxAttempts = 30 // 30 seconds max
+
+      try {
+        await appStore.fetchCurrentUser()
+
+        if (appStore.user?.stripe_id) {
+          return
+        }
+
+        if (attempts < maxAttempts) {
+          setTimeout(() => pollForStripeId(attempts + 1), 1000) // Poll every 1 second
+        } else {
+          console.warn('Stripe customer creation timed out after 30 seconds')
+        }
+      } catch (error) {
+        console.error('Failed to refresh user data:', error)
+        if (attempts < maxAttempts) {
+          setTimeout(() => pollForStripeId(attempts + 1), 1000)
+        }
+      }
+    }
+
+    // Start polling immediately
+    pollForStripeId()
+  }
+
+  // Reload payment methods for newly authenticated user
+  if (appStore.user?.id) {
+    await appStore.getPaymentMethods(appStore.user.id)
+    paymentMethodsInitialized.value = true
+  }
+
+  // Recalculate taxes with authenticated user data
+  await calculateTaxes()
+}
+
+const handleGuestFormUpdated = async (formData: {
+  firstName: string
+  lastName: string
+  email: string
+  address: {
+    line1: string
+    line2: string
+    city: string
+    state: string
+    postal_code: string
+    country: string
+  }
+  shippingAddress?: {
+    line1: string
+    line2: string
+    city: string
+    state: string
+    postal_code: string
+    country: string
+  }
+}) => {
+  // Clear checkout error when user makes changes to form
+  checkoutError.value = null
+
+  // Update guest form data but keep existing payment method if it exists
+  if (guestFormData.value) {
+    guestFormData.value = {
+      ...guestFormData.value,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      address: {
+        line1: formData.address.line1,
+        line2: formData.address.line2,
+        city: formData.address.city,
+        state: formData.address.state,
+        postalCode: formData.address.postal_code,
+        country: formData.address.country,
+      },
+    }
+  }
+
+  // Recalculate taxes with updated user information
+  await calculateTaxes()
+}
+
+const handleGuestFormCompleted = async (formData: {
+  firstName: string
+  lastName: string
+  email: string
+  address: {
+    line1: string
+    line2: string
+    city: string
+    state: string
+    postal_code: string
+    country: string
+  }
+  paymentMethod: StripePaymentMethod
+}) => {
+  guestFormData.value = {
+    firstName: formData.firstName,
+    lastName: formData.lastName,
+    email: formData.email,
+    address: {
+      line1: formData.address.line1,
+      line2: formData.address.line2,
+      city: formData.address.city,
+      state: formData.address.state,
+      postalCode: formData.address.postal_code,
+      country: formData.address.country,
+    },
+    paymentMethod: {
+      id: formData.paymentMethod.id,
+      brand: formData.paymentMethod.card?.brand || '',
+      last_four_digits: formData.paymentMethod.card?.last4 || '',
+      expiry_month: formData.paymentMethod.card?.exp_month || 0,
+      expiry_year: formData.paymentMethod.card?.exp_year || 0,
+      user_id: 'TODO',
+    },
+  }
+
+  // Recalculate taxes with user information instead of just IP
+  await calculateTaxes()
+}
+
+const handleCheckout = async () => {
+  if (!canProceedToCheckout.value) return
+
+  processingCheckout.value = true
+  checkoutError.value = null
+
+  try {
+    // Transform cart items to product keys format
+    const productKeys: {
+      id: string
+      group_id: string
+    }[] = []
+    for (const item of cartItems.value) {
+      const product = productHash.value[`${item.groupId}:${item.productId}`]
+      // For metered products, always use quantity of 1
+      const effectiveQuantity =
+        product?.default_price_data?.recurring?.usage_type === 'metered' ? 1 : item.quantity
+      for (let i = 0; i < effectiveQuantity; i++) {
+        productKeys.push({
+          id: item.productId,
+          group_id: item.groupId,
+        })
+      }
+    }
+
+    if (appStore.isAuthenticated) {
+      // Authenticated user checkout
+      if (!selectedPaymentMethod.value) {
+        throw new Error('Please select a payment method')
+      }
+
+      if (!appStore.user?.id) {
+        throw new Error('User not authenticated')
+      }
+
+      const purchaseData = {
+        userId: appStore.user.id,
+        paymentMethodId: selectedPaymentMethod.value.id,
+        productKeys,
+        // promoCode and couponId can be added later when promo functionality is implemented
+      }
+
+      await authAPI.purchaseProducts(purchaseData)
+
+      // Success - show confirmation
+      showSuccessMessage(
+        'Order processed successfully! You will receive a confirmation email shortly.',
+      )
+    } else {
+      // Guest checkout
+      if (!guestFormData.value) {
+        throw new Error('Please complete the payment form')
+      }
+
+      const guestCheckoutData = {
+        user: {
+          given_name: guestFormData.value.firstName,
+          family_name: guestFormData.value.lastName,
+          email: guestFormData.value.email,
+          address: {
+            line_1: guestFormData.value.address.line1,
+            line_2: guestFormData.value.address.line2,
+            state: guestFormData.value.address.state,
+            city: guestFormData.value.address.city,
+            country: guestFormData.value.address.country,
+            postal_code: guestFormData.value.address.postalCode,
+          },
+          ip_address: userIpAddress.value || undefined,
+        },
+        paymentMethodCreateParams: {
+          id: guestFormData.value.paymentMethod.id,
+          last_four_digits: guestFormData.value.paymentMethod.last_four_digits,
+          brand: guestFormData.value.paymentMethod.brand,
+          expiry_month: guestFormData.value.paymentMethod.expiry_month.toString(),
+          expiry_year: guestFormData.value.paymentMethod.expiry_year.toString(),
+        },
+        productKeys,
+        // promoCode and couponId can be added later when promo functionality is implemented
+      }
+
+      await publicApi.guestCheckout(guestCheckoutData)
+
+      // Success - show confirmation
+      showSuccessMessage(
+        `Order processed successfully! A confirmation has been sent to ${guestFormData.value.email}.`,
+      )
+    }
+
+    // Clear cart after successful checkout
+    cartItems.value = []
+    selectedPaymentMethod.value = null
+    guestFormData.value = null
+
+    // Clear cart from localStorage
+    clearCartFromLocalStorage()
+  } catch (err) {
+    console.error('Checkout failed:', err)
+
+    // Handle API error responses with structured error messages
+    if (err && typeof err === 'object' && 'response' in err && err.response) {
+      const response = err.response as { data?: { error?: string }; statusText?: string }
+      if (response.data && response.data.error) {
+        checkoutError.value = response.data.error
+      } else if (response.statusText) {
+        checkoutError.value = `Checkout failed: ${response.statusText}`
+      } else {
+        checkoutError.value = 'Checkout failed. Please try again.'
+      }
+    } else if (err instanceof Error) {
+      checkoutError.value = err.message
+    } else {
+      checkoutError.value = 'Checkout failed. Please try again.'
+    }
+  } finally {
+    processingCheckout.value = false
+  }
+}
+
+const showSuccessMessage = (message: string) => {
+  // Create a more sophisticated success state
+  console.log('Success:', message)
+  // Redirect to root after successful purchase
+  router.push('/')
+}
+
+const getUserIpAddress = async () => {
+  try {
+    const response = await fetch('https://api.ipify.org?format=json')
+    const data = await response.json()
+    return data.ip
+  } catch (error) {
+    console.error('Failed to get IP address:', error)
+    return null
+  }
+}
+
+const calculateTaxes = async () => {
+  if (cartItems.value.length === 0) return
+
+  const taxItems: TaxCalculationItem[] = cartItems.value.map((item) => {
+    const product = productHash.value[`${item.groupId}:${item.productId}`]
+    // For metered products, always use quantity of 1
+    const effectiveQuantity =
+      product?.default_price_data?.recurring?.usage_type === 'metered' ? 1 : item.quantity
+    return {
+      id: item.productId,
+      group_id: item.groupId,
+      organization_id: item.organizationId,
+      quantity: effectiveQuantity,
+    }
+  })
+  const useUser = appStore.isAuthenticated && appStore.user?.address
+  const taxRequest = {
+    items: taxItems,
+    userId: useUser ? appStore.user?.id : undefined,
+    ipAddress: !useUser && userIpAddress.value != null ? userIpAddress.value : undefined,
+  }
+
+  await appStore.calculateTaxes(taxRequest)
+}
+
+const getCartStorageKey = () => {
+  return `cart_${window.location.hostname}`
+}
+
+const getCartFromLocalStorage = (): CartItem[] => {
+  try {
+    const cartData = localStorage.getItem(getCartStorageKey())
+    if (!cartData) return []
+
+    const cart = JSON.parse(cartData)
+    return Object.values(cart) as CartItem[]
+  } catch (error) {
+    console.error('Error reading cart from localStorage:', error)
+    return []
+  }
+}
+
+const clearCartFromLocalStorage = () => {
+  try {
+    localStorage.removeItem(getCartStorageKey())
+  } catch (error) {
+    console.error('Error clearing cart from localStorage:', error)
+  }
+}
+
+const unserializeCart = (cartString: string): CheckoutData | null => {
+  try {
+    const decodedCart = atob(cartString)
+    const parsedCart = JSON.parse(decodedCart)
+
+    if (!parsedCart.items || !Array.isArray(parsedCart.items)) {
+      throw new Error('Invalid cart format: missing or invalid items array')
+    }
+
+    if (typeof parsedCart.timestamp !== 'number') {
+      throw new Error('Invalid cart format: missing or invalid timestamp')
+    }
+
+    if (typeof parsedCart.domain !== 'string') {
+      throw new Error('Invalid cart format: missing or invalid domain')
+    }
+
+    parsedCart.items.forEach((item: unknown, index: number) => {
+      const cartItem = item as Record<string, unknown>
+      if (!cartItem.groupId || !cartItem.productId || !cartItem.organizationId) {
+        throw new Error(`Invalid cart item at index ${index}: missing required fields`)
+      }
+      if (typeof cartItem.quantity !== 'number' || cartItem.quantity <= 0) {
+        throw new Error(`Invalid cart item at index ${index}: invalid quantity`)
+      }
+    })
+
+    return parsedCart as CheckoutData
+  } catch (err) {
+    console.error('Error unserializing cart:', err)
+    return null
+  }
+}
+
+watch(
+  () => appStore.paymentMethods,
+  (newCards) => {
+    // Handle changes to payment cards
+    if (newCards.length === 1) {
+      handlePaymentMethodSelected(newCards[0])
+    }
+  },
+  {
+    deep: true,
+    immediate: true,
+  },
+)
+
+onMounted(async () => {
+  try {
+    // Initialize app store authentication
+    await appStore.initializeAuth()
+
+    // Parse cart data from URL or localStorage
+    const cartString = Array.isArray(route.query.cart) ? route.query.cart[0] : route.query.cart
+
+    if (cartString) {
+      // Cart data provided via URL (from embedded iframe or direct link)
+      const unserializedCart = unserializeCart(cartString)
+
+      if (!unserializedCart) {
+        error.value = 'Failed to parse cart data'
+        return
+      }
+      cartItems.value = unserializedCart.items.sort((a, b) => {
+        const nameA = a.organizationId
+        const nameB = b.organizationId
+        return nameA.localeCompare(nameB)
+      })
+    } else {
+      // Try to load cart from localStorage (direct navigation to cart page)
+      const localCartItems = getCartFromLocalStorage() ?? []
+
+      cartItems.value = localCartItems.sort((a, b) => {
+        const nameA = a.organizationId
+        const nameB = b.organizationId
+        return nameA.localeCompare(nameB)
+      })
+    }
+
+    // Fetch product and organization data
+    const uniqueOrgIds = new Set<string>()
+    const uniqueProductKeys = new Set<string>()
+    for (const item of cartItems.value) {
+      uniqueOrgIds.add(item.organizationId)
+      uniqueProductKeys.add(`${item.groupId}:${item.productId}`)
+    }
+    const orgPromises: Promise<Organization>[] = []
+    uniqueOrgIds.forEach((id) => {
+      const org = publicApi.getPublicOrganization(id)
+      if (org) orgPromises.push(org)
+    })
+    const productPromises: Promise<Product | null>[] = []
+    uniqueProductKeys.forEach((key) => {
+      const [groupId, productId] = key.split(':')
+      const prodPromise = publicApi.getPublicProduct(groupId, productId).catch(() => null)
+      if (prodPromise) productPromises.push(prodPromise)
+    })
+    const [orgs, prods] = await Promise.all([
+      Promise.allSettled(orgPromises),
+      Promise.allSettled(productPromises),
+    ])
+
+    // Filter out null products (products that couldn't be fetched)
+    const validProducts = prods
+      .filter((prod) => prod != null && prod.status === 'fulfilled' && prod.value != null)
+      .map((res) => (res as PromiseFulfilledResult<Product>).value)
+    const validProductKeys = new Set(validProducts.map((prod) => `${prod.group_id}:${prod.id}`))
+
+    // Remove cart items that have missing products
+    const originalCartLength = cartItems.value.length
+    cartItems.value = cartItems.value.filter((item) => {
+      const itemKey = `${item.groupId}:${item.productId}`
+      return validProductKeys.has(itemKey)
+    })
+
+    // Update localStorage if items were removed
+    if (cartItems.value.length !== originalCartLength) {
+      const cart: Record<string, CartItem> = {}
+      cartItems.value.forEach((item) => {
+        const itemKey = `${item.groupId}_${item.productId}`
+        cart[itemKey] = item
+      })
+      localStorage.setItem(getCartStorageKey(), JSON.stringify(cart))
+    }
+
+    orgHash.value = orgs.reduce(
+      (hash, org) => {
+        if (org.status === 'fulfilled') {
+          hash[org.value.id] = org.value
+        }
+        return hash
+      },
+      {} as Record<string, Organization>,
+    )
+    productHash.value = validProducts.reduce(
+      (hash, prod) => {
+        if (prod.metadata?.shipping_required === 'true') {
+          requiresShipping.value = true
+        }
+        hash[`${prod.group_id}:${prod.id}`] = prod
+        return hash
+      },
+      {} as Record<string, Product>,
+    )
+
+    // Load payment methods for authenticated users
+    if (appStore.isAuthenticated && appStore.user?.id) {
+      await appStore.getPaymentMethods(appStore.user.id)
+      paymentMethodsInitialized.value = true
+    }
+
+    // Get user IP address if not authenticated
+    userIpAddress.value = await getUserIpAddress()
+
+    // Calculate initial taxes
+    await calculateTaxes()
+
+    source.value = decodeURIComponent(
+      (Array.isArray(route.query.source) ? route.query.source[0] : route.query.source) ?? '',
+    )
+    productsLoading.value = false
+  } catch (err) {
+    error.value = `Error loading cart: ${err instanceof Error ? err.message : 'Unknown error'}`
+  } finally {
+    productsLoading.value = false
+  }
+})
+</script>
+
+<style scoped>
+.cart-page {
+  min-height: 100vh;
+  background: var(--color-bg-secondary, #f8fafc);
+  padding: var(--space-6) 0;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+}
+
+/* Header */
+.cart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.cart-title {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.source-badge {
+  background: var(--color-primary-bg, rgba(59, 130, 246, 0.1));
+  color: var(--color-primary);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid var(--color-primary-alpha);
+  margin-left: auto;
+}
+
+/* Loading State */
+.loading-state {
+  text-align: center;
+  padding: var(--space-12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.loading-text {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-lg);
+  margin: 0;
+}
+
+/* Cart Layout */
+.cart-layout {
+  display: grid;
+  gap: var(--space-8);
+}
+
+.cart-content {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-8);
+  align-items: start;
+}
+
+/* Empty Cart */
+.empty-cart {
+  text-align: center;
+  padding: var(--space-16);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  border: 2px dashed var(--color-border);
+}
+
+.empty-icon {
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-6);
+  opacity: 0.85;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  height: 150px;
+  position: relative;
+  overflow: visible;
+  width: 100%;
+}
+
+.empty-icon__scene {
+  position: relative;
+  width: 100%;
+  height: 130px;
+  pointer-events: none;
+  margin: 0 auto;
+}
+
+.empty-icon__ground {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 20px;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.18;
+  z-index: 0;
+}
+
+.empty-icon__blocker {
+  position: absolute;
+  bottom: 0;
+  width: clamp(64px, 14%, 120px);
+  height: 100%;
+  background: var(--color-bg-primary);
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0.96;
+}
+
+.empty-icon__blocker::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+}
+
+.empty-icon__blocker--left {
+  left: 0;
+  opacity: 1;
+}
+
+.empty-icon__blocker--right {
+  right: 0;
+  opacity: 1;
+}
+
+.empty-icon__cart {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  width: 64px;
+  height: 64px;
+  transform-origin: 50% 70%;
+  filter: drop-shadow(0 6px 14px rgba(15, 23, 42, 0.22));
+  animation: cart-motion 4.6s linear infinite;
+  will-change: left, transform;
+  z-index: 2;
+}
+
+@keyframes cart-motion {
+  0% {
+    left: 0;
+    transform: translateY(0) rotate(-6deg) scale(0.98);
+  }
+
+  12% {
+    left: calc((100% - 64px) * 0.087);
+    transform: translateY(-4px) rotate(-10deg) scale(0.99);
+  }
+
+  24% {
+    left: calc((100% - 64px) * 0.209);
+    transform: translateY(-12px) rotate(-16deg) scale(0.99);
+  }
+
+  32% {
+    left: calc((100% - 64px) * 0.313);
+    transform: translateY(-26px) rotate(-18deg) scale(1);
+  }
+
+  42% {
+    left: calc((100% - 64px) * 0.457);
+    transform: translateY(-56px) rotate(-12deg) scale(1.01);
+  }
+
+  52% {
+    left: calc((100% - 64px) * 0.6);
+    transform: translateY(-82px) rotate(-2deg) scale(1.02);
+  }
+
+  60% {
+    left: calc((100% - 64px) * 0.696);
+    transform: translateY(-94px) rotate(6deg) scale(1.02);
+  }
+
+  70% {
+    left: calc((100% - 64px) * 0.783);
+    transform: translateY(-64px) rotate(10deg) scale(1.01);
+  }
+
+  80% {
+    left: calc((100% - 64px) * 0.861);
+    transform: translateY(-28px) rotate(6deg) scale(1);
+  }
+
+  88% {
+    left: calc((100% - 64px) * 0.913);
+    transform: translateY(-6px) rotate(2deg) scale(0.99);
+  }
+
+  100% {
+    left: calc(100% - 64px);
+    transform: translateY(0) rotate(-4deg) scale(0.98);
+  }
+}
+
+.empty-cart h2 {
+  font-size: var(--font-size-xl);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-3) 0;
+}
+
+.empty-cart p {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+  margin: 0 0 var(--space-6) 0;
+}
+
+.back-to-products-btn {
+  margin-top: var(--space-4);
+}
+
+/* Cart Items Section */
+.cart-items-section {
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+}
+
+.section-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-6) 0;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cart-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cart-items > div {
+  flex: none;
+}
+
+/* Override BaseCard behavior for compact ProductCards */
+.cart-items .product-card--compact {
+  height: auto !important;
+  flex: none !important;
+}
+
+.cart-item {
+  background: var(--color-bg-secondary, #f8fafc);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  transition: all 0.2s ease;
+}
+
+.cart-item:hover {
+  border-color: var(--color-primary-alpha);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.item-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cart-item-wrapper {
+  position: relative;
+}
+
+.remove-item-btn {
+  position: absolute;
+  top: -16px;
+  left: -16px;
+  z-index: 10;
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--color-text-primary);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: var(--color-bg-primary);
+}
+
+.cart-item-wrapper:hover .remove-item-btn {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.remove-item-btn:hover {
+  background: rgba(220, 38, 38, 1);
+  color: white;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.remove-item-btn:active {
+  transform: scale(0.95);
+}
+
+.quantity-container {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: right;
+}
+
+/* Checkout Section */
+.checkout-section {
+  position: sticky;
+}
+
+.auth-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-6);
+}
+
+.auth-status.authenticated {
+  background: var(--color-success-bg, rgba(34, 197, 94, 0.1));
+  border: 1px solid var(--color-success-alpha);
+}
+
+.auth-status.anonymous {
+  background: var(--color-info-bg, rgba(59, 130, 246, 0.1));
+  border: 1px solid var(--color-primary-alpha);
+}
+
+.auth-icon {
+  flex-shrink: 0;
+}
+
+.auth-status.authenticated .auth-icon {
+  color: var(--color-success);
+}
+
+.auth-status.anonymous .auth-icon {
+  color: var(--color-primary);
+}
+
+.auth-info {
+  flex: 1;
+}
+
+.auth-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-1) 0;
+  font-weight: var(--font-weight-medium);
+}
+
+.auth-name {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+}
+
+.auth-description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* Payment Section */
+.payment-section {
+  margin-bottom: var(--space-6);
+}
+
+.payment-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.loading-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.payment-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-4) 0;
+}
+
+.existing-payment,
+.add-payment-method,
+.guest-payment-form {
+  border-radius: var(--radius-md);
+}
+
+/* Cart Summary */
+.cart-summary {
+  background: var(--color-bg-secondary, #f8fafc);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
+  margin-top: var(--space-6);
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) 0;
+}
+
+.summary-row.total {
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  font-weight: var(--font-weight-semibold);
+}
+
+.summary-label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.summary-value {
+  margin-left: auto;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.total-amount {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Checkout Actions */
+.checkout-actions {
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.checkout-disclaimer {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-align: center;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .cart-content {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+
+  .checkout-section {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 0 var(--space-3);
+  }
+
+  .cart-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
+  .cart-title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .cart-items-section {
+    padding: var(--space-4);
+  }
+
+  .item-header {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .item-quantity {
+    align-self: flex-start;
+  }
+
+  .detail-item {
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .detail-label {
+    min-width: auto;
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .empty-cart {
+    padding: var(--space-8);
+  }
+
+  .empty-icon {
+    height: 120px;
+  }
+
+  .empty-icon__scene {
+    width: 180px;
+    height: 120px;
+  }
+
+  .loading-state {
+    padding: var(--space-8);
+  }
+}
+.summary-row-top {
+  border-top: 1px solid var(--color-border);
+  margin-bottom: var(--space-2);
+}
+
+.tax-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tax-placeholder {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.org-headline {
+  margin-bottom: var(--space-4);
+}
+
+/* Default Auth Section */
+.default-auth-section {
+  margin-bottom: var(--space-6);
+}
+
+.auth-prompt {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  border-radius: var(--radius-md);
+}
+
+.auth-icon.primary {
+  color: var(--color-primary);
+  flex-shrink: 0;
+  margin-top: var(--space-1);
+}
+
+/* Auth Required Notice */
+.auth-required-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  background: var(--color-warning-bg, rgba(245, 158, 11, 0.1));
+  border: 1px solid var(--color-warning-alpha, rgba(245, 158, 11, 0.2));
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-6);
+}
+
+.auth-icon.warning {
+  color: var(--color-warning, #f59e0b);
+  flex-shrink: 0;
+  margin-top: var(--space-1);
+}
+
+.auth-message {
+  width: 100%;
+}
+
+.auth-message h3 {
+  margin: 0 0 var(--space-2) 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.auth-message p {
+  margin: 0 0 var(--space-4) 0;
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+.auth-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* Guest Checkout Header */
+.guest-checkout-header {
+  margin-bottom: var(--space-4);
+}
+
+.guest-checkout-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.guest-checkout-title h4 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.auth-link {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+  margin: 0;
+}
+
+.auth-link:hover {
+  color: var(--color-primary-hover);
+}
+
+/* Guest Option */
+.guest-option {
+  margin-top: var(--space-4);
+  text-align: right;
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-icon__cart {
+    left: calc(50% - 32px);
+    transform: translateY(0) rotate(-4deg) scale(1);
+  }
+}
+.address-search {
+  margin-bottom: var(--space-4);
+}
+</style>
