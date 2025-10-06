@@ -15,6 +15,7 @@ dist/
 dist-ssr/
 *.js
 *.d.ts
+!**/env.d.ts
 *.js.map
 !jest.config.js
 *.tsbuildinfo
