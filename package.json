@@ -2,10 +2,19 @@
   "name": "marketplace-monorepo",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "backend",
-    "frontend"
-  ],
+  "workspaces": {
+    "packages": [
+      "backend",
+      "frontend"
+    ],
+    "nohoist": [
+      "**/vite",
+      "**/vite/**",
+      "**/@vitejs/**",
+      "**/vue-tsc",
+      "**/vue-tsc/**"
+    ]
+  },
   "scripts": {
     "backend:install": "yarn workspace marketplace-backend install",
     "backend:build": "yarn workspace marketplace-backend build",
