@@ -1,36 +1,38 @@
+import { CloudFrontDistributionDefinition } from '@marketplace/types'
 import {
-  Distribution,
-  CachePolicy,
+  Duration, Fn
+} from 'aws-cdk-lib'
+import {
+  Certificate, CertificateValidation
+} from 'aws-cdk-lib/aws-certificatemanager'
+import {
   AllowedMethods,
-  ViewerProtocolPolicy,
-  PriceClass,
   CachedMethods,
-  OriginProtocolPolicy,
-  OriginSslPolicy,
+  CachePolicy,
   CacheQueryStringBehavior,
   Function as CloudFrontFunction,
+  Distribution,
   FunctionCode,
   FunctionEventType,
+  OriginProtocolPolicy,
+  OriginSslPolicy,
+  PriceClass,
+  ViewerProtocolPolicy,
 } from 'aws-cdk-lib/aws-cloudfront'
 import {
   HttpOrigin
 } from 'aws-cdk-lib/aws-cloudfront-origins'
 import {
-  Duration, Fn
-} from 'aws-cdk-lib'
-import { Construct } from 'constructs'
-import { CloudFrontDistributionDefinition } from '@marketplace/types'
-import { cloudFrontDefinitions } from './cloudfront-definitions'
-import {
-  Certificate, CertificateValidation
-} from 'aws-cdk-lib/aws-certificatemanager'
-import {
-  HostedZone, ARecord, RecordTarget,
-  IHostedZone
+  ARecord,
+  HostedZone,
+  IHostedZone,
+  RecordTarget
 } from 'aws-cdk-lib/aws-route53'
 import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets'
-import path from 'path'
+import { Construct } from 'constructs'
 import * as fs from 'fs'
+import path from 'path'
+import { cloudFrontDefinitions } from './cloudfront-definitions'
 
 interface CloudFrontConstructProps {
   envName?: string
@@ -61,7 +63,7 @@ export class CloudFrontConstruct extends Construct {
       const authPassword = process.env.CLOUDFRONT_AUTH_PASSWORD || 'dev123'
 
       // Read the CloudFront Function code and replace placeholders
-      const functionCodePath = path.join(__dirname, 'basic-auth-function.js')
+      const functionCodePath = path.join(__dirname, 'basic-auth.js')
       let functionCode = fs.readFileSync(functionCodePath, 'utf-8')
       functionCode = functionCode.replace('CLOUDFRONT_AUTH_USERNAME_PLACEHOLDER', authUsername)
       functionCode = functionCode.replace('CLOUDFRONT_AUTH_PASSWORD_PLACEHOLDER', authPassword)
