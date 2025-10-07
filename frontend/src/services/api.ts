@@ -1,36 +1,36 @@
-import axios from 'axios'
 import router from '@/router'
 import type {
-  // Entity types
-  User,
-  Organization,
-  Product,
-  PurchasedProduct,
-  PaymentMethod,
-  Purchase,
-  // API types
-  RegisterRequest,
-  RequestRegisterOtpRequest,
-  LoginRequest,
-  OAuthLoginRequest,
   AuthResponse,
   ChangePasswordRequest,
-  RequestResetPasswordRequest,
-  ResetPasswordRequest,
-  CreatePaymentMethodRequest,
-  CreatePaymentMethodResponse,
   CreateConnectedAccountRequest,
   CreateConnectedAccountResponse,
   CreateMeterRequest,
   CreateMeterResponse,
+  CreatePaymentMethodRequest,
+  CreatePaymentMethodResponse,
   CreatePresignedUploadUrlRequest,
   CreatePresignedUploadUrlResponse,
+  LoginRequest,
+  OAuthLoginRequest,
+  Organization,
+  PaymentMethod,
+  Product,
+  Purchase,
+  PurchasedProduct,
+  // API types
+  RegisterRequest,
+  RequestRegisterOtpRequest,
+  RequestResetPasswordRequest,
+  ResetPasswordRequest,
   TaxCalculationRequest,
-  TaxCalculationResult
+  TaxCalculationResult,
+  // Entity types
+  User
 } from '@marketplace/types'
+import axios from 'axios'
 
 // Determine environment - can be overridden via environment variable
-const BASE_URL = import.meta.env.VITE_API_ENV === 'dev' ? `https://api.${import.meta.env.VITE_API_ENV}.marketplace.csm.codes/${import.meta.env.VITE_API_ENV}` : `https://api.marketplace.csm.codes/${import.meta.env.VITE_API_ENV}`
+const BASE_URL = import.meta.env.VITE_API_ENV === 'dev' ? `https://api.${import.meta.env.VITE_API_ENV}.marketplace.csm.codes` : 'https://api.marketplace.csm.codes/'
 const IMAGE_URL = import.meta.env.VITE_API_ENV === 'dev' ? `https://images.${import.meta.env.VITE_API_ENV}.marketplace.csm.codes` : 'https://images.marketplace.csm.codes'
 
 if (BASE_URL === 'unknown' || IMAGE_URL === 'unknown') {

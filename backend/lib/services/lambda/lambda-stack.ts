@@ -212,7 +212,26 @@ export class LambdaConstruct extends Construct {
         for (const tableName of Object.keys(props.tables)) {
           const table = props.tables[tableName]
           if (table) {
-            table.grantReadWriteData(fn)
+            // Grant comprehensive DynamoDB permissions including GSI access
+            fn.addToRolePolicy(
+              new aws_iam.PolicyStatement({
+                actions: [
+                  'dynamodb:GetItem',
+                  'dynamodb:PutItem',
+                  'dynamodb:UpdateItem',
+                  'dynamodb:DeleteItem',
+                  'dynamodb:Query',
+                  'dynamodb:Scan',
+                  'dynamodb:BatchGetItem',
+                  'dynamodb:BatchWriteItem',
+                  'dynamodb:DescribeTable'
+                ],
+                resources: [
+                  table.tableArn,
+                  `${table.tableArn}/index/*` // Grant access to all GSIs
+                ]
+              })
+            )
           } else {
             console.warn(`Table ${tableName} not found for Lambda ${def.name}`)
           }
