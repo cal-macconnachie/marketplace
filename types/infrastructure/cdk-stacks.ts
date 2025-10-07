@@ -5,14 +5,13 @@
  */
 
 import type * as cdk from 'aws-cdk-lib'
-import type * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
 import type * as cognito from 'aws-cdk-lib/aws-cognito'
+import type * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
 import type * as route53 from 'aws-cdk-lib/aws-route53'
 import type * as s3 from 'aws-cdk-lib/aws-s3'
 
 /**
  * Outputs from the MarketplaceInfrastructureStack
- * @deprecated No longer used - stacks now communicate via SSM Parameter Store
  * Kept for backward compatibility
  */
 export interface MarketplaceInfrastructureStackOutputs {

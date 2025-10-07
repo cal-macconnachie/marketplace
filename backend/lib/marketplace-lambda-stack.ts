@@ -26,7 +26,7 @@ export class MarketplaceLambdaStack extends cdk.Stack {
       `/marketplace/${envName}/cognito/user-pool-client-id`
     )
 
-    // Import DynamoDB table names from SSM
+    // Import DynamoDB table names and stream ARNs from SSM
     const tableNames = {
       users: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/users`),
       organizations: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/organizations`),
@@ -36,10 +36,24 @@ export class MarketplaceLambdaStack extends cdk.Stack {
       'payment-methods': ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/payment-methods`)
     }
 
-    // Import bucket name from SSM
+    const tableStreamArns = {
+      users: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/users-stream-arn`),
+      organizations: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/organizations-stream-arn`),
+      products: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/products-stream-arn`),
+      promos: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/promos-stream-arn`),
+      purchases: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/purchases-stream-arn`),
+      'purchase-carts': ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/purchase-carts-stream-arn`),
+      'purchased-products': ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/purchased-products-stream-arn`)
+    }
+
+    // Import S3 bucket names and ARNs from SSM
     const imagesBucketName = ssm.StringParameter.valueFromLookup(
       this,
       `/marketplace/${envName}/s3/dot-images-product-store-direct`
+    )
+    const imagesBucketArn = ssm.StringParameter.valueFromLookup(
+      this,
+      `/marketplace/${envName}/s3/dot-images-product-store-direct-arn`
     )
 
     // Import Route53 hosted zone IDs from SSM
@@ -69,14 +83,37 @@ export class MarketplaceLambdaStack extends cdk.Stack {
       userPoolClientId
     )
 
-    // Import DynamoDB tables from existing infrastructure
+    // Import DynamoDB tables from existing infrastructure with stream ARNs
     const tables = {
-      users: dynamodb.Table.fromTableName(this, 'UsersTable', tableNames.users),
-      organizations: dynamodb.Table.fromTableName(this, 'OrganizationsTable', tableNames.organizations),
-      products: dynamodb.Table.fromTableName(this, 'ProductsTable', tableNames.products),
-      promos: dynamodb.Table.fromTableName(this, 'PromosTable', tableNames.promos),
-      purchases: dynamodb.Table.fromTableName(this, 'PurchasesTable', tableNames.purchases),
-      'payment-methods': dynamodb.Table.fromTableName(this, 'PaymentMethodsTable', tableNames['payment-methods'])
+      users: dynamodb.Table.fromTableAttributes(this, 'UsersTable', {
+        tableName: tableNames.users,
+        tableStreamArn: tableStreamArns.users
+      }),
+      organizations: dynamodb.Table.fromTableAttributes(this, 'OrganizationsTable', {
+        tableName: tableNames.organizations,
+        tableStreamArn: tableStreamArns.organizations
+      }),
+      products: dynamodb.Table.fromTableAttributes(this, 'ProductsTable', {
+        tableName: tableNames.products,
+        tableStreamArn: tableStreamArns.products
+      }),
+      promos: dynamodb.Table.fromTableAttributes(this, 'PromosTable', {
+        tableName: tableNames.promos,
+        tableStreamArn: tableStreamArns.promos
+      }),
+      purchases: dynamodb.Table.fromTableAttributes(this, 'PurchasesTable', {
+        tableName: tableNames.purchases,
+        tableStreamArn: tableStreamArns.purchases
+      }),
+      'payment-methods': dynamodb.Table.fromTableName(this, 'PaymentMethodsTable', tableNames['payment-methods']),
+      'purchase-carts': dynamodb.Table.fromTableAttributes(this, 'PurchaseCartsTable', {
+        tableName: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/purchase-carts`),
+        tableStreamArn: tableStreamArns['purchase-carts']
+      }),
+      'purchased-products': dynamodb.Table.fromTableAttributes(this, 'PurchasedProductsTable', {
+        tableName: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/purchased-products`),
+        tableStreamArn: tableStreamArns['purchased-products']
+      })
     }
 
     // Import Route53 hosted zones
@@ -91,13 +128,22 @@ export class MarketplaceLambdaStack extends cdk.Stack {
       })
     }
 
+    // Import S3 buckets from existing infrastructure
+    const buckets = {
+      'dot-images-product-store-direct': cdk.aws_s3.Bucket.fromBucketAttributes(this, 'ImagesBucket', {
+        bucketName: imagesBucketName,
+        bucketArn: imagesBucketArn
+      })
+    }
+
     const lambdaConstruct = new LambdaConstruct(this, `Lambda-${envName}`, {
       envName,
       envVars,
       userPool,
       userPoolClient,
       tables,
-      hostedZones
+      hostedZones,
+      buckets
     })
 
     // Get S3 website URLs from SSM for CloudFront

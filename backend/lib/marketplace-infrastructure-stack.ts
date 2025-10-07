@@ -70,7 +70,7 @@ export class MarketplaceInfrastructureStack extends cdk.Stack {
       description: `Cognito User Pool Client ID for ${envName}`
     })
 
-    // Export table names
+    // Export table names and stream ARNs
     Object.entries(ddbTables.tables).forEach(([
       name,
       table
@@ -80,9 +80,18 @@ export class MarketplaceInfrastructureStack extends cdk.Stack {
         stringValue: table.tableName,
         description: `DynamoDB table name for ${name} in ${envName}`
       })
+
+      // Export stream ARN if the table has streams enabled
+      if (table.tableStreamArn) {
+        new ssm.StringParameter(this, `TableStreamArn-${name}`, {
+          parameterName: `/marketplace/${envName}/dynamodb/${name}-stream-arn`,
+          stringValue: table.tableStreamArn,
+          description: `DynamoDB stream ARN for ${name} in ${envName}`
+        })
+      }
     })
 
-    // Export S3 bucket names
+    // Export S3 bucket names and ARNs
     Object.entries(s3Construct.buckets).forEach(([
       name,
       bucket
@@ -91,6 +100,13 @@ export class MarketplaceInfrastructureStack extends cdk.Stack {
         parameterName: `/marketplace/${envName}/s3/${name.replace(/\./g, '-')}`,
         stringValue: bucket.bucketName,
         description: `S3 bucket name for ${name} in ${envName}`
+      })
+
+      // Export bucket ARN for permission grants
+      new ssm.StringParameter(this, `BucketArn-${name.replace(/\./g, '-')}`, {
+        parameterName: `/marketplace/${envName}/s3/${name.replace(/\./g, '-')}-arn`,
+        stringValue: bucket.bucketArn,
+        description: `S3 bucket ARN for ${name} in ${envName}`
       })
     })
 
