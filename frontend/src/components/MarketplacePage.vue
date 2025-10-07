@@ -89,12 +89,14 @@
       <p>Loading products...</p>
     </div>
 
-    <BaseAlert v-else-if="error" type="error" @close="error = null">
-      {{ error }}
-      <template #actions>
-        <BaseButton @click="fetchProducts(true)" size="sm">Retry</BaseButton>
-      </template>
-    </BaseAlert>
+    <div v-else-if="error" class="error-container">
+      <BaseAlert variant="error" @close="error = null">
+        {{ error }}
+        <template #actions>
+          <BaseButton @click="fetchProducts(true)" size="xs" variant="ghost">Retry</BaseButton>
+        </template>
+      </BaseAlert>
+    </div>
 
     <div v-else class="marketplace-content">
       <div v-if="!loading && products.length === 0" class="empty-state">
@@ -985,6 +987,12 @@ watch(products, (newProducts) => {
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
+}
+
+.error-container {
+  max-width: 600px;
+  margin: var(--space-8) auto;
+  padding: 0 var(--space-4);
 }
 
 @media (max-width: 768px) {

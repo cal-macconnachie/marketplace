@@ -26,6 +26,8 @@
         <slot>{{ message }}</slot>
       </div>
     </div>
+
+    <slot name="actions"></slot>
     
     <button
       v-if="dismissible"
