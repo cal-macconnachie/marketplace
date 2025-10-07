@@ -8,7 +8,9 @@ import {
   OriginProtocolPolicy,
   OriginSslPolicy,
   CacheQueryStringBehavior,
-  LambdaEdgeEventType,
+  Function as CloudFrontFunction,
+  FunctionCode,
+  FunctionEventType,
 } from 'aws-cdk-lib/aws-cloudfront'
 import {
   HttpOrigin
@@ -27,11 +29,8 @@ import {
   IHostedZone
 } from 'aws-cdk-lib/aws-route53'
 import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets'
-import {
-  Runtime
-} from 'aws-cdk-lib/aws-lambda'
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import path from 'path'
+import * as fs from 'fs'
 
 interface CloudFrontConstructProps {
   envName?: string
@@ -55,25 +54,22 @@ export class CloudFrontConstruct extends Construct {
       hostedZones
     } = props || {}
 
-    // Create basic auth Lambda@Edge function for dev environment
-    let basicAuthFunction: NodejsFunction | undefined
+    // Create basic auth CloudFront Function for dev environment
+    let basicAuthFunction: CloudFrontFunction | undefined
     if (envName === 'dev') {
       const authUsername = process.env.CLOUDFRONT_AUTH_USERNAME || 'dev'
       const authPassword = process.env.CLOUDFRONT_AUTH_PASSWORD || 'dev123'
 
-      basicAuthFunction = new NodejsFunction(this, 'BasicAuthFunction', {
-        runtime: Runtime.NODEJS_20_X,
-        handler: 'handler',
-        entry: path.join(__dirname, '../lambda/handlers/cloudfront/basic-auth.ts'),
-        functionName: `cloudfront-basic-auth-${envName}`,
-        description: 'Lambda@Edge function for basic authentication on CloudFront',
-        bundling: {
-          minify: true,
-          define: {
-            'process.env.CLOUDFRONT_AUTH_USERNAME': JSON.stringify(authUsername),
-            'process.env.CLOUDFRONT_AUTH_PASSWORD': JSON.stringify(authPassword)
-          }
-        }
+      // Read the CloudFront Function code and replace placeholders
+      const functionCodePath = path.join(__dirname, 'basic-auth-function.js')
+      let functionCode = fs.readFileSync(functionCodePath, 'utf-8')
+      functionCode = functionCode.replace('CLOUDFRONT_AUTH_USERNAME_PLACEHOLDER', authUsername)
+      functionCode = functionCode.replace('CLOUDFRONT_AUTH_PASSWORD_PLACEHOLDER', authPassword)
+
+      basicAuthFunction = new CloudFrontFunction(this, 'BasicAuthFunction', {
+        code: FunctionCode.fromInline(functionCode),
+        functionName: `basic-auth-${envName}`,
+        comment: 'CloudFront Function for basic authentication'
       })
     }
 
@@ -179,12 +175,12 @@ export class CloudFrontConstruct extends Construct {
         enableAcceptEncodingBrotli: true
       })
 
-      // Prepare edge lambdas for basic auth in dev environment
-      const edgeLambdas = []
+      // Prepare CloudFront Functions for basic auth in dev environment
+      const functionAssociations = []
       if (envName === 'dev' && def.requireBasicAuth && basicAuthFunction) {
-        edgeLambdas.push({
-          functionVersion: basicAuthFunction.currentVersion,
-          eventType: LambdaEdgeEventType.VIEWER_REQUEST
+        functionAssociations.push({
+          function: basicAuthFunction,
+          eventType: FunctionEventType.VIEWER_REQUEST
         })
       }
 
@@ -207,7 +203,7 @@ export class CloudFrontConstruct extends Construct {
           viewerProtocolPolicy: this.mapViewerProtocolPolicy(def.defaultBehavior.viewerProtocolPolicy),
           cachePolicy,
           compress: def.defaultBehavior.compress ?? true,
-          edgeLambdas: edgeLambdas.length > 0 ? edgeLambdas : undefined
+          functionAssociations: functionAssociations.length > 0 ? functionAssociations : undefined
         }
       })
 

@@ -1,9 +1,21 @@
 /**
  * Environment-dependent constants
- * These values change based on the deployment environment (dev, prod, etc.)
+ * Works in both Node.js (backend) and browser (frontend) environments
  */
 
-const ENV = process.env.ENV_NAME || 'dev';
+// Check if running in browser (window exists) or Node.js (process exists)
+const ENV = (() => {
+  // Browser environment - check window object for Vite injected env
+  if (typeof window !== 'undefined' && (window as any).__MARKETPLACE_ENV__) {
+    return (window as any).__MARKETPLACE_ENV__;
+  }
+  // Node.js environment
+  if (typeof process !== 'undefined' && process.env?.ENV_NAME) {
+    return process.env.ENV_NAME;
+  }
+  // Default fallback
+  return 'dev';
+})();
 
 /**
  * Get environment-specific table name
