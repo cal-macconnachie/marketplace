@@ -5024,7 +5024,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"esbuild@npm:^0.25.0":
+"esbuild@npm:^0.25.0, esbuild@npm:^0.25.10":
   version: 0.25.10
   resolution: "esbuild@npm:0.25.10"
   dependencies:
@@ -7070,6 +7070,7 @@ __metadata:
     country-to-currency: "npm:^2.0.2"
     country-to-iso: "npm:^1.6.1"
     date-fns: "npm:^4.1.0"
+    esbuild: "npm:^0.25.10"
     eslint: "npm:^9.28.0"
     eslint-plugin-jest: "npm:^28.13.3"
     eslint-plugin-prettier: "npm:^5.4.1"
