@@ -53,10 +53,10 @@ export interface DdbTablesConstructProps {
 export interface LambdaConstructProps {
   envVars: Record<string, string>
   envName: string
-  tables?: Record<string, dynamodb.Table>
+  tables?: Record<string, dynamodb.ITable>
   queues?: Record<string, { queue: any; queueArn: string; queueName: string }>
   buckets?: Record<string, s3.IBucket>
-  userPool: cognito.UserPool
-  userPoolClient: cognito.UserPoolClient
+  userPool: cognito.IUserPool
+  userPoolClient: cognito.IUserPoolClient
   hostedZones?: Record<string, route53.IHostedZone>
 }
