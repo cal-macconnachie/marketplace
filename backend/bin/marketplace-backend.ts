@@ -7,15 +7,13 @@ const app = new cdk.App()
 const envName = app.node.tryGetContext('envName') ?? 'dev'
 
 // Create infrastructure stack (stable resources)
-const infrastructureStack = new MarketplaceInfrastructureStack(app, `MarketplaceInfrastructure-${envName}`, {
+// Exports values to SSM Parameter Store for loose coupling
+new MarketplaceInfrastructureStack(app, `MarketplaceInfrastructure-${envName}`, {
   envName
 })
 
 // Create lambda stack (frequently-changing resources)
-const lambdaStack = new MarketplaceLambdaStack(app, `MarketplaceLambda-${envName}`, {
-  envName,
-  infrastructureOutputs: infrastructureStack.outputs
+// Imports values from SSM Parameter Store - no direct dependency
+new MarketplaceLambdaStack(app, `MarketplaceLambda-${envName}`, {
+  envName
 })
-
-// Ensure lambda stack depends on infrastructure stack
-lambdaStack.addDependency(infrastructureStack)

@@ -94,6 +94,18 @@ export class MarketplaceInfrastructureStack extends cdk.Stack {
       })
     })
 
+    // Export S3 website URLs
+    Object.entries(s3Construct.websiteUrls).forEach(([
+      name,
+      url
+    ]) => {
+      new ssm.StringParameter(this, `WebsiteUrl-${name.replace(/\./g, '-')}`, {
+        parameterName: `/marketplace/${envName}/s3/website-url/${name.replace(/\./g, '-')}`,
+        stringValue: url,
+        description: `S3 website URL for ${name} in ${envName}`
+      })
+    })
+
     // Export hosted zone IDs
     Object.entries(route53Construct.hostedZones).forEach(([
       name,

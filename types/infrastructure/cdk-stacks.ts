@@ -12,7 +12,8 @@ import type * as s3 from 'aws-cdk-lib/aws-s3'
 
 /**
  * Outputs from the MarketplaceInfrastructureStack
- * Used by MarketplaceLambdaStack for cross-stack references
+ * @deprecated No longer used - stacks now communicate via SSM Parameter Store
+ * Kept for backward compatibility
  */
 export interface MarketplaceInfrastructureStackOutputs {
   tables: Record<string, dynamodb.Table>
@@ -25,10 +26,10 @@ export interface MarketplaceInfrastructureStackOutputs {
 
 /**
  * Props for the MarketplaceLambdaStack
+ * Note: Uses SSM Parameter Store for cross-stack references (loose coupling)
  */
 export interface MarketplaceLambdaStackProps extends cdk.StackProps {
   envName?: string
-  infrastructureOutputs: MarketplaceInfrastructureStackOutputs
 }
 
 /**
