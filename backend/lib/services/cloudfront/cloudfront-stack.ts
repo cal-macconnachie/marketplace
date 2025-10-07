@@ -12,6 +12,7 @@ import {
   CacheQueryStringBehavior,
   Function as CloudFrontFunction,
   Distribution,
+  ErrorResponse,
   FunctionCode,
   FunctionEventType,
   OriginProtocolPolicy,
@@ -205,6 +206,24 @@ function handler(event) {
         })
       }
 
+      // Create custom error responses for SPA routing (marketplace distribution only)
+      const errorResponses: ErrorResponse[] | undefined = def.name === 'marketplace-distribution'
+        ? [
+          {
+            httpStatus: 403,
+            responseHttpStatus: 200,
+            responsePagePath: '/index.html',
+            ttl: Duration.minutes(5)
+          },
+          {
+            httpStatus: 404,
+            responseHttpStatus: 200,
+            responsePagePath: '/index.html',
+            ttl: Duration.minutes(5)
+          }
+        ]
+        : undefined
+
       // Create distribution
       const distribution = new Distribution(this, def.name, {
         comment: def.comment || `${envName} ${def.name}`,
@@ -217,6 +236,7 @@ function handler(event) {
           : def.priceClass === 'PriceClass_200'
             ? PriceClass.PRICE_CLASS_200
             : PriceClass.PRICE_CLASS_ALL,
+        errorResponses,
         defaultBehavior: {
           origin: origins[0],
           allowedMethods: this.mapAllowedMethods(def.defaultBehavior.allowedMethods),
