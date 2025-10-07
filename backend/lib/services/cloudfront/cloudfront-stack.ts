@@ -33,6 +33,7 @@ import { Construct } from 'constructs'
 import * as fs from 'fs'
 import path from 'path'
 import { cloudFrontDefinitions } from './cloudfront-definitions'
+import { transformSync } from 'esbuild'
 
 interface CloudFrontConstructProps {
   envName?: string
@@ -61,9 +62,20 @@ export class CloudFrontConstruct extends Construct {
       const authUsername = process.env.CLOUDFRONT_AUTH_USERNAME || 'dev'
       const authPassword = process.env.CLOUDFRONT_AUTH_PASSWORD || 'dev123'
 
-      // Read the CloudFront Function code and replace placeholders
-      const functionCodePath = path.join(__dirname, 'basic-auth.cffunction')
-      let functionCode = fs.readFileSync(functionCodePath, 'utf-8')
+      // Read and compile the CloudFront Function TypeScript code
+      const functionCodePath = path.join(__dirname, 'basic-auth-function.ts')
+      const tsCode = fs.readFileSync(functionCodePath, 'utf-8')
+
+      // Compile TypeScript to ES5 JavaScript for CloudFront Functions
+      const compiled = transformSync(tsCode, {
+        loader: 'ts',
+        target: 'es5',
+        format: 'esm',
+        minify: true
+      })
+
+      // Replace placeholders with actual credentials
+      let functionCode = compiled.code
       functionCode = functionCode.replace('CLOUDFRONT_AUTH_USERNAME_PLACEHOLDER', authUsername)
       functionCode = functionCode.replace('CLOUDFRONT_AUTH_PASSWORD_PLACEHOLDER', authPassword)
 
