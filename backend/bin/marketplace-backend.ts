@@ -10,7 +10,7 @@ const envName = app.node.tryGetContext('envName') ?? 'dev'
 // Uses environment-agnostic synthesis tokens that resolve at deploy time
 const env = {
   account: process.env.CDK_DEFAULT_ACCOUNT || process.env.AWS_ACCOUNT_ID,
-  region: 'us-east-1'
+  region: process.env.CDK_DEFAULT_REGION || 'us-east-1'
 }
 
 // Create infrastructure stack (stable resources)
