@@ -126,15 +126,11 @@ export class LambdaConstruct extends Construct {
         }
       }
       // Add S3 bucket environment variables BEFORE Lambda creation
-      if (def.buckets && props.buckets) {
+      // Construct bucket names directly using envName + bucketName pattern
+      if (def.buckets) {
         for (const bucketName of def.buckets) {
-          const bucket = props.buckets[bucketName]
-          if (bucket) {
-            lambdaEnv[`BUCKET_${bucketName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`] =
-              bucket.bucketName
-          } else {
-            console.warn(`Bucket ${bucketName} not found for Lambda ${def.name}`)
-          }
+          lambdaEnv[`BUCKET_${bucketName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`] =
+            `${envName}-${bucketName}`
         }
       }
       // Prepare bundling options for template files if specified (supports nested directories under templates/)
@@ -236,12 +232,23 @@ export class LambdaConstruct extends Construct {
         }
       }
       // Grant S3 bucket access if specified (after Lambda creation)
-      if (def.buckets && props.buckets) {
+      // Use IAM policies directly to avoid SSM lookup issues with bucket imports
+      if (def.buckets) {
         for (const bucketName of def.buckets) {
-          const bucket = props.buckets[bucketName]
-          if (bucket) {
-            bucket.grantReadWrite(fn)
-          }
+          fn.addToRolePolicy(
+            new aws_iam.PolicyStatement({
+              actions: [
+                's3:GetObject',
+                's3:PutObject',
+                's3:DeleteObject',
+                's3:ListBucket'
+              ],
+              resources: [
+                `arn:aws:s3:::${envName}-${bucketName}`,
+                `arn:aws:s3:::${envName}-${bucketName}/*`
+              ]
+            })
+          )
         }
       }
       // Attach SQS event source if queueEvent is defined

@@ -46,15 +46,8 @@ export class MarketplaceLambdaStack extends cdk.Stack {
       'purchased-products': ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/purchased-products-stream-arn`)
     }
 
-    // Import S3 bucket names and ARNs from SSM
-    const imagesBucketName = ssm.StringParameter.valueFromLookup(
-      this,
-      `/marketplace/${envName}/s3/dot-images-product-store-direct`
-    )
-    const imagesBucketArn = ssm.StringParameter.valueFromLookup(
-      this,
-      `/marketplace/${envName}/s3/dot-images-product-store-direct-arn`
-    )
+    // Note: S3 bucket access is granted via IAM policies in lambda-stack.ts
+    // Bucket names are constructed as ${envName}-${bucketName}
 
     // Import Route53 hosted zone IDs from SSM
     const hostedZoneIds = {
@@ -69,7 +62,7 @@ export class MarketplaceLambdaStack extends cdk.Stack {
       'STRIPE_SECRET_KEY': `${envName === 'dev' ? process.env.STRIPE_SECRET_KEY_DEV : process.env.STRIPE_SECRET_KEY_PROD}`,
       'STRIPE_EVENT_DESTINATION': `${envName === 'dev' ? process.env.STRIPE_EVENT_DESTINATION_DEV : process.env.STRIPE_EVENT_DESTINATION_PROD}`,
       'STRIPE_EVENT_DESTINATION_PLATFORM': `${envName === 'dev' ? process.env.STRIPE_EVENT_DESTINATION_PLATFORM_DEV : process.env.STRIPE_EVENT_DESTINATION_PLATFORM_PROD}`,
-      'IMAGES_BUCKET_NAME': imagesBucketName,
+      'IMAGES_BUCKET_NAME': `${envName}-dot-images-product-store-direct`,
       'EMAIL_AWS_REGION': process.env.EMAIL_AWS_REGION ?? '',
       'EMAIL_LAMBDA_ARN': process.env.EMAIL_LAMBDA_ARN ?? '',
       'EMAIL_ASSUME_ROLE_ARN': process.env.EMAIL_ASSUME_ROLE_ARN ?? ''
@@ -128,22 +121,13 @@ export class MarketplaceLambdaStack extends cdk.Stack {
       })
     }
 
-    // Import S3 buckets from existing infrastructure
-    const buckets = {
-      'dot-images-product-store-direct': cdk.aws_s3.Bucket.fromBucketAttributes(this, 'ImagesBucket', {
-        bucketName: imagesBucketName,
-        bucketArn: imagesBucketArn
-      })
-    }
-
     const lambdaConstruct = new LambdaConstruct(this, `Lambda-${envName}`, {
       envName,
       envVars,
       userPool,
       userPoolClient,
       tables,
-      hostedZones,
-      buckets
+      hostedZones
     })
 
     // Get S3 website URLs from SSM for CloudFront
