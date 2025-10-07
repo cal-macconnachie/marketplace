@@ -37,6 +37,7 @@ jobs:
       - name: Check for changes
         uses: dorny/paths-filter@v3
         id: filter
+        if: github.event.inputs.force-deploy != 'true'
         with:
           filters: |
             backend:
@@ -64,6 +65,13 @@ jobs:
       - name: Check if only lambda changes
         id: check
         run: |
+          # Force deploy means full deployment (not lambda-only)
+          if [ "${{ github.event.inputs.force-deploy }}" = "true" ]; then
+            echo "lambda-only=false" >> $GITHUB_OUTPUT
+            echo "Lambda only changes: false (force deploy)"
+            exit 0
+          fi
+
           # Get list of changed files
           if [ "${{ github.event_name }}" = "push" ]; then
             # Check if the before commit exists (it may not after force push/squash)
