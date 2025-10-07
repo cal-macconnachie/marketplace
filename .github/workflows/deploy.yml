@@ -122,7 +122,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'yarn'
 
       - name: Ensure Yarn is installed
         run: corepack enable
@@ -181,7 +180,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'yarn'
 
       - name: Ensure Yarn is installed
         run: corepack enable
@@ -221,7 +219,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'yarn'
 
       - name: Ensure Yarn is installed
         run: corepack enable
