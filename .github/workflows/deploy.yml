@@ -149,9 +149,9 @@ jobs:
           echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
           echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
 
-      - name: CDK Synth
+      - name: CDK Synth Infrastructure
         working-directory: backend
-        run: yarn cdk synth -c envName=${{ needs.detect-changes.outputs.env-name }}
+        run: yarn cdk synth MarketplaceInfrastructure-${{ needs.detect-changes.outputs.env-name }} -c envName=${{ needs.detect-changes.outputs.env-name }}
 
       - name: CDK Deploy Infrastructure
         working-directory: backend
@@ -212,9 +212,9 @@ jobs:
           echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
           echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
 
-      - name: CDK Synth
+      - name: CDK Synth Lambdas
         working-directory: backend
-        run: yarn cdk synth -c envName=${{ needs.detect-changes.outputs.env-name }}
+        run: yarn cdk synth MarketplaceLambda-${{ needs.detect-changes.outputs.env-name }} -c envName=${{ needs.detect-changes.outputs.env-name }}
 
       - name: CDK Deploy Lambdas
         working-directory: backend
