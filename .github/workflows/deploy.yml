@@ -137,16 +137,16 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
-      - name: CDK Synth
-        working-directory: backend
-        run: yarn cdk synth -c envName=${{ needs.detect-changes.outputs.env-name }}
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: CDK Synth
+        working-directory: backend
+        run: yarn cdk synth -c envName=${{ needs.detect-changes.outputs.env-name }}
 
       - name: CDK Deploy Infrastructure
         working-directory: backend
@@ -195,16 +195,16 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
-      - name: CDK Synth
-        working-directory: backend
-        run: yarn cdk synth -c envName=${{ needs.detect-changes.outputs.env-name }}
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: CDK Synth
+        working-directory: backend
+        run: yarn cdk synth -c envName=${{ needs.detect-changes.outputs.env-name }}
 
       - name: CDK Deploy Lambdas
         working-directory: backend
