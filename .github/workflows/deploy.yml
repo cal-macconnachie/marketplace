@@ -268,16 +268,19 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           mask-aws-account-id: 'no'
 
-      - name: Get CloudFormation outputs
+      - name: Get stack outputs
         id: cfn-outputs
         run: |
           ENV_NAME="${{ needs.detect-changes.outputs.env-name }}"
 
-          # Get outputs from infrastructure stack
-          BUCKET_NAME=$(aws cloudformation describe-stacks \
-            --stack-name "MarketplaceInfrastructure-${ENV_NAME}" \
-            --query "Stacks[0].Outputs[?OutputKey=='MarketplaceBucketName'].OutputValue" \
+          # Get bucket name from SSM Parameter Store (more reliable than CloudFormation outputs)
+          # Bucket key format: {env}-{bucket-definition-name} with dots replaced by dashes
+          BUCKET_NAME=$(aws ssm get-parameter \
+            --name "/marketplace/${ENV_NAME}/s3/${ENV_NAME}-marketplace-csm-codes" \
+            --query "Parameter.Value" \
             --output text)
+
+          # Get Cognito configuration from CloudFormation outputs
           COGNITO_REGION=$(aws cloudformation describe-stacks \
             --stack-name "MarketplaceInfrastructure-${ENV_NAME}" \
             --query "Stacks[0].Outputs[?OutputKey=='CognitoRegion'].OutputValue" \
@@ -291,11 +294,22 @@ jobs:
             --query "Stacks[0].Outputs[?OutputKey=='CognitoClientId'].OutputValue" \
             --output text)
 
-          # Get outputs from lambda stack
+          # Get distribution ID from lambda stack
           DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
             --stack-name "MarketplaceLambda-${ENV_NAME}" \
             --query "Stacks[0].Outputs[?OutputKey=='MarketplaceDistributionId'].OutputValue" \
             --output text)
+
+          # Validate required outputs
+          if [ -z "$BUCKET_NAME" ]; then
+            echo "Error: Bucket name not found in SSM parameter /marketplace/${ENV_NAME}/s3/marketplace-csm-codes"
+            exit 1
+          fi
+
+          if [ -z "$DISTRIBUTION_ID" ]; then
+            echo "Error: MarketplaceDistributionId output not found in MarketplaceLambda-${ENV_NAME} stack"
+            exit 1
+          fi
 
           # Set outputs
           echo "bucket-name=$BUCKET_NAME" >> $GITHUB_OUTPUT
