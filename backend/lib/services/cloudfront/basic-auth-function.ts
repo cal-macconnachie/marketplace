@@ -24,16 +24,16 @@ interface CloudFrontResponse {
 }
 
 export function handler(event: CloudFrontEvent): CloudFrontRequest | CloudFrontResponse {
-  const request = event.request
-  const headers = request.headers
+  var request = event.request
+  var headers = request.headers
 
   // Get the Authorization header
-  const authHeader = headers.authorization?.value ?? null
+  var authHeader = headers.authorization ? headers.authorization.value : null
 
   // Basic auth credentials (these will be replaced at deployment time)
-  const username = 'CLOUDFRONT_AUTH_USERNAME_PLACEHOLDER'
-  const password = 'CLOUDFRONT_AUTH_PASSWORD_PLACEHOLDER'
-  const expectedAuth = 'Basic ' + btoa(username + ':' + password)
+  var username = 'CLOUDFRONT_AUTH_USERNAME_PLACEHOLDER'
+  var password = 'CLOUDFRONT_AUTH_PASSWORD_PLACEHOLDER'
+  var expectedAuth = 'Basic ' + btoa(username + ':' + password)
 
   // Check if the Authorization header matches
   if (!authHeader || authHeader !== expectedAuth) {
