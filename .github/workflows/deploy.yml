@@ -306,7 +306,6 @@ jobs:
 
       - name: Build shared packages
         run: |
-          yarn workspace @marketplace/types build
           yarn workspace @marketplace/constants build
 
       - name: Build frontend
