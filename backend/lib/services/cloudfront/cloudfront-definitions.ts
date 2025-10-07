@@ -47,7 +47,7 @@ export const cloudFrontDefinitions: CloudFrontDistributionDefinition[] = [
     domainName: 'marketplace.csm.codes',
     domainPrefix: 'dev',
     hostedZoneName: 'marketplace.csm.codes', // Share the same zone as images
-    requireBasicAuth: true,
+    requireBasicAuth: false, // Temporarily disabled to allow resource type change
     origins: [
       {
         domainName: '', // Will be set dynamically from S3 bucket website endpoint
