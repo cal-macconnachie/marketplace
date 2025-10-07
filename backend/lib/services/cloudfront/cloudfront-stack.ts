@@ -43,7 +43,6 @@ interface CloudFrontConstructProps {
 
 export class CloudFrontConstruct extends Construct {
   public readonly distributions: { [name: string]: Distribution } = {}
-  private readonly certificates: { [domainName: string]: Certificate } = {}
   private readonly createdHostedZones: { [zoneName: string]: IHostedZone } = {}
 
   constructor(scope: Construct, id: string, props?: CloudFrontConstructProps) {
@@ -63,7 +62,7 @@ export class CloudFrontConstruct extends Construct {
       const authPassword = process.env.CLOUDFRONT_AUTH_PASSWORD || 'dev123'
 
       // Read the CloudFront Function code and replace placeholders
-      const functionCodePath = path.join(__dirname, 'basic-auth.js')
+      const functionCodePath = path.join(__dirname, 'basic-auth.cffunction')
       let functionCode = fs.readFileSync(functionCodePath, 'utf-8')
       functionCode = functionCode.replace('CLOUDFRONT_AUTH_USERNAME_PLACEHOLDER', authUsername)
       functionCode = functionCode.replace('CLOUDFRONT_AUTH_PASSWORD_PLACEHOLDER', authPassword)
