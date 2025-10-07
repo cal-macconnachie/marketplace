@@ -43,6 +43,7 @@ interface CloudFrontConstructProps {
 export class CloudFrontConstruct extends Construct {
   public readonly distributions: { [name: string]: Distribution } = {}
   private readonly certificates: { [domainName: string]: Certificate } = {}
+  private readonly createdHostedZones: { [zoneName: string]: IHostedZone } = {}
 
   constructor(scope: Construct, id: string, props?: CloudFrontConstructProps) {
     super(scope, id)
@@ -109,14 +110,17 @@ export class CloudFrontConstruct extends Construct {
           actualHostedZoneName = `${def.domainPrefix}.${hostedZoneName}`
         }
 
-        // Use provided hosted zone or create a new one
+        // Use provided hosted zone, or reuse already created zone, or create a new one
         if (hostedZones && hostedZones[actualHostedZoneName]) {
           hostedZone = hostedZones[actualHostedZoneName]
+        } else if (this.createdHostedZones[actualHostedZoneName]) {
+          hostedZone = this.createdHostedZones[actualHostedZoneName]
         } else {
           hostedZone = new HostedZone(this, `hosted-zone-${actualHostedZoneName.replace(/\./g, '-')}`, {
             zoneName: actualHostedZoneName,
             comment: `Hosted zone for ${actualHostedZoneName}`
           })
+          this.createdHostedZones[actualHostedZoneName] = hostedZone
         }
 
         // Create certificate for this specific domain (not shared)
