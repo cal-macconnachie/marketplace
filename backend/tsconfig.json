@@ -8,6 +8,8 @@
     ],
     "declaration": true,
     "composite": true,
+    "outDir": "./dist",
+    "rootDir": ".",
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -33,6 +35,9 @@
       "@marketplace/constants/*": ["../constants/src/*"]
     }
   },
+  "include": [
+    "**/*.ts"
+  ],
   "references": [
     {
       "path": "../types"

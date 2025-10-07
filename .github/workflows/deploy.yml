@@ -128,11 +128,11 @@ jobs:
         run: corepack enable
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: CDK Synth
         working-directory: backend
-        run: npx cdk synth -c envName=${{ needs.detect-changes.outputs.env-name }}
+        run: yarn cdk synth -c envName=${{ needs.detect-changes.outputs.env-name }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -143,7 +143,7 @@ jobs:
 
       - name: CDK Deploy Infrastructure
         working-directory: backend
-        run: npx cdk deploy MarketplaceInfrastructure-${{ needs.detect-changes.outputs.env-name }} --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }}
+        run: yarn cdk deploy MarketplaceInfrastructure-${{ needs.detect-changes.outputs.env-name }} --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }}
 
   # Backend lambda deployment (API Gateway, Lambdas, CloudFront)
   deploy-lambdas:
@@ -187,11 +187,11 @@ jobs:
         run: corepack enable
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: CDK Synth
         working-directory: backend
-        run: npx cdk synth -c envName=${{ needs.detect-changes.outputs.env-name }}
+        run: yarn cdk synth -c envName=${{ needs.detect-changes.outputs.env-name }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -202,7 +202,7 @@ jobs:
 
       - name: CDK Deploy Lambdas
         working-directory: backend
-        run: npx cdk deploy MarketplaceLambda-${{ needs.detect-changes.outputs.env-name }} --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }}
+        run: yarn cdk deploy MarketplaceLambda-${{ needs.detect-changes.outputs.env-name }} --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }}
 
   # Frontend deployment (S3 + CloudFront)
   deploy-frontend:
@@ -227,7 +227,7 @@ jobs:
         run: corepack enable
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4

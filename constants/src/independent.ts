@@ -1,3 +1,4 @@
+import type { SelectOption } from '@marketplace/types'
 /**
  * Environment-independent constants
  * These values remain the same across all environments
@@ -6,7 +7,7 @@
 /**
  * Stripe tax codes for products
  */
-export const taxCodes = [
+export const taxCodes: SelectOption[] = [
   { value: 'txcd_10103001', label: 'SaaS - Business Use' },
   { value: 'txcd_10103000', label: 'SaaS - Personal Use' },
   { value: 'txcd_10202003', label: 'Downloadable Software - Business' },
@@ -25,4 +26,4 @@ export const taxCodes = [
   { value: 'txcd_10401000', label: 'Digital Marketing Services' },
   { value: 'txcd_10501000', label: 'API Access & Integration' },
   { value: 'txcd_99999999', label: 'Other Digital Products' },
-] as const;
+];
