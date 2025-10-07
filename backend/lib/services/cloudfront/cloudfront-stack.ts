@@ -59,6 +59,9 @@ export class CloudFrontConstruct extends Construct {
       const authUsername = process.env.CLOUDFRONT_AUTH_USERNAME || 'dev'
       const authPassword = process.env.CLOUDFRONT_AUTH_PASSWORD || 'dev123'
 
+      // Pre-compute the expected auth header since btoa may not be available
+      const expectedAuth = 'Basic ' + Buffer.from(`${authUsername}:${authPassword}`).toString('base64')
+
       // Inline CloudFront Function code (must be ES5 compatible)
       const functionCode = `
 function handler(event) {
@@ -66,10 +69,7 @@ function handler(event) {
   var headers = request.headers;
 
   var authHeader = headers.authorization ? headers.authorization.value : null;
-
-  var username = '${authUsername}';
-  var password = '${authPassword}';
-  var expectedAuth = 'Basic ' + btoa(username + ':' + password);
+  var expectedAuth = '${expectedAuth}';
 
   if (!authHeader || authHeader !== expectedAuth) {
     return {
