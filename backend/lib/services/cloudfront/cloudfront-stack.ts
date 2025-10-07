@@ -30,10 +30,7 @@ import {
 } from 'aws-cdk-lib/aws-route53'
 import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets'
 import { Construct } from 'constructs'
-import * as fs from 'fs'
-import path from 'path'
 import { cloudFrontDefinitions } from './cloudfront-definitions'
-import { transformSync } from 'esbuild'
 
 interface CloudFrontConstructProps {
   envName?: string
@@ -62,22 +59,33 @@ export class CloudFrontConstruct extends Construct {
       const authUsername = process.env.CLOUDFRONT_AUTH_USERNAME || 'dev'
       const authPassword = process.env.CLOUDFRONT_AUTH_PASSWORD || 'dev123'
 
-      // Read and compile the CloudFront Function TypeScript code
-      const functionCodePath = path.join(__dirname, 'basic-auth-function.ts')
-      const tsCode = fs.readFileSync(functionCodePath, 'utf-8')
+      // Inline CloudFront Function code (must be ES5 compatible)
+      const functionCode = `
+function handler(event) {
+  var request = event.request;
+  var headers = request.headers;
 
-      // Compile TypeScript to ES5 JavaScript for CloudFront Functions
-      const compiled = transformSync(tsCode, {
-        loader: 'ts',
-        target: 'es5',
-        format: 'esm',
-        minify: true
-      })
+  var authHeader = headers.authorization ? headers.authorization.value : null;
 
-      // Replace placeholders with actual credentials
-      let functionCode = compiled.code
-      functionCode = functionCode.replace('CLOUDFRONT_AUTH_USERNAME_PLACEHOLDER', authUsername)
-      functionCode = functionCode.replace('CLOUDFRONT_AUTH_PASSWORD_PLACEHOLDER', authPassword)
+  var username = '${authUsername}';
+  var password = '${authPassword}';
+  var expectedAuth = 'Basic ' + btoa(username + ':' + password);
+
+  if (!authHeader || authHeader !== expectedAuth) {
+    return {
+      statusCode: 401,
+      statusDescription: 'Unauthorized',
+      headers: {
+        'www-authenticate': { value: 'Basic realm="Protected Site"' },
+        'content-type': { value: 'text/html' }
+      },
+      body: '<h1>401 Unauthorized</h1><p>Authentication required.</p>'
+    };
+  }
+
+  return request;
+}
+      `.trim()
 
       basicAuthFunction = new CloudFrontFunction(this, 'BasicAuthCloudfrontFunction', {
         code: FunctionCode.fromInline(functionCode),
