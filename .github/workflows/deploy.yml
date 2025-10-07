@@ -278,6 +278,11 @@ jobs:
           echo "cognito-user-pool-id=$COGNITO_USER_POOL_ID" >> $GITHUB_OUTPUT
           echo "cognito-client-id=$COGNITO_CLIENT_ID" >> $GITHUB_OUTPUT
 
+      - name: Build shared packages
+        run: |
+          yarn workspace @marketplace/types build
+          yarn workspace @marketplace/constants build
+
       - name: Build frontend
         working-directory: frontend
         env:

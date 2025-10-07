@@ -7127,6 +7127,8 @@ __metadata:
 "marketplace-monorepo@workspace:.":
   version: 0.0.0-use.local
   resolution: "marketplace-monorepo@workspace:."
+  dependencies:
+    esbuild: "npm:^0.25.10"
   languageName: unknown
   linkType: soft
 

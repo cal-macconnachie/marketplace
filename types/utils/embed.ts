@@ -3,6 +3,8 @@
  * Used for iframe embedding and cross-domain cart management
  */
 
+/// <reference lib="dom" />
+
 import type { CartItem } from './cart'
 
 /**
