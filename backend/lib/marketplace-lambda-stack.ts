@@ -50,9 +50,13 @@ export class MarketplaceLambdaStack extends cdk.Stack {
     // Bucket names are constructed as ${envName}-${bucketName}
 
     // Import Route53 hosted zone IDs from SSM
+    // Zone name is dev.marketplace.csm.codes for dev, marketplace.csm.codes for prod
+    const marketplaceZoneName = envName === 'dev' ? 'dev.marketplace.csm.codes' : 'marketplace.csm.codes'
     const hostedZoneIds = {
-      'csm.codes': ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/route53/csm-codes`),
-      'marketplace.csm.codes': ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/route53/marketplace-csm-codes`)
+      [marketplaceZoneName]: ssm.StringParameter.valueFromLookup(
+        this,
+        `/marketplace/${envName}/route53/${marketplaceZoneName.replace(/\./g, '-')}`
+      )
     }
 
     const envVars = {
@@ -111,13 +115,9 @@ export class MarketplaceLambdaStack extends cdk.Stack {
 
     // Import Route53 hosted zones
     const hostedZones = {
-      'csm.codes': route53.HostedZone.fromHostedZoneAttributes(this, 'CsmCodesZone', {
-        hostedZoneId: hostedZoneIds['csm.codes'],
-        zoneName: 'csm.codes'
-      }),
-      'marketplace.csm.codes': route53.HostedZone.fromHostedZoneAttributes(this, 'MarketplaceCsmCodesZone', {
-        hostedZoneId: hostedZoneIds['marketplace.csm.codes'],
-        zoneName: 'marketplace.csm.codes'
+      [marketplaceZoneName]: route53.HostedZone.fromHostedZoneAttributes(this, 'MarketplaceZone', {
+        hostedZoneId: hostedZoneIds[marketplaceZoneName],
+        zoneName: marketplaceZoneName
       })
     }
 
@@ -131,10 +131,12 @@ export class MarketplaceLambdaStack extends cdk.Stack {
     })
 
     // Get S3 website URLs from SSM for CloudFront
+    // Bucket name is ${envName}-marketplace.csm.codes
+    const marketplaceBucketName = `${envName}-marketplace.csm.codes`
     const s3WebsiteUrls = {
       'marketplace.csm.codes': ssm.StringParameter.valueFromLookup(
         this,
-        `/marketplace/${envName}/s3/website-url/marketplace-csm-codes`
+        `/marketplace/${envName}/s3/website-url/${marketplaceBucketName.replace(/\./g, '-')}`
       )
     }
 

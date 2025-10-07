@@ -73,7 +73,8 @@ export class S3Construct extends Construct {
         removalPolicy: RemovalPolicy.DESTROY
       }
       bucket = new Bucket(this, def.bucketName, bucketProps)
-      this.buckets[def.bucketName] = bucket
+      // Use actual bucket name (with env prefix) as key
+      this.buckets[bucketName] = bucket
 
       // If website hosting is enabled, add bucket policy for public read access
       if (def.websiteHosting) {
@@ -84,8 +85,8 @@ export class S3Construct extends Construct {
           resources: [`${bucket.bucketArn}/*`]
         }))
 
-        // Store the website URL for CloudFront
-        this.websiteUrls[def.bucketName] = bucket.bucketWebsiteDomainName
+        // Store the website URL for CloudFront using actual bucket name as key
+        this.websiteUrls[bucketName] = bucket.bucketWebsiteDomainName
       }
     })
   }
