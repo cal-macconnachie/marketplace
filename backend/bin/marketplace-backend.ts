@@ -7,9 +7,10 @@ const app = new cdk.App()
 const envName = app.node.tryGetContext('envName') ?? 'dev'
 
 // Explicit env configuration required for SSM Parameter Store lookups
+// Uses environment-agnostic synthesis tokens that resolve at deploy time
 const env = {
-  account: process.env.CDK_DEFAULT_ACCOUNT,
-  region: process.env.CDK_DEFAULT_REGION || 'us-east-1'
+  account: process.env.CDK_DEFAULT_ACCOUNT || process.env.AWS_ACCOUNT_ID,
+  region: 'us-east-1'
 }
 
 // Create infrastructure stack (stable resources)
