@@ -79,7 +79,7 @@ export class CloudFrontConstruct extends Construct {
       functionCode = functionCode.replace('CLOUDFRONT_AUTH_USERNAME_PLACEHOLDER', authUsername)
       functionCode = functionCode.replace('CLOUDFRONT_AUTH_PASSWORD_PLACEHOLDER', authPassword)
 
-      basicAuthFunction = new CloudFrontFunction(this, 'BasicAuthFunction', {
+      basicAuthFunction = new CloudFrontFunction(this, 'BasicAuthCloudfrontFunction', {
         code: FunctionCode.fromInline(functionCode),
         functionName: `basic-auth-${envName}`,
         comment: 'CloudFront Function for basic authentication'
