@@ -22,10 +22,9 @@
     "frontend:build": "yarn workspace marketplace-frontend build",
     "frontend:preview": "yarn workspace marketplace-frontend preview",
     "frontend:lint": "yarn workspace marketplace-frontend lint",
-    "types:build": "yarn workspace @marketplace/types build",
     "constants:build": "yarn workspace @marketplace/constants build",
     "install:all": "yarn install",
-    "build:all": "yarn types:build && yarn constants:build && yarn backend:build && yarn frontend:build",
+    "build:all": "yarn constants:build && yarn backend:build && yarn frontend:build",
     "lint:all": "yarn backend:lint && yarn frontend:lint"
   },
   "packageManager": "yarn@4.10.3",

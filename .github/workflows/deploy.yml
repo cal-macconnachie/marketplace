@@ -14,8 +14,18 @@ on:
       - prod
   workflow_dispatch:
     inputs:
-      force-deploy:
-        description: 'Force deploy all services'
+      force-infra:
+        description: 'Force deploy infrastructure'
+        required: false
+        type: boolean
+        default: false
+      force-lambda:
+        description: 'Force deploy lambdas'
+        required: false
+        type: boolean
+        default: false
+      force-frontend:
+        description: 'Force deploy frontend'
         required: false
         type: boolean
         default: false
@@ -25,9 +35,11 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      backend: ${{ steps.filter.outputs.backend || github.event.inputs.force-deploy == 'true' }}
-      frontend: ${{ steps.filter.outputs.frontend || github.event.inputs.force-deploy == 'true' }}
+      backend: ${{ steps.filter.outputs.backend || github.event.inputs.force-infra == 'true' || github.event.inputs.force-lambda == 'true' }}
+      frontend: ${{ steps.filter.outputs.frontend || github.event.inputs.force-frontend == 'true' }}
       env-name: ${{ steps.env.outputs.env-name }}
+      force-infra: ${{ github.event.inputs.force-infra == 'true' }}
+      force-lambda: ${{ github.event.inputs.force-lambda == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -65,10 +77,17 @@ jobs:
       - name: Check if only lambda changes
         id: check
         run: |
-          # Force deploy means full deployment (not lambda-only)
-          if [ "${{ github.event.inputs.force-deploy }}" = "true" ]; then
+          # Force infra means full deployment (not lambda-only)
+          if [ "${{ github.event.inputs.force-infra }}" = "true" ]; then
             echo "lambda-only=false" >> $GITHUB_OUTPUT
-            echo "Lambda only changes: false (force deploy)"
+            echo "Lambda only changes: false (force infra)"
+            exit 0
+          fi
+
+          # Force lambda means lambda-only deployment
+          if [ "${{ github.event.inputs.force-lambda }}" = "true" ]; then
+            echo "lambda-only=true" >> $GITHUB_OUTPUT
+            echo "Lambda only changes: true (force lambda)"
             exit 0
           fi
 
@@ -101,8 +120,8 @@ jobs:
   deploy-infrastructure:
     runs-on: ubuntu-latest
     needs: [detect-changes, detect-lambda-changes]
-    # Only deploy infrastructure if changes are NOT lambda-only
-    if: needs.detect-changes.outputs.backend == 'true' && needs.detect-lambda-changes.outputs.lambda-only == 'false'
+    # Only deploy infrastructure if changes are NOT lambda-only OR force-infra is true
+    if: needs.detect-changes.outputs.backend == 'true' && (needs.detect-lambda-changes.outputs.lambda-only == 'false' || needs.detect-changes.outputs.force-infra == 'true')
     env:
       ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
       APPLE_CLIENT_ID: ${{ secrets.APPLE_CLIENT_ID }}
