@@ -49,7 +49,7 @@ jobs:
       - name: Check for changes
         uses: dorny/paths-filter@v3
         id: filter
-        if: github.event.inputs.force-deploy != 'true'
+        if: github.event_name == 'push'
         with:
           filters: |
             backend:
@@ -242,12 +242,9 @@ jobs:
   # Frontend deployment (S3 + CloudFront)
   deploy-frontend:
     runs-on: ubuntu-latest
-    needs: [detect-changes, deploy-lambdas]
-    # Always run after lambdas if lambdas runs, otherwise run if frontend changed
-    if: |
-      always() &&
-      needs.detect-changes.outputs.frontend == 'true' &&
-      (needs.deploy-lambdas.result == 'success' || needs.deploy-lambdas.result == 'skipped')
+    needs: [detect-changes]
+    # Run if frontend changed
+    if: needs.detect-changes.outputs.frontend == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
