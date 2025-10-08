@@ -22,7 +22,7 @@
         <div
           v-if="variant === 'drawer'"
           class="drawer-handle"
-          @click="handleClose"
+          @click.stop="handleClose"
           role="button"
           tabindex="0"
           @keydown.enter="handleClose"
@@ -95,7 +95,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 interface Props {
   show: boolean
@@ -578,6 +578,9 @@ defineExpose({
 
   .modal-body {
     padding-top: var(--space-6);
+  }
+  .modal-container--drawer {
+    max-height: 80vh;
   }
 }
 
