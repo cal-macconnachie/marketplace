@@ -73,27 +73,27 @@ export class CognitoStack extends Construct {
     // Force recreation of Apple provider by changing the logical ID
     if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPLE_KEY_ID) {
       // Reference the Apple private key from Secrets Manager
-      const applePrivateKeySecret = secretsmanager.Secret.fromSecretNameV2(
-        this,
-        `ApplePrivateKeySecret-${envName}`,
-        'marketplace/apple/private-key'
-      )
-      appleProvider = new cognito.UserPoolIdentityProviderApple(this, `AppleProviderV4-${envName}`, {
-        userPool: this.userPool,
-        clientId: process.env.APPLE_CLIENT_ID,
-        teamId: process.env.APPLE_TEAM_ID,
-        keyId: process.env.APPLE_KEY_ID,
-        privateKeyValue: applePrivateKeySecret.secretValue,
-        scopes: [
-          'name',
-          'email'
-        ],
-        attributeMapping: {
-          email: cognito.ProviderAttribute.APPLE_EMAIL,
-          givenName: cognito.ProviderAttribute.APPLE_FIRST_NAME,
-          familyName: cognito.ProviderAttribute.APPLE_LAST_NAME
-        },
-      })
+      // const applePrivateKeySecret = secretsmanager.Secret.fromSecretNameV2(
+      //   this,
+      //   `ApplePrivateKeySecret-${envName}`,
+      //   'marketplace/apple/private-key'
+      // )
+      // appleProvider = new cognito.UserPoolIdentityProviderApple(this, `AppleProvider-${envName}`, {
+      //   userPool: this.userPool,
+      //   clientId: process.env.APPLE_CLIENT_ID,
+      //   teamId: process.env.APPLE_TEAM_ID,
+      //   keyId: process.env.APPLE_KEY_ID,
+      //   privateKeyValue: applePrivateKeySecret.secretValue,
+      //   scopes: [
+      //     'name',
+      //     'email'
+      //   ],
+      //   attributeMapping: {
+      //     email: cognito.ProviderAttribute.APPLE_EMAIL,
+      //     givenName: cognito.ProviderAttribute.APPLE_FIRST_NAME,
+      //     familyName: cognito.ProviderAttribute.APPLE_LAST_NAME
+      //   },
+      // })
     }
 
     this.userPoolClient = new cognito.UserPoolClient(this, `UserPoolClient-${envName}`, {
