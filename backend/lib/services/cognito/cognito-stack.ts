@@ -104,7 +104,6 @@ export class CognitoStack extends Construct {
           cognito.OAuthScope.OPENID,
           cognito.OAuthScope.EMAIL,
           cognito.OAuthScope.PROFILE,
-          cognito.OAuthScope.COGNITO_ADMIN
         ],
         callbackUrls: envName === 'dev' ? [
           'http://localhost:5173/auth/callback',
