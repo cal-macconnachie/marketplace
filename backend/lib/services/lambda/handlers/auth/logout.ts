@@ -46,7 +46,7 @@ export const logout = async (event: APIGatewayProxyEvent) => {
 
       // Build Cognito logout URL for OAuth users
       const cognitoDomain = `marketplace-${process.env.NODE_ENV || 'dev'}.auth.${process.env.AWS_REGION || 'us-east-1'}.amazoncognito.com`
-      const logoutUrl = process.env.NODE_ENV === 'dev' ? 'http://localhost:5173' : 'https://marketplace.csm.codes'
+      const logoutUrl = process.env.NODE_ENV === 'dev' ? 'http://dev.marketplace.csm.codes' : 'https://marketplace.csm.codes'
       const cognitoLogoutUrl = `https://${cognitoDomain}/logout?client_id=${process.env.USER_POOL_CLIENT_ID}&logout_uri=${encodeURIComponent(logoutUrl)}`
 
       return {
