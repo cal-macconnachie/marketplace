@@ -1,9 +1,9 @@
-import * as cdk from 'aws-cdk-lib'
-import { Construct } from 'constructs'
-import {
-  aws_cognito as cognito, aws_lambda as lambda
-} from 'aws-cdk-lib'
 import type { CognitoStackProps } from '@marketplace/types'
+import * as cdk from 'aws-cdk-lib'
+import {
+  aws_cognito as cognito, aws_lambda as lambda, aws_secretsmanager as secretsmanager
+} from 'aws-cdk-lib'
+import { Construct } from 'constructs'
 
 export class CognitoStack extends Construct {
   public readonly userPool: cognito.UserPool
@@ -46,11 +46,17 @@ export class CognitoStack extends Construct {
       } : undefined
     })
     let googleProvider: cdk.aws_cognito.UserPoolIdentityProviderGoogle | undefined
-    if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    if (process.env.GOOGLE_CLIENT_ID) {
+      // Reference the Google client secret from Secrets Manager
+      const googleClientSecret = secretsmanager.Secret.fromSecretNameV2(
+        this,
+        `GoogleClientSecret-${envName}`,
+        'marketplace/google/client-secret'
+      )
       googleProvider = new cognito.UserPoolIdentityProviderGoogle(this, `GoogleProvider-${envName}`, {
         userPool: this.userPool,
         clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        clientSecretValue: googleClientSecret.secretValue,
         scopes: [
           'profile',
           'email',
@@ -64,13 +70,20 @@ export class CognitoStack extends Construct {
       })
     }
     let appleProvider: cdk.aws_cognito.UserPoolIdentityProviderApple | undefined
-    if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPLE_KEY_ID && process.env.APPLE_PRIVATE_KEY) {
-      appleProvider = new cognito.UserPoolIdentityProviderApple(this, `AppleProvider-${envName}`, {
+    // Force recreation of Apple provider by changing the logical ID
+    if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPLE_KEY_ID) {
+      // Reference the Apple private key from Secrets Manager
+      const applePrivateKeySecret = secretsmanager.Secret.fromSecretNameV2(
+        this,
+        `ApplePrivateKeySecret-${envName}`,
+        'marketplace/apple/private-key'
+      )
+      appleProvider = new cognito.UserPoolIdentityProviderApple(this, `AppleProviderV4-${envName}`, {
         userPool: this.userPool,
         clientId: process.env.APPLE_CLIENT_ID,
         teamId: process.env.APPLE_TEAM_ID,
         keyId: process.env.APPLE_KEY_ID,
-        privateKey: process.env.APPLE_PRIVATE_KEY,
+        privateKeyValue: applePrivateKeySecret.secretValue,
         scopes: [
           'name',
           'email'
