@@ -174,7 +174,7 @@ jobs:
 
       - name: CDK Deploy Infrastructure
         working-directory: backend
-        run: yarn cdk deploy MarketplaceInfrastructure-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-infrastructure.ts" --require-approval never ${{ needs.detect-changes.outputs.force-infra == 'true' && '--force' || '' }} -c envName=${{ needs.detect-changes.outputs.env-name }}
+        run: yarn cdk deploy MarketplaceInfrastructure-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-infrastructure.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-infra == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
 
   # Backend lambda deployment (API Gateway, Lambdas, CloudFront)
   deploy-lambdas:
@@ -237,7 +237,7 @@ jobs:
 
       - name: CDK Deploy Lambdas
         working-directory: backend
-        run: yarn cdk deploy MarketplaceLambda-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-lambda.ts" --require-approval never ${{ needs.detect-changes.outputs.force-lambda == 'true' && '--force' || '' }} -c envName=${{ needs.detect-changes.outputs.env-name }}
+        run: yarn cdk deploy MarketplaceLambda-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-lambda.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-lambda == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
 
   # Frontend deployment (S3 + CloudFront)
   deploy-frontend:

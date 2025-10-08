@@ -16,6 +16,12 @@ export class MarketplaceLambdaStack extends cdk.Stack {
     super(scope, id, props)
     const envName = props?.envName ?? 'dev'
 
+    // Force redeploy tag - changes when force-lambda is used
+    const forceRedeploy = this.node.tryGetContext('forceRedeploy')
+    if (forceRedeploy) {
+      cdk.Tags.of(this).add('ForceRedeploy', forceRedeploy.toString())
+    }
+
     // Import values from SSM Parameter Store (loose coupling)
     const userPoolId = ssm.StringParameter.valueFromLookup(
       this,

@@ -16,6 +16,12 @@ export class MarketplaceInfrastructureStack extends cdk.Stack {
     super(scope, id, props)
     const envName = props?.envName ?? 'dev'
 
+    // Force redeploy tag - changes when force-infra is used
+    const forceRedeploy = this.node.tryGetContext('forceRedeploy')
+    if (forceRedeploy) {
+      cdk.Tags.of(this).add('ForceRedeploy', forceRedeploy.toString())
+    }
+
     // Create stable infrastructure constructs
     const ddbTables = new DdbTablesConstruct(this, `DdbTables-${envName}`, { envName })
 
