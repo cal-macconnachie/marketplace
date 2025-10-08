@@ -1,7 +1,7 @@
 import type { CognitoStackProps } from '@marketplace/types'
 import * as cdk from 'aws-cdk-lib'
 import {
-  aws_cognito as cognito, aws_lambda as lambda, aws_secretsmanager as secretsmanager
+  aws_cognito as cognito, aws_lambda as lambda
 } from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 
@@ -48,15 +48,12 @@ export class CognitoStack extends Construct {
     let googleProvider: cdk.aws_cognito.UserPoolIdentityProviderGoogle | undefined
     if (process.env.GOOGLE_CLIENT_ID) {
       // Reference the Google client secret from Secrets Manager
-      const googleClientSecret = secretsmanager.Secret.fromSecretNameV2(
-        this,
-        `GoogleClientSecret-${envName}`,
-        'marketplace/google/client-secret'
-      )
+      const googleClientSecretValue = cdk.SecretValue.secretsManager('marketplace/google/client-secret')
+
       googleProvider = new cognito.UserPoolIdentityProviderGoogle(this, `GoogleProvider-${envName}`, {
         userPool: this.userPool,
         clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecretValue: googleClientSecret.secretValue,
+        clientSecretValue: googleClientSecretValue,
         scopes: [
           'profile',
           'email',
