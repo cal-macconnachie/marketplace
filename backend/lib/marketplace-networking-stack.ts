@@ -327,15 +327,13 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
     // Determine the custom domain name for Cognito
     const cognitoCustomDomainName = envName === 'dev' ? `auth.dev.${domain}` : `auth.${domain}`
 
-    // Create certificate for Cognito custom domain (must be in us-east-1)
-    const cognitoCertificate = new certificatemanager.Certificate(
-      this,
-      `CognitoCertificate-${envName}`,
-      {
-        domainName: cognitoCustomDomainName,
-        validation: certificatemanager.CertificateValidation.fromDns(hostedZone)
-      }
-    )
+    // Create certificate for Cognito custom domain and wait for issuance
+    const cognitoCertificate = new certificatemanager.DnsValidatedCertificate(this, `CognitoCertificate-${envName}`, {
+      domainName: cognitoCustomDomainName,
+      hostedZone,
+      // Cognito requires the cert in us-east-1
+      region: 'us-east-1'
+    })
 
     // Create custom domain for Cognito
     const cognitoDomain = new cognito.UserPoolDomain(this, `CognitoDomain-${envName}`, {
