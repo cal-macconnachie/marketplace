@@ -1,0 +1,637 @@
+name: Deploy Domain Stacks
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+
+on:
+  push:
+    branches:
+      - dev
+      - prod
+  workflow_dispatch:
+    inputs:
+      force-infra:
+        description: 'Force deploy infrastructure'
+        required: false
+        type: boolean
+        default: false
+      force-networking:
+        description: 'Force deploy Networking stack (API Gateway + CloudFront)'
+        required: false
+        type: boolean
+        default: false
+      force-public:
+        description: 'Force deploy public Lambda stack'
+        required: false
+        type: boolean
+        default: false
+      force-payments:
+        description: 'Force deploy payments Lambda stack'
+        required: false
+        type: boolean
+        default: false
+      force-products:
+        description: 'Force deploy products Lambda stack'
+        required: false
+        type: boolean
+        default: false
+      force-internal-api:
+        description: 'Force deploy internal API Lambda stack'
+        required: false
+        type: boolean
+        default: false
+      force-events:
+        description: 'Force deploy events Lambda stack'
+        required: false
+        type: boolean
+        default: false
+      force-frontend:
+        description: 'Force deploy frontend'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  # Detect which services changed
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend || github.event.inputs.force-infra == 'true' || github.event.inputs.force-networking == 'true' || github.event.inputs.force-public == 'true' || github.event.inputs.force-payments == 'true' || github.event.inputs.force-products == 'true' || github.event.inputs.force-internal-api == 'true' || github.event.inputs.force-events == 'true' }}
+      frontend: ${{ steps.filter.outputs.frontend || github.event.inputs.force-frontend == 'true' }}
+      env-name: ${{ steps.env.outputs.env-name }}
+      force-infra: ${{ github.event.inputs.force-infra == 'true' }}
+      force-networking: ${{ github.event.inputs.force-networking == 'true' }}
+      force-public: ${{ github.event.inputs.force-public == 'true' }}
+      force-payments: ${{ github.event.inputs.force-payments == 'true' }}
+      force-products: ${{ github.event.inputs.force-products == 'true' }}
+      force-internal-api: ${{ github.event.inputs.force-internal-api == 'true' }}
+      force-events: ${{ github.event.inputs.force-events == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name == 'push'
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+
+      - name: Set environment
+        id: env
+        run: echo "env-name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+
+  # Detect specific backend stack changes
+  detect-stack-changes:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    outputs:
+      infra-changed: ${{ steps.check.outputs.infra-changed }}
+      networking-changed: ${{ steps.check.outputs.networking-changed }}
+      public-changed: ${{ steps.check.outputs.public-changed }}
+      payments-changed: ${{ steps.check.outputs.payments-changed }}
+      products-changed: ${{ steps.check.outputs.products-changed }}
+      internal-api-changed: ${{ steps.check.outputs.internal-api-changed }}
+      events-changed: ${{ steps.check.outputs.events-changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check which stacks changed
+        id: check
+        run: |
+          # Get list of changed files
+          if [ "${{ github.event_name }}" = "push" ]; then
+            if git cat-file -e ${{ github.event.before }} 2>/dev/null; then
+              FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+            else
+              FILES=$(git diff --name-only HEAD~1 HEAD)
+            fi
+          else
+            FILES=$(git diff --name-only HEAD~1 HEAD)
+          fi
+
+          # Check for infrastructure changes
+          INFRA_CHANGED=false
+          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-infrastructure-stack|services/(cognito|dynamodb|s3|route53))"; then
+            INFRA_CHANGED=true
+          fi
+
+          # Check for Networking stack changes (API Gateway + CloudFront combined)
+          NETWORKING_CHANGED=false
+          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-networking-stack|services/cloudfront)"; then
+            NETWORKING_CHANGED=true
+          fi
+
+          # Check for domain stack changes
+          PUBLIC_CHANGED=false
+          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-public-stack|services/lambda/(endpoint-definitions/public-endpoints|handlers/auth/(login|register|refresh|request-register-otp|request-reset-password|reset-password)|handlers/product-manager/(get|list)|handlers/organizations/get-organization|handlers/payments/(guest-checkout|calculate-taxes)))"; then
+            PUBLIC_CHANGED=true
+          fi
+
+          PAYMENTS_CHANGED=false
+          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-payments-stack|services/lambda/(endpoint-definitions/payments-endpoints|handlers/payments/(create-payment-method|get-payment-methods|archive-payment-method|purchase-products|purchases-crud|get-products|cancel-subscription)|handlers/stripe/(create-connected-account|refresh-connect-url|create-express-login-link|delete-connected-accounts|log-meter-event)|handlers/organizations/get-purchased-products))"; then
+            PAYMENTS_CHANGED=true
+          fi
+
+          PRODUCTS_CHANGED=false
+          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-products-stack|services/lambda/(endpoint-definitions/products-endpoints|handlers/product-manager|handlers/promo-manager|handlers/meter-manager))"; then
+            PRODUCTS_CHANGED=true
+          fi
+
+          INTERNAL_API_CHANGED=false
+          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-internal-api-stack|services/lambda/(endpoint-definitions/internal-api-endpoints|handlers/auth/(logout|change-password|admin-change-password)|handlers/organizations/(add-user-to-organization|remove-user-from-organization|create-user|set-org-admin|get-users|update-user|update|assign-products)|handlers/images))"; then
+            INTERNAL_API_CHANGED=true
+          fi
+
+          EVENTS_CHANGED=false
+          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-events-stack|services/lambda/(endpoint-definitions/events-endpoints|handlers/(stripe-event-handler|stripe-platform-event-handler|products|promos|users|organizations|purchases|purchase-carts)|handlers/stripe/handle-purchase|handlers/payments/products-purchased))"; then
+            EVENTS_CHANGED=true
+          fi
+
+          # Apply force flags
+          if [ "${{ needs.detect-changes.outputs.force-infra }}" = "true" ]; then INFRA_CHANGED=true; fi
+          if [ "${{ needs.detect-changes.outputs.force-networking }}" = "true" ]; then NETWORKING_CHANGED=true; fi
+          if [ "${{ needs.detect-changes.outputs.force-public }}" = "true" ]; then PUBLIC_CHANGED=true; fi
+          if [ "${{ needs.detect-changes.outputs.force-payments }}" = "true" ]; then PAYMENTS_CHANGED=true; fi
+          if [ "${{ needs.detect-changes.outputs.force-products }}" = "true" ]; then PRODUCTS_CHANGED=true; fi
+          if [ "${{ needs.detect-changes.outputs.force-internal-api }}" = "true" ]; then INTERNAL_API_CHANGED=true; fi
+          if [ "${{ needs.detect-changes.outputs.force-events }}" = "true" ]; then EVENTS_CHANGED=true; fi
+
+          # Set outputs
+          echo "infra-changed=$INFRA_CHANGED" >> $GITHUB_OUTPUT
+          echo "networking-changed=$NETWORKING_CHANGED" >> $GITHUB_OUTPUT
+          echo "public-changed=$PUBLIC_CHANGED" >> $GITHUB_OUTPUT
+          echo "payments-changed=$PAYMENTS_CHANGED" >> $GITHUB_OUTPUT
+          echo "products-changed=$PRODUCTS_CHANGED" >> $GITHUB_OUTPUT
+          echo "internal-api-changed=$INTERNAL_API_CHANGED" >> $GITHUB_OUTPUT
+          echo "events-changed=$EVENTS_CHANGED" >> $GITHUB_OUTPUT
+
+          echo "Stack changes detected:"
+          echo "  Infrastructure: $INFRA_CHANGED"
+          echo "  Networking: $NETWORKING_CHANGED"
+          echo "  Public: $PUBLIC_CHANGED"
+          echo "  Payments: $PAYMENTS_CHANGED"
+          echo "  Products: $PRODUCTS_CHANGED"
+          echo "  Internal API: $INTERNAL_API_CHANGED"
+          echo "  Events: $EVENTS_CHANGED"
+
+  # Backend infrastructure deployment (DynamoDB, Cognito, S3, Route53)
+  deploy-infrastructure:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, detect-stack-changes]
+    if: needs.detect-changes.outputs.backend == 'true' && needs.detect-stack-changes.outputs.infra-changed == 'true'
+    env:
+      ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
+      APPLE_CLIENT_ID: ${{ secrets.APPLE_CLIENT_ID }}
+      APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+      APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      STRIPE_EVENT_DESTINATION_DEV: ${{ secrets.STRIPE_EVENT_DESTINATION_DEV }}
+      STRIPE_EVENT_DESTINATION_PROD: ${{ secrets.STRIPE_EVENT_DESTINATION_PROD }}
+      STRIPE_EVENT_DESTINATION_PLATFORM_DEV: ${{ secrets.STRIPE_EVENT_DESTINATION_PLATFORM_DEV }}
+      STRIPE_EVENT_DESTINATION_PLATFORM_PROD: ${{ secrets.STRIPE_EVENT_DESTINATION_PLATFORM_PROD }}
+      STRIPE_SECRET_KEY_DEV: ${{ secrets.STRIPE_SECRET_KEY_DEV }}
+      STRIPE_SECRET_KEY_PROD: ${{ secrets.STRIPE_SECRET_KEY_PROD }}
+      EMAIL_AWS_REGION: ${{ secrets.EMAIL_AWS_REGION }}
+      EMAIL_LAMBDA_ARN: ${{ secrets.EMAIL_LAMBDA_ARN }}
+      EMAIL_ASSUME_ROLE_ARN: ${{ secrets.EMAIL_ASSUME_ROLE_ARN }}
+      CLOUDFRONT_AUTH_USERNAME: ${{ secrets.CLOUDFRONT_AUTH_USERNAME }}
+      CLOUDFRONT_AUTH_PASSWORD: ${{ secrets.CLOUDFRONT_AUTH_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ensure Yarn is installed
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build shared packages
+        run: yarn workspace @marketplace/constants build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Set CDK environment variables
+        run: |
+          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
+          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
+
+      - name: CDK Deploy Infrastructure
+        working-directory: backend
+        run: yarn cdk deploy MarketplaceInfrastructure-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-infrastructure.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-infra == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
+
+  # Internal API deployment (must run before Networking for image processor URL)
+  deploy-internal-api:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, detect-stack-changes, deploy-infrastructure]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.backend == 'true' &&
+      needs.detect-stack-changes.outputs.internal-api-changed == 'true' &&
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
+    env:
+      ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
+      STRIPE_SECRET_KEY_DEV: ${{ secrets.STRIPE_SECRET_KEY_DEV }}
+      STRIPE_SECRET_KEY_PROD: ${{ secrets.STRIPE_SECRET_KEY_PROD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ensure Yarn is installed
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build shared packages
+        run: yarn workspace @marketplace/constants build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Set CDK environment variables
+        run: |
+          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
+          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
+
+      - name: CDK Deploy Internal API Stack
+        working-directory: backend
+        run: yarn cdk deploy MarketplaceInternalApi-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-internal-api.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-internal-api == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
+
+  # Networking stack deployment (API Gateway + CloudFront, must run after InternalAPI)
+  deploy-networking:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, detect-stack-changes, deploy-infrastructure, deploy-internal-api]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.backend == 'true' &&
+      needs.detect-stack-changes.outputs.networking-changed == 'true' &&
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped') &&
+      (needs.deploy-internal-api.result == 'success' || needs.deploy-internal-api.result == 'skipped')
+    env:
+      ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
+      CLOUDFRONT_AUTH_USERNAME: ${{ secrets.CLOUDFRONT_AUTH_USERNAME }}
+      CLOUDFRONT_AUTH_PASSWORD: ${{ secrets.CLOUDFRONT_AUTH_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ensure Yarn is installed
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build shared packages
+        run: yarn workspace @marketplace/constants build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Set CDK environment variables
+        run: |
+          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
+          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
+
+      - name: CDK Deploy Networking Stack
+        working-directory: backend
+        run: yarn cdk deploy MarketplaceNetworking-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-networking.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }}
+
+  # Domain Lambda stacks (can run in parallel after Networking stack)
+  deploy-public:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, detect-stack-changes, deploy-networking]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.backend == 'true' &&
+      needs.detect-stack-changes.outputs.public-changed == 'true' &&
+      (needs.deploy-networking.result == 'success' || needs.deploy-networking.result == 'skipped')
+    env:
+      ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
+      STRIPE_SECRET_KEY_DEV: ${{ secrets.STRIPE_SECRET_KEY_DEV }}
+      STRIPE_SECRET_KEY_PROD: ${{ secrets.STRIPE_SECRET_KEY_PROD }}
+      EMAIL_AWS_REGION: ${{ secrets.EMAIL_AWS_REGION }}
+      EMAIL_LAMBDA_ARN: ${{ secrets.EMAIL_LAMBDA_ARN }}
+      EMAIL_ASSUME_ROLE_ARN: ${{ secrets.EMAIL_ASSUME_ROLE_ARN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ensure Yarn is installed
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build shared packages
+        run: yarn workspace @marketplace/constants build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Set CDK environment variables
+        run: |
+          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
+          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
+
+      - name: CDK Deploy Public Stack
+        working-directory: backend
+        run: yarn cdk deploy MarketplacePublic-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-public.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-public == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
+
+  deploy-payments:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, detect-stack-changes, deploy-networking]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.backend == 'true' &&
+      needs.detect-stack-changes.outputs.payments-changed == 'true' &&
+      (needs.deploy-networking.result == 'success' || needs.deploy-networking.result == 'skipped')
+    env:
+      ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
+      STRIPE_SECRET_KEY_DEV: ${{ secrets.STRIPE_SECRET_KEY_DEV }}
+      STRIPE_SECRET_KEY_PROD: ${{ secrets.STRIPE_SECRET_KEY_PROD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ensure Yarn is installed
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build shared packages
+        run: yarn workspace @marketplace/constants build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Set CDK environment variables
+        run: |
+          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
+          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
+
+      - name: CDK Deploy Payments Stack
+        working-directory: backend
+        run: yarn cdk deploy MarketplacePayments-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-payments.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-payments == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
+
+  deploy-products:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, detect-stack-changes, deploy-networking]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.backend == 'true' &&
+      needs.detect-stack-changes.outputs.products-changed == 'true' &&
+      (needs.deploy-networking.result == 'success' || needs.deploy-networking.result == 'skipped')
+    env:
+      ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
+      STRIPE_SECRET_KEY_DEV: ${{ secrets.STRIPE_SECRET_KEY_DEV }}
+      STRIPE_SECRET_KEY_PROD: ${{ secrets.STRIPE_SECRET_KEY_PROD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ensure Yarn is installed
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build shared packages
+        run: yarn workspace @marketplace/constants build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Set CDK environment variables
+        run: |
+          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
+          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
+
+      - name: CDK Deploy Products Stack
+        working-directory: backend
+        run: yarn cdk deploy MarketplaceProducts-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-products.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-products == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
+
+
+  # Events stack can run independently (only depends on infrastructure)
+  deploy-events:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, detect-stack-changes, deploy-infrastructure]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.backend == 'true' &&
+      needs.detect-stack-changes.outputs.events-changed == 'true' &&
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
+    env:
+      ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
+      STRIPE_SECRET_KEY_DEV: ${{ secrets.STRIPE_SECRET_KEY_DEV }}
+      STRIPE_SECRET_KEY_PROD: ${{ secrets.STRIPE_SECRET_KEY_PROD }}
+      STRIPE_EVENT_DESTINATION_DEV: ${{ secrets.STRIPE_EVENT_DESTINATION_DEV }}
+      STRIPE_EVENT_DESTINATION_PROD: ${{ secrets.STRIPE_EVENT_DESTINATION_PROD }}
+      STRIPE_EVENT_DESTINATION_PLATFORM_DEV: ${{ secrets.STRIPE_EVENT_DESTINATION_PLATFORM_DEV }}
+      STRIPE_EVENT_DESTINATION_PLATFORM_PROD: ${{ secrets.STRIPE_EVENT_DESTINATION_PLATFORM_PROD }}
+      EMAIL_AWS_REGION: ${{ secrets.EMAIL_AWS_REGION }}
+      EMAIL_LAMBDA_ARN: ${{ secrets.EMAIL_LAMBDA_ARN }}
+      EMAIL_ASSUME_ROLE_ARN: ${{ secrets.EMAIL_ASSUME_ROLE_ARN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ensure Yarn is installed
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build shared packages
+        run: yarn workspace @marketplace/constants build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Set CDK environment variables
+        run: |
+          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
+          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
+
+      - name: CDK Deploy Events Stack
+        working-directory: backend
+        run: yarn cdk deploy MarketplaceEvents-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-events.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-events == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
+
+  # Frontend deployment (depends on Networking stack for CloudFront)
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, deploy-networking, deploy-public, deploy-payments, deploy-products, deploy-internal-api]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.frontend == 'true' &&
+      (needs.deploy-networking.result == 'success' || needs.deploy-networking.result == 'skipped')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ensure Yarn is installed
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          mask-aws-account-id: 'no'
+
+      - name: Get stack outputs
+        id: cfn-outputs
+        run: |
+          ENV_NAME="${{ needs.detect-changes.outputs.env-name }}"
+
+          BUCKET_NAME=$(aws ssm get-parameter \
+            --name "/marketplace/${ENV_NAME}/s3/${ENV_NAME}-marketplace-csm-codes" \
+            --query "Parameter.Value" \
+            --output text)
+
+          COGNITO_REGION=$(aws cloudformation describe-stacks \
+            --stack-name "MarketplaceInfrastructure-${ENV_NAME}" \
+            --query "Stacks[0].Outputs[?OutputKey=='CognitoRegion'].OutputValue" \
+            --output text)
+          COGNITO_USER_POOL_ID=$(aws cloudformation describe-stacks \
+            --stack-name "MarketplaceInfrastructure-${ENV_NAME}" \
+            --query "Stacks[0].Outputs[?OutputKey=='CognitoUserPoolId'].OutputValue" \
+            --output text)
+          COGNITO_CLIENT_ID=$(aws cloudformation describe-stacks \
+            --stack-name "MarketplaceInfrastructure-${ENV_NAME}" \
+            --query "Stacks[0].Outputs[?OutputKey=='CognitoClientId'].OutputValue" \
+            --output text)
+
+          DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+            --stack-name "MarketplaceNetworking-${ENV_NAME}" \
+            --query "Stacks[0].Outputs[?OutputKey=='MarketplaceDistributionId'].OutputValue" \
+            --output text)
+
+          if [ -z "$BUCKET_NAME" ] || [ -z "$DISTRIBUTION_ID" ]; then
+            echo "Error: Required outputs not found"
+            exit 1
+          fi
+
+          echo "bucket-name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+          echo "distribution-id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
+          echo "cognito-region=$COGNITO_REGION" >> $GITHUB_OUTPUT
+          echo "cognito-user-pool-id=$COGNITO_USER_POOL_ID" >> $GITHUB_OUTPUT
+          echo "cognito-client-id=$COGNITO_CLIENT_ID" >> $GITHUB_OUTPUT
+
+      - name: Build shared packages
+        run: yarn workspace @marketplace/constants build
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_GOOGLE_PLACES_API_KEY: ${{ secrets.VITE_GOOGLE_PLACES_API_KEY }}
+          VITE_STRIPE_PUBLISHABLE_KEY: ${{ needs.detect-changes.outputs.env-name == 'dev' && secrets.VITE_STRIPE_PUBLISHABLE_KEY_DEV || secrets.VITE_STRIPE_PUBLISHABLE_KEY_PROD }}
+          VITE_COGNITO_REGION: ${{ steps.cfn-outputs.outputs.cognito-region }}
+          VITE_COGNITO_USER_POOL_ID: ${{ steps.cfn-outputs.outputs.cognito-user-pool-id }}
+          VITE_COGNITO_CLIENT_ID: ${{ steps.cfn-outputs.outputs.cognito-client-id }}
+          VITE_API_ENV: ${{ needs.detect-changes.outputs.env-name }}
+          ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
+        run: yarn build
+
+      - name: Upload to S3 bucket
+        run: aws s3 sync ./frontend/dist s3://${{ steps.cfn-outputs.outputs.bucket-name }} --delete
+
+      - name: Invalidate CloudFront cache
+        uses: chetan/invalidate-cloudfront-action@v2
+        env:
+          DISTRIBUTION: ${{ steps.cfn-outputs.outputs.distribution-id }}
+          PATHS: '/*'
+          AWS_REGION: 'us-east-1'
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
