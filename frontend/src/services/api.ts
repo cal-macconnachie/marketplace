@@ -27,11 +27,12 @@ import type {
   // Entity types
   User
 } from '@marketplace/types'
+import { domain } from '@marketplace/constants'
 import axios from 'axios'
 
 // Determine environment - can be overridden via environment variable
-const BASE_URL = import.meta.env.VITE_API_ENV === 'dev' ? `https://api.${import.meta.env.VITE_API_ENV}.marketplace.csm.codes` : 'https://api.marketplace.csm.codes/'
-const IMAGE_URL = import.meta.env.VITE_API_ENV === 'dev' ? `https://images.${import.meta.env.VITE_API_ENV}.marketplace.csm.codes` : 'https://images.marketplace.csm.codes'
+const BASE_URL = import.meta.env.VITE_API_ENV === 'dev' ? `https://api.${import.meta.env.VITE_API_ENV}.${domain}` : `https://api.${domain}/`
+const IMAGE_URL = import.meta.env.VITE_API_ENV === 'dev' ? `https://images.${import.meta.env.VITE_API_ENV}.${domain}` : `https://images.${domain}`
 
 if (BASE_URL === 'unknown' || IMAGE_URL === 'unknown') {
   console.warn(

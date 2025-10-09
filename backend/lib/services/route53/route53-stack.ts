@@ -1,5 +1,6 @@
 import { Construct } from 'constructs'
 import { HostedZone } from 'aws-cdk-lib/aws-route53'
+import { domain } from '@marketplace/constants'
 
 interface Route53ConstructProps {
   envName?: string
@@ -14,8 +15,7 @@ export class Route53Construct extends Construct {
     const { envName } = props || {}
 
     // Create hosted zone based on environment
-    const baseDomain = 'marketplace.csm.codes'
-    const zoneName = envName === 'dev' ? `dev.${baseDomain}` : baseDomain
+    const zoneName = envName === 'dev' ? `dev.${domain}` : domain
 
     const hostedZone = new HostedZone(this, `hosted-zone-${zoneName.replace(/\./g, '-')}`, {
       zoneName,

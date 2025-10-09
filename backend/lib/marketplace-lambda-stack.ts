@@ -6,6 +6,7 @@ import * as ssm from 'aws-cdk-lib/aws-ssm'
 import * as cognito from 'aws-cdk-lib/aws-cognito'
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
 import * as route53 from 'aws-cdk-lib/aws-route53'
+import { domain } from '@marketplace/constants'
 
 export interface MarketplaceLambdaStackProps extends cdk.StackProps {
   envName?: string
@@ -56,8 +57,8 @@ export class MarketplaceLambdaStack extends cdk.Stack {
     // Bucket names are constructed as ${envName}-${bucketName}
 
     // Import Route53 hosted zone IDs from SSM
-    // Zone name is dev.marketplace.csm.codes for dev, marketplace.csm.codes for prod
-    const marketplaceZoneName = envName === 'dev' ? 'dev.marketplace.csm.codes' : 'marketplace.csm.codes'
+    // Zone name is dev.{domain} for dev, {domain} for prod
+    const marketplaceZoneName = envName === 'dev' ? `dev.${domain}` : domain
     const hostedZoneIds = {
       [marketplaceZoneName]: ssm.StringParameter.valueFromLookup(
         this,
@@ -137,10 +138,10 @@ export class MarketplaceLambdaStack extends cdk.Stack {
     })
 
     // Get S3 website URLs from SSM for CloudFront
-    // Bucket name is ${envName}-marketplace.csm.codes
-    const marketplaceBucketName = `${envName}-marketplace.csm.codes`
+    // Bucket name is ${envName}-{domain}
+    const marketplaceBucketName = `${envName}-${domain}`
     const s3WebsiteUrls = {
-      'marketplace.csm.codes': ssm.StringParameter.valueFromLookup(
+      [domain]: ssm.StringParameter.valueFromLookup(
         this,
         `/marketplace/${envName}/s3/website-url/${marketplaceBucketName.replace(/\./g, '-')}`
       )

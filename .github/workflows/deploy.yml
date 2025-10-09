@@ -156,6 +156,10 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
+      - name: Build shared packages
+        run: |
+          yarn workspace @marketplace/constants build
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -219,6 +223,10 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
+      - name: Build shared packages
+        run: |
+          yarn workspace @marketplace/constants build
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -275,6 +283,7 @@ jobs:
 
           # Get bucket name from SSM Parameter Store (more reliable than CloudFormation outputs)
           # Bucket key format: {env}-{bucket-definition-name} with dots replaced by dashes
+          # Note: The bucket name uses the domain constant (marketplace.csm.codes) with dots replaced by dashes
           BUCKET_NAME=$(aws ssm get-parameter \
             --name "/marketplace/${ENV_NAME}/s3/${ENV_NAME}-marketplace-csm-codes" \
             --query "Parameter.Value" \

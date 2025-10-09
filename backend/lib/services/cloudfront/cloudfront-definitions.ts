@@ -1,13 +1,14 @@
 import { CloudFrontDistributionDefinition } from '@marketplace/types'
+import { domain } from '@marketplace/constants'
 
 export const cloudFrontDefinitions: CloudFrontDistributionDefinition[] = [
   {
     name: 'image-processing-distribution',
     comment: 'CloudFront distribution for image processing Lambda',
-    domainName: 'marketplace.csm.codes',
+    domainName: domain,
     domainPrefix: 'dev',
     subdomain: 'images',
-    hostedZoneName: 'marketplace.csm.codes', // Share the same zone as marketplace
+    hostedZoneName: domain, // Share the same zone as marketplace
     origins: [
       {
         domainName: '', // Will be set dynamically from Lambda function URL
@@ -44,9 +45,9 @@ export const cloudFrontDefinitions: CloudFrontDistributionDefinition[] = [
   {
     name: 'marketplace-distribution',
     comment: 'CloudFront distribution for marketplace static website',
-    domainName: 'marketplace.csm.codes',
+    domainName: domain,
     domainPrefix: 'dev',
-    hostedZoneName: 'marketplace.csm.codes', // Share the same zone as images
+    hostedZoneName: domain, // Share the same zone as images
     requireBasicAuth: true,
     origins: [
       {

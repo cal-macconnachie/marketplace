@@ -1,5 +1,6 @@
 import { compileTemplate } from '../handlebars/compile-template'
 import { sendEmail } from './send-email'
+import { domain } from '@marketplace/constants'
 
 export async function sendResetPasswordEmail({
   to,
@@ -24,7 +25,7 @@ export async function sendResetPasswordEmail({
   })
 
   const subject = `${context.brand}: Your password reset code`
-  const fromAddr = from ?? `${context.brand} Password Reset <no-reply@marketplace.csm.codes>`
+  const fromAddr = from ?? `${context.brand} Password Reset <no-reply@${domain}>`
 
   await sendEmail({
     to,

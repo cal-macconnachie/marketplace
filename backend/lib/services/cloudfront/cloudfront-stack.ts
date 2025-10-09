@@ -32,6 +32,7 @@ import {
 import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets'
 import { Construct } from 'constructs'
 import { cloudFrontDefinitions } from './cloudfront-definitions'
+import { domain } from '@marketplace/constants'
 
 interface CloudFrontConstructProps {
   envName?: string
@@ -161,8 +162,8 @@ function handler(event) {
         }
 
         // Use provided S3 website URL for marketplace
-        if (origin.originId === 'marketplace-origin' && s3WebsiteUrls?.['marketplace.csm.codes']) {
-          domainName = s3WebsiteUrls['marketplace.csm.codes']
+        if (origin.originId === 'marketplace-origin' && s3WebsiteUrls?.[domain]) {
+          domainName = s3WebsiteUrls[domain]
         }
 
         return new HttpOrigin(domainName, {

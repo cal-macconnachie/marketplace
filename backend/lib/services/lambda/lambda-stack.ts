@@ -15,10 +15,11 @@ import {
 import { createNativeBundlingConfig } from './bundling-configs'
 import * as path from 'node:path'
 import type {
-  LambdaEndpointDefinition, LambdaConstructProps 
+  LambdaEndpointDefinition, LambdaConstructProps
 } from '@marketplace/types'
 import { lambdaEndpointDefinitions } from './lambda-endpoint-definitions'
 import * as cdk from 'aws-cdk-lib'
+import { domain } from '@marketplace/constants'
 
 export class LambdaConstruct extends Construct {
   public readonly lambdas: Record<string, unknown> = {}
@@ -380,9 +381,8 @@ export class LambdaConstruct extends Construct {
 
     // Setup custom domain for API Gateway
     if (hostedZones) {
-      const baseDomain = 'marketplace.csm.codes'
-      const hostedZoneName = envName === 'dev' ? `dev.${baseDomain}` : baseDomain
-      const apiDomain = envName === 'dev' ? `api.dev.${baseDomain}` : `api.${baseDomain}`
+      const hostedZoneName = envName === 'dev' ? `dev.${domain}` : domain
+      const apiDomain = envName === 'dev' ? `api.dev.${domain}` : `api.${domain}`
 
       const hostedZone = hostedZones[hostedZoneName]
 

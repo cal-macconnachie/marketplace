@@ -1,5 +1,6 @@
 import { compileTemplate } from '../handlebars/compile-template'
 import { sendEmail } from './send-email'
+import { domain } from '@marketplace/constants'
 
 export async function sendRegistrationEmail({
   to,
@@ -24,7 +25,7 @@ export async function sendRegistrationEmail({
   })
 
   const subject = `${context.brand}: Your registration code`
-  const fromAddr = from ?? `${context.brand} Registration <no-reply@marketplace.csm.codes>`
+  const fromAddr = from ?? `${context.brand} Registration <no-reply@${domain}>`
 
   await sendEmail({
     to,

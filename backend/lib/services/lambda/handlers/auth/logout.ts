@@ -4,6 +4,7 @@ import {
   RevokeTokenCommand
 } from '@aws-sdk/client-cognito-identity-provider'
 import { APIGatewayProxyEvent } from 'aws-lambda'
+import { domain } from '@marketplace/constants'
 const cognitoClient = new CognitoIdentityProviderClient({})
 
 export const logout = async (event: APIGatewayProxyEvent) => {
@@ -47,7 +48,7 @@ export const logout = async (event: APIGatewayProxyEvent) => {
       // Build Cognito logout URL for OAuth users
       const envName = process.env.NODE_ENV || 'dev'
       const cognitoDomain = `marketplace-csm-codes-${envName}.auth.${process.env.AWS_REGION || 'us-east-1'}.amazoncognito.com`
-      const logoutUrl = envName === 'dev' ? 'https://dev.marketplace.csm.codes' : 'https://marketplace.csm.codes'
+      const logoutUrl = envName === 'dev' ? `https://dev.${domain}` : `https://${domain}`
       const cognitoLogoutUrl = `https://${cognitoDomain}/logout?client_id=${process.env.USER_POOL_CLIENT_ID}&logout_uri=${encodeURIComponent(logoutUrl)}`
 
       return {

@@ -37,6 +37,8 @@ export interface MarketplaceLambdaStackProps extends cdk.StackProps {
 export interface CognitoStackProps {
   envName: string
   postAuthTriggerFunction: any // Lambda Function type from aws-cdk-lib
+  hostedZone?: route53.IHostedZone
+  customDomainName?: string
 }
 
 /**

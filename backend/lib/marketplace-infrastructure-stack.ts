@@ -8,6 +8,7 @@ import { S3Construct } from './services/s3/s3-stack'
 import { Route53Construct } from './services/route53/route53-stack'
 import * as ssm from 'aws-cdk-lib/aws-ssm'
 import type { MarketplaceInfrastructureStackOutputs } from '@marketplace/types'
+import { domain } from '@marketplace/constants'
 
 export class MarketplaceInfrastructureStack extends cdk.Stack {
   public readonly outputs: MarketplaceInfrastructureStackOutputs
@@ -40,10 +41,6 @@ export class MarketplaceInfrastructureStack extends cdk.Stack {
     // Grant permissions to the post-auth trigger function
     ddbTables.tables.users.grantReadWriteData(postAuthTriggerFunction)
 
-    const cognitoStack = new CognitoStack(this, `Cognito-${envName}`, {
-      envName, postAuthTriggerFunction
-    })
-
     const s3Construct = new S3Construct(this, `S3-${envName}`, {
       envName
     })
@@ -51,6 +48,26 @@ export class MarketplaceInfrastructureStack extends cdk.Stack {
     // Create Route53 hosted zones
     const route53Construct = new Route53Construct(this, `Route53-${envName}`, {
       envName
+    })
+
+    // Determine the custom domain name for Cognito
+    // For dev: auth.dev.{domain}
+    // For prod: auth.{domain}
+    const cognitoCustomDomainName = envName === 'dev'
+      ? `auth.dev.${domain}`
+      : `auth.${domain}`
+
+    // Get the appropriate hosted zone
+    const cognitoHostedZone = envName === 'dev'
+      ? route53Construct.hostedZones[`dev.${domain}`]
+      : route53Construct.hostedZones[domain]
+
+    // Create Cognito stack with custom domain
+    const cognitoStack = new CognitoStack(this, `Cognito-${envName}`, {
+      envName,
+      postAuthTriggerFunction,
+      hostedZone: cognitoHostedZone,
+      customDomainName: cognitoCustomDomainName
     })
 
     // Store outputs for cross-stack references
@@ -141,7 +158,7 @@ export class MarketplaceInfrastructureStack extends cdk.Stack {
     })
 
     // Output marketplace bucket for frontend deployment
-    const marketplaceBucket = s3Construct.buckets['marketplace.csm.codes']
+    const marketplaceBucket = s3Construct.buckets[`${envName}-${domain}`]
 
     if (marketplaceBucket) {
       new cdk.CfnOutput(this, 'MarketplaceBucketName', {

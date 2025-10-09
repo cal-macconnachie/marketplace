@@ -1,20 +1,22 @@
 import type { CognitoStackProps } from '@marketplace/types'
 import * as cdk from 'aws-cdk-lib'
 import {
-  aws_cognito as cognito, aws_lambda as lambda
+  aws_cognito as cognito, aws_lambda as lambda, aws_certificatemanager as acm, aws_route53 as route53
 } from 'aws-cdk-lib'
 import { Construct } from 'constructs'
+import { domain } from '@marketplace/constants'
 
 export class CognitoStack extends Construct {
   public readonly userPool: cognito.UserPool
   public readonly userPoolClient: cognito.UserPoolClient
   public readonly cognitoDomain: cognito.UserPoolDomain
+  public readonly customDomainName?: string
 
   constructor(scope: Construct, id: string, props: CognitoStackProps) {
     super(scope, id)
 
     const {
-      envName, postAuthTriggerFunction 
+      envName, postAuthTriggerFunction, hostedZone, customDomainName
     } = props
 
     this.userPool = new cognito.UserPool(this, `UserPool-${envName}`, {
@@ -107,16 +109,16 @@ export class CognitoStack extends Construct {
         ],
         callbackUrls: envName === 'dev' ? [
           'http://localhost:5173/auth/callback',
-          'https://dev.marketplace.csm.codes/auth/callback'
-        ] : ['https://marketplace.csm.codes/auth/callback'],
+          `https://dev.${domain}/auth/callback`
+        ] : [`https://${domain}/auth/callback`],
         logoutUrls: envName === 'dev' ? [
           'http://localhost:5173',
           'http://localhost:5173/auth',
-          'https://dev.marketplace.csm.codes/auth',
-          'https://dev.marketplace.csm.codes'
+          `https://dev.${domain}/auth`,
+          `https://dev.${domain}`
         ] : [
-          'https://marketplace.csm.codes/auth',
-          'https://marketplace.csm.codes'
+          `https://${domain}/auth`,
+          `https://${domain}`
         ],
       },
       authFlows: {
@@ -131,11 +133,51 @@ export class CognitoStack extends Construct {
       this.userPoolClient.node.addDependency(appleProvider)
     }
 
-    this.cognitoDomain = new cognito.UserPoolDomain(this, `CognitoDomain-${envName}`, {
-      userPool: this.userPool,
-      cognitoDomain: {
-        domainPrefix: `marketplace-csm-codes-${envName.toLowerCase()}`
-      }
-    })
+    // Create custom domain or Cognito-hosted domain
+    if (customDomainName && hostedZone) {
+      // Create certificate for custom domain
+      const certificate = new acm.Certificate(this, `CognitoCertificate-${envName}`, {
+        domainName: customDomainName,
+        validation: acm.CertificateValidation.fromDns(hostedZone)
+      })
+
+      // Create custom domain
+      this.cognitoDomain = new cognito.UserPoolDomain(this, `CognitoDomain-${envName}`, {
+        userPool: this.userPool,
+        customDomain: {
+          domainName: customDomainName,
+          certificate
+        }
+      })
+
+      // Capture the domain reference for use in the alias target
+      const cognitoDomain = this.cognitoDomain
+
+      // Create A record for custom domain pointing to Cognito
+      new route53.ARecord(this, `CognitoARecord-${envName}`, {
+        zone: hostedZone,
+        recordName: customDomainName,
+        target: route53.RecordTarget.fromAlias(
+          new (class implements route53.IAliasRecordTarget {
+            bind(): route53.AliasRecordTargetConfig {
+              return {
+                dnsName: cognitoDomain.cloudFrontEndpoint,
+                hostedZoneId: 'Z2FDTNDATAQYW2' // CloudFront hosted zone ID (constant for all CloudFront distributions)
+              }
+            }
+          })()
+        )
+      })
+
+      this.customDomainName = customDomainName
+    } else {
+      // Fallback to Cognito-hosted domain
+      this.cognitoDomain = new cognito.UserPoolDomain(this, `CognitoDomain-${envName}`, {
+        userPool: this.userPool,
+        cognitoDomain: {
+          domainPrefix: `marketplace-csm-codes-${envName.toLowerCase()}`
+        }
+      })
+    }
   }
 }

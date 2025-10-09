@@ -27,3 +27,5 @@ export const taxCodes: SelectOption[] = [
   { value: 'txcd_10501000', label: 'API Access & Integration' },
   { value: 'txcd_99999999', label: 'Other Digital Products' },
 ];
+
+export const domain = 'marketplace.csm.codes'

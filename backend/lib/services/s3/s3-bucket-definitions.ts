@@ -1,4 +1,5 @@
 import { S3BucketDefinition } from '@marketplace/types'
+import { domain } from '@marketplace/constants'
 
 export const s3Definitions: S3BucketDefinition[] = [
   {
@@ -18,7 +19,7 @@ export const s3Definitions: S3BucketDefinition[] = [
     encryption: 'NONE'
   },
   {
-    bucketName: 'marketplace.csm.codes',
+    bucketName: domain,
     description: 'Static website hosting for marketplace',
     websiteHosting: {
       indexDocument: 'index.html',
