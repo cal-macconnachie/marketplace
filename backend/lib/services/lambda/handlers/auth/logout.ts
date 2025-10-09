@@ -48,8 +48,8 @@ export const logout = async (event: APIGatewayProxyEvent) => {
       // Build Cognito logout URL for OAuth users
       const envName = process.env.NODE_ENV || 'dev'
       const cognitoDomain = envName === 'dev'
-        ? `https://auth.dev.${domain}`
-        : `https://auth.${domain}`
+        ? `auth.dev.${domain}`
+        : `auth.${domain}`
       const logoutUrl = envName === 'dev' ? `https://dev.${domain}` : `https://${domain}`
       const cognitoLogoutUrl = `https://${cognitoDomain}/logout?client_id=${process.env.USER_POOL_CLIENT_ID}&logout_uri=${encodeURIComponent(logoutUrl)}`
 
