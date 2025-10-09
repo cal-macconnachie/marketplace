@@ -1,7 +1,6 @@
 import * as cdk from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import * as apiGW from 'aws-cdk-lib/aws-apigateway'
-import * as cognito from 'aws-cdk-lib/aws-cognito'
 import * as ssm from 'aws-cdk-lib/aws-ssm'
 import * as route53 from 'aws-cdk-lib/aws-route53'
 import * as certificatemanager from 'aws-cdk-lib/aws-certificatemanager'
@@ -20,12 +19,14 @@ export interface MarketplaceNetworkingStackProps extends cdk.StackProps {
 
 /**
  * Networking stack combining API Gateway, Image Processor Lambda, and CloudFront infrastructure
- * Creates API Gateway, Cognito Authorizer, Usage Plan, Custom Domain, Image Processor Lambda, and CloudFront distributions
+ * Creates API Gateway, Usage Plan, Custom Domain, Image Processor Lambda, and CloudFront distributions
  * Exports all resources to SSM Parameter Store for consumption by domain stacks
+ *
+ * Note: Cognito Authorizers are created by individual domain stacks, not here
  *
  * This stack should be deployed AFTER MarketplaceInfrastructureStack
  * Dependencies:
- * - MarketplaceInfrastructureStack: Cognito User Pool, Route53 Hosted Zones, S3 buckets
+ * - MarketplaceInfrastructureStack: Route53 Hosted Zones, S3 buckets
  */
 export class MarketplaceNetworkingStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: MarketplaceNetworkingStackProps) {
@@ -35,13 +36,6 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
     // ========================================
     // API GATEWAY SETUP
     // ========================================
-
-    // Import Cognito User Pool from SSM
-    const userPoolId = ssm.StringParameter.valueFromLookup(
-      this,
-      `/marketplace/${envName}/cognito/user-pool-id`
-    )
-    const userPool = cognito.UserPool.fromUserPoolId(this, 'UserPool', userPoolId)
 
     // Create API Gateway
     const api = new apiGW.RestApi(this, `ApiGwEndpoint-${envName}`, {
@@ -98,16 +92,6 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
       stage: api.deploymentStage
     })
 
-    // Create Cognito Authorizer
-    const cognitoAuthorizer = new apiGW.CognitoUserPoolsAuthorizer(
-      this,
-      `CognitoAuthorizer-${envName}`,
-      {
-        cognitoUserPools: [userPool],
-        authorizerName: `CognitoAuthorizer-${envName}`
-      }
-    )
-
     // Setup custom domain for API Gateway
     const hostedZoneName = envName === 'dev' ? `dev.${domain}` : domain
     const apiDomain = envName === 'dev' ? `api.dev.${domain}` : `api.${domain}`
@@ -161,12 +145,6 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
       parameterName: `/marketplace/${envName}/api-gateway/root-resource-id`,
       stringValue: api.root.resourceId,
       description: 'API Gateway root resource ID for domain stacks'
-    })
-
-    new ssm.StringParameter(this, 'CognitoAuthorizerId', {
-      parameterName: `/marketplace/${envName}/api-gateway/cognito-authorizer-id`,
-      stringValue: cognitoAuthorizer.authorizerId,
-      description: 'Cognito authorizer ID for domain stacks'
     })
 
     new ssm.StringParameter(this, 'ApiKeyId', {
