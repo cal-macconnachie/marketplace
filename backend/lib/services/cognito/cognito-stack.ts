@@ -135,13 +135,22 @@ export class CognitoStack extends Construct {
 
     // Create custom domain or Cognito-hosted domain
     if (customDomainName && hostedZone) {
-      // Create certificate for custom domain
+      // Step 1: Create a dummy A record to make the domain resolvable
+      // AWS Cognito validates that the domain exists before creating the UserPoolDomain
+      const dummyRecord = new route53.ARecord(this, `CognitoDummyARecord-${envName}`, {
+        zone: hostedZone,
+        recordName: customDomainName,
+        target: route53.RecordTarget.fromIpAddresses('192.0.2.1'), // TEST-NET-1 (RFC 5737)
+        ttl: cdk.Duration.seconds(60)
+      })
+
+      // Step 2: Create certificate for custom domain
       const certificate = new acm.Certificate(this, `CognitoCertificate-${envName}`, {
         domainName: customDomainName,
         validation: acm.CertificateValidation.fromDns(hostedZone)
       })
 
-      // Create custom domain
+      // Step 3: Create custom domain (depends on dummy record existing)
       this.cognitoDomain = new cognito.UserPoolDomain(this, `CognitoDomain-${envName}`, {
         userPool: this.userPool,
         customDomain: {
@@ -149,11 +158,13 @@ export class CognitoStack extends Construct {
           certificate
         }
       })
+      this.cognitoDomain.node.addDependency(dummyRecord)
 
       // Capture the domain reference for use in the alias target
       const cognitoDomain = this.cognitoDomain
 
-      // Create A record for custom domain pointing to Cognito
+      // Step 4: Create the real A record for custom domain pointing to Cognito
+      // This replaces the dummy record
       new route53.ARecord(this, `CognitoARecord-${envName}`, {
         zone: hostedZone,
         recordName: customDomainName,
