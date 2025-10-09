@@ -1,14 +1,20 @@
 import type { CognitoConfig } from '@marketplace/types'
+import { domain } from '@marketplace/constants'
 
 /**
  * Get Cognito configuration from environment variables
  */
 export function getCognitoConfig(): CognitoConfig {
+  // Use custom Cognito domain: auth.{env}.{domain} for dev, auth.{domain} for prod
+  const cognitoDomain = import.meta.env.VITE_API_ENV === 'dev'
+    ? `https://auth.dev.${domain}`
+    : `https://auth.${domain}`
+
   return {
     region: import.meta.env.VITE_COGNITO_REGION,
     userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID,
     clientId: import.meta.env.VITE_COGNITO_CLIENT_ID,
-    domain:  `https://marketplace-csm-codes-${import.meta.env.VITE_API_ENV}.auth.${import.meta.env.VITE_COGNITO_REGION}.amazoncognito.com`,
+    domain: cognitoDomain,
     redirectUri: `${window.location.origin}/auth/callback`,
   }
 }
