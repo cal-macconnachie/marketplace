@@ -1,14 +1,10 @@
 import type { CognitoStackProps } from '@marketplace/types'
 import * as cdk from 'aws-cdk-lib'
 import {
-  aws_cognito as cognito, aws_lambda as lambda, aws_route53 as route53
+  aws_cognito as cognito, aws_lambda as lambda, aws_certificatemanager as acm, aws_route53 as route53
 } from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import { domain } from '@marketplace/constants'
-// Using DnsValidatedCertificate despite deprecation as AWS hasn't provided a replacement
-// for cross-region certificate creation (required for Cognito custom domains)
-import { DnsValidatedCertificate } from 'aws-cdk-lib/aws-certificatemanager'
-import { UserPoolDomainTarget } from 'aws-cdk-lib/aws-route53-targets'
 
 export class CognitoStack extends Construct {
   public readonly userPool: cognito.UserPool
@@ -27,7 +23,7 @@ export class CognitoStack extends Construct {
       userPoolName: `UserPool-${envName}`,
       selfSignUpEnabled: true,
       signInAliases: {
-        email: true 
+        email: true
       },
       autoVerify: { email: false },
       signInCaseSensitive: false,
@@ -139,24 +135,13 @@ export class CognitoStack extends Construct {
 
     // Create custom domain or Cognito-hosted domain
     if (customDomainName && hostedZone) {
-      // Step 1: Create a dummy A record to satisfy Cognito's requirement that the domain is resolvable
-      // This record will be replaced by the actual alias record after the UserPoolDomain is created
-      new route53.ARecord(this, `CognitoDummyARecord-${envName}`, {
-        zone: hostedZone,
-        recordName: customDomainName,
-        target: route53.RecordTarget.fromIpAddresses('1.1.1.1'),
-        ttl: cdk.Duration.seconds(300)
-      })
-
-      // Step 2: Create certificate for custom domain in us-east-1
-      // IMPORTANT: ACM certificate for Cognito custom domains MUST be in us-east-1
-      const certificate = new DnsValidatedCertificate(this, `CognitoCertificate-${envName}`, {
+      // Create certificate for custom domain
+      const certificate = new acm.Certificate(this, `CognitoCertificate-${envName}`, {
         domainName: customDomainName,
-        hostedZone: hostedZone,
-        region: 'us-east-1'
+        validation: acm.CertificateValidation.fromDns(hostedZone)
       })
 
-      // Step 3: Create custom domain (depends on dummy A record existing)
+      // Create custom domain
       this.cognitoDomain = new cognito.UserPoolDomain(this, `CognitoDomain-${envName}`, {
         userPool: this.userPool,
         customDomain: {
@@ -165,12 +150,23 @@ export class CognitoStack extends Construct {
         }
       })
 
-      // Step 4: Create the actual alias record pointing to Cognito's CloudFront distribution
-      // This will replace the dummy record
-      new route53.ARecord(this, `CognitoAliasRecord-${envName}`, {
+      // Capture the domain reference for use in the alias target
+      const cognitoDomain = this.cognitoDomain
+
+      // Create A record for custom domain pointing to Cognito
+      new route53.ARecord(this, `CognitoARecord-${envName}`, {
         zone: hostedZone,
         recordName: customDomainName,
-        target: route53.RecordTarget.fromAlias(new UserPoolDomainTarget(this.cognitoDomain))
+        target: route53.RecordTarget.fromAlias(
+          new (class implements route53.IAliasRecordTarget {
+            bind(): route53.AliasRecordTargetConfig {
+              return {
+                dnsName: cognitoDomain.cloudFrontEndpoint,
+                hostedZoneId: 'Z2FDTNDATAQYW2' // CloudFront hosted zone ID (constant for all CloudFront distributions)
+              }
+            }
+          })()
+        )
       })
 
       this.customDomainName = customDomainName
