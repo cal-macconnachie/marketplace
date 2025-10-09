@@ -142,7 +142,8 @@ export class CognitoStack extends Construct {
       })
 
       // Create custom domain
-      this.cognitoDomain = new cognito.UserPoolDomain(this, `CognitoDomain-${envName}`, {
+      // Note: Adding v2 suffix to force recreation if previous deployment failed
+      this.cognitoDomain = new cognito.UserPoolDomain(this, `CognitoDomain-${envName}-v2`, {
         userPool: this.userPool,
         customDomain: {
           domainName: customDomainName,
