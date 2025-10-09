@@ -194,8 +194,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect-changes, detect-stack-changes]
     if: needs.detect-changes.outputs.backend == 'true' && needs.detect-stack-changes.outputs.infra-changed == 'true'
-    outputs:
-      first-time-deploy: ${{ steps.check-existing.outputs.first-time-deploy }}
     env:
       ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
       APPLE_CLIENT_ID: ${{ secrets.APPLE_CLIENT_ID }}
@@ -245,111 +243,11 @@ jobs:
           echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
           echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
 
-      - name: Check if this is first-time deployment
-        id: check-existing
-        run: |
-          # Check if Cognito UserPoolDomain already exists
-          STACK_NAME="MarketplaceInfrastructure-${{ needs.detect-changes.outputs.env-name }}"
-
-          # Try to get the stack - if it doesn't exist, this is a first-time deploy
-          if aws cloudformation describe-stacks --stack-name "$STACK_NAME" 2>/dev/null; then
-            # Stack exists - check if it has a custom domain
-            USER_POOL_ID=$(aws cloudformation describe-stacks \
-              --stack-name "$STACK_NAME" \
-              --query "Stacks[0].Outputs[?OutputKey=='CognitoUserPoolId'].OutputValue" \
-              --output text 2>/dev/null || echo "")
-
-            if [ -n "$USER_POOL_ID" ]; then
-              # Check if custom domain exists
-              CUSTOM_DOMAIN=$(aws cognito-idp describe-user-pool \
-                --user-pool-id "$USER_POOL_ID" \
-                --query "UserPool.CustomDomain" \
-                --output text 2>/dev/null || echo "None")
-
-              if [ "$CUSTOM_DOMAIN" = "None" ] || [ -z "$CUSTOM_DOMAIN" ]; then
-                echo "first-time-deploy=true" >> $GITHUB_OUTPUT
-                echo "First-time deploy: Custom domain not configured"
-              else
-                echo "first-time-deploy=false" >> $GITHUB_OUTPUT
-                echo "Existing deploy: Custom domain already exists"
-              fi
-            else
-              echo "first-time-deploy=true" >> $GITHUB_OUTPUT
-              echo "First-time deploy: No User Pool found"
-            fi
-          else
-            echo "first-time-deploy=true" >> $GITHUB_OUTPUT
-            echo "First-time deploy: Stack does not exist"
-          fi
-
-      - name: CDK Deploy Infrastructure (without custom domain on first deploy)
+      - name: CDK Deploy Infrastructure
         working-directory: backend
-        run: yarn cdk deploy MarketplaceInfrastructure-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-infrastructure.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-infra == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }} ${{ steps.check-existing.outputs.first-time-deploy == 'false' && '-c enableCustomDomain=true' || '' }}
+        run: yarn cdk deploy MarketplaceInfrastructure-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-infrastructure.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-infra == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
 
-  # Add Cognito custom domain after initial infrastructure deployment (first-time only)
-  deploy-cognito-custom-domain:
-    runs-on: ubuntu-latest
-    needs: [detect-changes, detect-stack-changes, deploy-infrastructure]
-    if: |
-      always() &&
-      needs.detect-changes.outputs.backend == 'true' &&
-      needs.detect-stack-changes.outputs.infra-changed == 'true' &&
-      needs.deploy-infrastructure.result == 'success' &&
-      needs.deploy-infrastructure.outputs.first-time-deploy == 'true'
-    env:
-      ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
-      APPLE_CLIENT_ID: ${{ secrets.APPLE_CLIENT_ID }}
-      APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
-      APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-      STRIPE_EVENT_DESTINATION_DEV: ${{ secrets.STRIPE_EVENT_DESTINATION_DEV }}
-      STRIPE_EVENT_DESTINATION_PROD: ${{ secrets.STRIPE_EVENT_DESTINATION_PROD }}
-      STRIPE_EVENT_DESTINATION_PLATFORM_DEV: ${{ secrets.STRIPE_EVENT_DESTINATION_PLATFORM_DEV }}
-      STRIPE_EVENT_DESTINATION_PLATFORM_PROD: ${{ secrets.STRIPE_EVENT_DESTINATION_PLATFORM_PROD }}
-      STRIPE_SECRET_KEY_DEV: ${{ secrets.STRIPE_SECRET_KEY_DEV }}
-      STRIPE_SECRET_KEY_PROD: ${{ secrets.STRIPE_SECRET_KEY_PROD }}
-      EMAIL_AWS_REGION: ${{ secrets.EMAIL_AWS_REGION }}
-      EMAIL_LAMBDA_ARN: ${{ secrets.EMAIL_LAMBDA_ARN }}
-      EMAIL_ASSUME_ROLE_ARN: ${{ secrets.EMAIL_ASSUME_ROLE_ARN }}
-      CLOUDFRONT_AUTH_USERNAME: ${{ secrets.CLOUDFRONT_AUTH_USERNAME }}
-      CLOUDFRONT_AUTH_PASSWORD: ${{ secrets.CLOUDFRONT_AUTH_PASSWORD }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Ensure Yarn is installed
-        run: corepack enable
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build shared packages
-        run: yarn workspace @marketplace/constants build
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-
-      - name: Set CDK environment variables
-        run: |
-          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
-          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
-
-      - name: CDK Deploy Infrastructure with Custom Domain
-        working-directory: backend
-        run: yarn cdk deploy MarketplaceInfrastructure-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-infrastructure.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} -c enableCustomDomain=true
-
-  # Networking stack deployment (API Gateway + CloudFront, must run after Infrastructure)
+  # Networking stack deployment (API Gateway + CloudFront + Cognito Custom Domain, must run after Infrastructure)
   deploy-networking:
     runs-on: ubuntu-latest
     needs: [detect-changes, detect-stack-changes, deploy-infrastructure]

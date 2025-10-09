@@ -50,29 +50,13 @@ export class MarketplaceInfrastructureStack extends cdk.Stack {
       envName
     })
 
-    // Determine the custom domain name for Cognito
-    // For dev: auth.dev.{domain}
-    // For prod: auth.{domain}
-    // Custom domain is conditionally enabled via context parameter
-    const enableCustomDomain = this.node.tryGetContext('enableCustomDomain') === 'true'
-
-    const cognitoCustomDomainName = enableCustomDomain
-      ? (envName === 'dev' ? `auth.dev.${domain}` : `auth.${domain}`)
-      : undefined
-
-    // Get the appropriate hosted zone
-    const cognitoHostedZone = enableCustomDomain
-      ? (envName === 'dev'
-          ? route53Construct.hostedZones[`dev.${domain}`]
-          : route53Construct.hostedZones[domain])
-      : undefined
-
-    // Create Cognito stack with conditional custom domain
+    // Create Cognito stack WITHOUT custom domain
+    // Custom domain will be added in a separate stack after networking is deployed
     const cognitoStack = new CognitoStack(this, `Cognito-${envName}`, {
       envName,
       postAuthTriggerFunction,
-      hostedZone: cognitoHostedZone,
-      customDomainName: cognitoCustomDomainName
+      hostedZone: undefined,
+      customDomainName: undefined
     })
 
     // Store outputs for cross-stack references

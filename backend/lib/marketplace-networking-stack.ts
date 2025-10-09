@@ -2,6 +2,7 @@ import { domain } from '@marketplace/constants'
 import * as cdk from 'aws-cdk-lib'
 import * as apiGW from 'aws-cdk-lib/aws-apigateway'
 import * as certificatemanager from 'aws-cdk-lib/aws-certificatemanager'
+import * as cognito from 'aws-cdk-lib/aws-cognito'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as route53 from 'aws-cdk-lib/aws-route53'
@@ -305,5 +306,58 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
         exportName: `${envName}-marketplace-distribution-id`
       })
     }
+
+    // ========================================
+    // COGNITO CUSTOM DOMAIN (added at end after networking is set up)
+    // ========================================
+
+    // Get UserPool ID from SSM
+    const userPoolId = ssm.StringParameter.valueFromLookup(
+      this,
+      `/marketplace/${envName}/cognito/user-pool-id`
+    )
+
+    // Import the User Pool
+    const userPool = cognito.UserPool.fromUserPoolId(
+      this,
+      `ImportedUserPool-${envName}`,
+      userPoolId
+    )
+
+    // Determine the custom domain name for Cognito
+    const cognitoCustomDomainName = envName === 'dev' ? `auth.dev.${domain}` : `auth.${domain}`
+
+    // Create certificate for Cognito custom domain (must be in us-east-1)
+    const cognitoCertificate = new certificatemanager.Certificate(
+      this,
+      `CognitoCertificate-${envName}`,
+      {
+        domainName: cognitoCustomDomainName,
+        validation: certificatemanager.CertificateValidation.fromDns(hostedZone)
+      }
+    )
+
+    // Create custom domain for Cognito
+    const cognitoDomain = new cognito.UserPoolDomain(this, `CognitoDomain-${envName}`, {
+      userPool: userPool,
+      customDomain: {
+        domainName: cognitoCustomDomainName,
+        certificate: cognitoCertificate
+      }
+    })
+
+    // Create A record for custom domain pointing to Cognito CloudFront
+    new route53.ARecord(this, `CognitoARecord-${envName}`, {
+      zone: hostedZone,
+      recordName: cognitoCustomDomainName,
+      target: route53.RecordTarget.fromAlias(new route53Targets.UserPoolDomainTarget(cognitoDomain))
+    })
+
+    // Output Cognito custom domain
+    new cdk.CfnOutput(this, 'CognitoCustomDomain', {
+      value: cognitoCustomDomainName,
+      description: 'Cognito custom domain',
+      exportName: `${envName}-cognito-custom-domain`
+    })
   }
 }
