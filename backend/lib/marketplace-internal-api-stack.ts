@@ -11,8 +11,8 @@ export interface MarketplaceInternalApiStackProps extends cdk.StackProps {
 }
 
 /**
- * Internal API endpoints: Protected auth, Organizations, Users, and Images
- * Count: 14 Lambda functions
+ * Internal API endpoints: Protected auth, Organizations, Users, and Image Upload
+ * Count: 13 Lambda functions (processImage moved to Networking stack)
  *
  * Depends on: MarketplaceNetworkingStack, MarketplaceInfrastructureStack
  */
@@ -86,7 +86,7 @@ export class MarketplaceInternalApiStack extends cdk.Stack {
     }
 
     // Create Lambda functions
-    const lambdaConstruct = new DomainLambdaConstruct(this, `InternalApiLambdas-${envName}`, {
+    new DomainLambdaConstruct(this, `InternalApiLambdas-${envName}`, {
       envName,
       envVars,
       endpointDefinitions: internalApiEndpoints,
@@ -94,21 +94,6 @@ export class MarketplaceInternalApiStack extends cdk.Stack {
       cognitoAuthorizer,
       tables
     })
-
-    // Export image Lambda URL to SSM for CloudFront stack
-    if (lambdaConstruct.imageLambdaUrl) {
-      new ssm.StringParameter(this, 'ImageLambdaUrl', {
-        parameterName: `/marketplace/${envName}/lambda/image-processor-url`,
-        stringValue: lambdaConstruct.imageLambdaUrl,
-        description: 'Image processor Lambda Function URL for CloudFront'
-      })
-
-      new cdk.CfnOutput(this, 'ImageLambdaUrlOutput', {
-        value: lambdaConstruct.imageLambdaUrl,
-        description: 'Image processor Lambda Function URL',
-        exportName: `${envName}-image-lambda-url`
-      })
-    }
 
     new cdk.CfnOutput(this, 'InternalApiLambdasDeployed', {
       value: internalApiEndpoints.length.toString(),

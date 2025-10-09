@@ -1,9 +1,9 @@
 import { LambdaEndpointDefinition } from '@marketplace/types'
 
 /**
- * Internal API endpoints: Auth (protected), Organizations, Users, and Images
+ * Internal API endpoints: Auth (protected), Organizations, Users, and Image Upload
  * Stack: MarketplaceInternalApiStack
- * Count: 14 Lambda functions
+ * Count: 13 Lambda functions (processImage moved to Networking stack)
  */
 export const internalApiEndpoints: LambdaEndpointDefinition[] = [
   // Protected Authentication (3 lambdas)
@@ -168,29 +168,7 @@ export const internalApiEndpoints: LambdaEndpointDefinition[] = [
     }
   },
 
-  // Image Processing (2 lambdas)
-  {
-    name: 'processImage',
-    handler: 'images/image-processor.processImage',
-    description: 'Process and resize images from S3',
-    timeout: 30,
-    memorySize: 1024,
-    buckets: ['dot-images-product-store-direct'],
-    environment: ['IMAGES_BUCKET_NAME'],
-    requiresNativeDeps: true,
-    iamPolicies: [
-      {
-        actions: ['s3:GetObject'],
-        resources: ['*']
-      }
-    ],
-    apiGw: {
-      path: 'images/{proxy+}',
-      method: 'GET',
-      auth: 'none',
-      cors: true
-    }
-  },
+  // Image Upload (1 lambda - processImage moved to Networking stack)
   {
     name: 'createPresignedUploadUrl',
     handler: 'images/presigned-upload.createPresignedUploadUrl',

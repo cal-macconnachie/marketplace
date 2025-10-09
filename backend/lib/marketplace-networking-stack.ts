@@ -6,22 +6,26 @@ import * as ssm from 'aws-cdk-lib/aws-ssm'
 import * as route53 from 'aws-cdk-lib/aws-route53'
 import * as certificatemanager from 'aws-cdk-lib/aws-certificatemanager'
 import * as route53Targets from 'aws-cdk-lib/aws-route53-targets'
+import * as lambda from 'aws-cdk-lib/aws-lambda'
+import * as iam from 'aws-cdk-lib/aws-iam'
 import { CloudFrontConstruct } from './services/cloudfront/cloudfront-stack'
 import { domain } from '@marketplace/constants'
+import * as path from 'node:path'
+import { createNodejsFunctionWithNativeDeps } from './services/lambda/lambda-defaults'
+import { createNativeBundlingConfig } from './services/lambda/bundling-configs'
 
 export interface MarketplaceNetworkingStackProps extends cdk.StackProps {
   envName?: string
 }
 
 /**
- * Networking stack combining API Gateway and CloudFront infrastructure
- * Creates API Gateway, Cognito Authorizer, Usage Plan, Custom Domain, and CloudFront distributions
+ * Networking stack combining API Gateway, Image Processor Lambda, and CloudFront infrastructure
+ * Creates API Gateway, Cognito Authorizer, Usage Plan, Custom Domain, Image Processor Lambda, and CloudFront distributions
  * Exports all resources to SSM Parameter Store for consumption by domain stacks
  *
- * This stack should be deployed AFTER MarketplaceInfrastructureStack and MarketplaceInternalApiStack
+ * This stack should be deployed AFTER MarketplaceInfrastructureStack
  * Dependencies:
  * - MarketplaceInfrastructureStack: Cognito User Pool, Route53 Hosted Zones, S3 buckets
- * - MarketplaceInternalApiStack: Image processor Lambda URL
  */
 export class MarketplaceNetworkingStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: MarketplaceNetworkingStackProps) {
@@ -179,14 +183,65 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
     })
 
     // ========================================
-    // CLOUDFRONT SETUP
+    // IMAGE PROCESSOR LAMBDA (for CloudFront)
     // ========================================
 
-    // Import image Lambda URL from SSM (created by InternalApiStack)
-    const imageLambdaUrl = ssm.StringParameter.valueFromLookup(
+    const imagesBucketName = `${envName}-dot-images-product-store-direct`
+
+    // Create image processor Lambda with native dependencies (sharp)
+    const nativeBundling = createNativeBundlingConfig({})
+    const imageProcessorLambda = createNodejsFunctionWithNativeDeps(
       this,
-      `/marketplace/${envName}/lambda/image-processor-url`
+      `processImage-${envName}`,
+      {
+        entry: path.join(__dirname, 'services/lambda/handlers/images/image-processor.ts'),
+        handler: 'processImage',
+        functionName: `processImage-${envName}`,
+        description: 'Process and resize images from S3',
+        environment: {
+          NODE_ENV: envName,
+          ENV_NAME: envName,
+          IMAGES_BUCKET_NAME: imagesBucketName
+        },
+        timeout: cdk.Duration.seconds(30),
+        memorySize: 1024,
+        nativeBundling
+      }
     )
+
+    // Grant S3 read access to the image processor
+    imageProcessorLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:GetObject'],
+        resources: [
+          `arn:aws:s3:::${imagesBucketName}`,
+          `arn:aws:s3:::${imagesBucketName}/*`
+        ]
+      })
+    )
+
+    // Create Function URL for CloudFront origin
+    const imageFunctionUrl = imageProcessorLambda.addFunctionUrl({
+      authType: lambda.FunctionUrlAuthType.NONE,
+      cors: {
+        allowedOrigins: ['*'],
+        allowedMethods: [lambda.HttpMethod.GET],
+        allowedHeaders: ['*']
+      }
+    })
+
+    const imageLambdaUrl = imageFunctionUrl.url
+
+    // Export image Lambda URL to SSM for reference
+    new ssm.StringParameter(this, 'ImageLambdaUrl', {
+      parameterName: `/marketplace/${envName}/lambda/image-processor-url`,
+      stringValue: imageLambdaUrl,
+      description: 'Image processor Lambda Function URL for CloudFront'
+    })
+
+    // ========================================
+    // CLOUDFRONT SETUP
+    // ========================================
 
     // Get S3 website URLs from SSM for CloudFront
     const marketplaceBucketName = `${envName}-${domain}`
