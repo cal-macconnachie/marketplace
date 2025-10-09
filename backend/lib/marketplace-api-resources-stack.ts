@@ -164,7 +164,7 @@ export class MarketplaceApiResourcesStack extends cdk.Stack {
     }
 
     // ========================================
-    // CREATE ALL API GATEWAY RESOURCES
+    // CREATE OR IMPORT ALL API GATEWAY RESOURCES
     // ========================================
 
     const createdResources = new Map<string, apiGW.IResource>()
@@ -177,16 +177,40 @@ export class MarketplaceApiResourcesStack extends cdk.Stack {
         const fullPath = childNode.fullPath
         const ssmParamName = `/marketplace/${envName}/api-gateway/resource/${sanitizePathForSsm(fullPath)}-id`
 
-        // Create the resource
-        const resource = parentResource.addResource(segment)
-        createdResources.set(fullPath, resource)
+        // Try to import existing resource from SSM if it exists
+        let resource: apiGW.IResource
+        let existingResourceId: string | undefined
 
-        // Export to SSM for domain stacks to import
-        new ssm.StringParameter(this, `ApiResourceParam-${sanitizePathForSsm(fullPath)}`, {
-          parameterName: ssmParamName,
-          stringValue: resource.resourceId,
-          description: `API Gateway Resource ID for /${fullPath}`
-        })
+        try {
+          existingResourceId = ssm.StringParameter.valueFromLookup(this, ssmParamName)
+        } catch {
+          existingResourceId = undefined
+        }
+
+        if (existingResourceId && existingResourceId !== 'dummy-value-for-' + ssmParamName) {
+          // Resource already exists, import it
+          resource = apiGW.Resource.fromResourceAttributes(
+            this,
+            `ApiResourceImport-${sanitizePathForSsm(fullPath)}`,
+            {
+              restApi: api,
+              path: `/${fullPath}`,
+              resourceId: existingResourceId
+            }
+          )
+        } else {
+          // Resource doesn't exist, create it
+          resource = parentResource.addResource(segment)
+
+          // Export to SSM for domain stacks to import
+          new ssm.StringParameter(this, `ApiResourceParam-${sanitizePathForSsm(fullPath)}`, {
+            parameterName: ssmParamName,
+            stringValue: resource.resourceId,
+            description: `API Gateway Resource ID for /${fullPath}`
+          })
+        }
+
+        createdResources.set(fullPath, resource)
 
         // Recurse for children
         createResourcesRecursive(childNode, resource)
