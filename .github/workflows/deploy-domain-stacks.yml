@@ -349,6 +349,72 @@ jobs:
         working-directory: backend
         run: yarn cdk deploy MarketplaceNetworking-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-networking.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }}
 
+  # Cognito custom domain stack (must run after Networking so parent A record exists)
+  deploy-cognito-domain:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, deploy-networking]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.backend == 'true' &&
+      (needs.deploy-networking.result == 'success' || needs.deploy-networking.result == 'skipped')
+    env:
+      ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ensure Yarn is installed
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build shared packages
+        run: yarn workspace @marketplace/constants build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Set CDK environment variables
+        run: |
+          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
+          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
+
+      - name: Wait for parent DNS A record
+        env:
+          ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
+        run: |
+          DOMAIN_ROOT="marketplace.csm.codes"
+          if [ "$ENV_NAME" = "dev" ]; then
+            PARENT_DOMAIN="dev.${DOMAIN_ROOT}"
+          else
+            PARENT_DOMAIN="${DOMAIN_ROOT}"
+          fi
+          echo "Waiting for A/AAAA record on ${PARENT_DOMAIN}..."
+          ATTEMPTS=0
+          until nslookup "$PARENT_DOMAIN" >/dev/null 2>&1 || dig +short "$PARENT_DOMAIN" >/dev/null 2>&1; do
+            ATTEMPTS=$((ATTEMPTS+1))
+            if [ $ATTEMPTS -gt 60 ]; then
+              echo "Timed out waiting for ${PARENT_DOMAIN} to resolve"
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "${PARENT_DOMAIN} resolves. Proceeding."
+
+      - name: CDK Deploy Cognito Domain Stack
+        working-directory: backend
+        run: yarn cdk deploy MarketplaceCognitoDomain-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-cognito-domain.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }}
+
   # Internal API deployment (must run after Networking to use API Gateway)
   deploy-internal-api:
     runs-on: ubuntu-latest
