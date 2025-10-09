@@ -137,11 +137,16 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
       zoneName: hostedZoneName
     })
 
-    // Create certificate for the API domain
-    const certificate = new certificatemanager.Certificate(this, `ApiCertificate-${envName}`, {
-      domainName: apiDomain,
-      validation: certificatemanager.CertificateValidation.fromDns(hostedZone)
-    })
+    // Import pre-provisioned API domain certificate (stored by Certificates stack)
+    const apiCertArn = ssm.StringParameter.valueFromLookup(
+      this,
+      `/marketplace/${envName}/acm/api-domain-cert-arn`
+    )
+    const certificate = certificatemanager.Certificate.fromCertificateArn(
+      this,
+      `ApiCertificate-${envName}`,
+      apiCertArn
+    )
 
     // Create custom domain for API Gateway
     const customDomain = new apiGW.DomainName(this, `ApiCustomDomain-${envName}`, {
@@ -327,20 +332,23 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
     // Determine the custom domain name for Cognito
     const cognitoCustomDomainName = envName === 'dev' ? `auth.dev.${domain}` : `auth.${domain}`
 
-    // Create certificate for Cognito custom domain and wait for issuance
-    const cognitoCertificate = new certificatemanager.DnsValidatedCertificate(this, `CognitoCertificate-${envName}`, {
-      domainName: cognitoCustomDomainName,
-      hostedZone,
-      // Cognito requires the cert in us-east-1
-      region: 'us-east-1'
-    })
+    // Import pre-provisioned Cognito custom domain certificate (stored by Certificates stack)
+    const cognitoCertArn = ssm.StringParameter.valueFromLookup(
+      this,
+      `/marketplace/${envName}/acm/cognito-domain-cert-arn`
+    )
+    const importedCognitoCert = certificatemanager.Certificate.fromCertificateArn(
+      this,
+      `ImportedCognitoCertificate-${envName}`,
+      cognitoCertArn
+    )
 
     // Create custom domain for Cognito
     const cognitoDomain = new cognito.UserPoolDomain(this, `CognitoDomain-${envName}`, {
       userPool,
       customDomain: {
         domainName: cognitoCustomDomainName,
-        certificate: cognitoCertificate
+        certificate: importedCognitoCert
       }
     })
 

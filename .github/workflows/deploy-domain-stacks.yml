@@ -248,9 +248,64 @@ jobs:
         run: yarn cdk deploy MarketplaceInfrastructure-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-infrastructure.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-infra == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
 
   # Networking stack deployment (API Gateway + CloudFront + Cognito Custom Domain, must run after Infrastructure)
-  deploy-networking:
+  deploy-certificates:
     runs-on: ubuntu-latest
     needs: [detect-changes, detect-stack-changes, deploy-infrastructure]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.backend == 'true' &&
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
+    env:
+      ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Ensure Yarn is installed
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build shared packages
+        run: yarn workspace @marketplace/constants build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Set CDK environment variables
+        run: |
+          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
+          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
+
+      - name: CDK Deploy Certificates Stack
+        working-directory: backend
+        run: yarn cdk deploy MarketplaceCertificates-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-certificates.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }}
+
+      - name: Wait for certificate issuance
+        run: |
+          ENV_NAME="${{ needs.detect-changes.outputs.env-name }}"
+          API_CERT_ARN=$(aws ssm get-parameter --name "/marketplace/${ENV_NAME}/acm/api-domain-cert-arn" --query "Parameter.Value" --output text)
+          COGNITO_CERT_ARN=$(aws ssm get-parameter --name "/marketplace/${ENV_NAME}/acm/cognito-domain-cert-arn" --query "Parameter.Value" --output text)
+
+          echo "Waiting for API cert to be validated: ${API_CERT_ARN}"
+          aws acm wait certificate-validated --certificate-arn "$API_CERT_ARN" --region ${{ secrets.AWS_DEFAULT_REGION }}
+
+          echo "Waiting for Cognito cert to be validated: ${COGNITO_CERT_ARN}"
+          aws acm wait certificate-validated --certificate-arn "$COGNITO_CERT_ARN" --region ${{ secrets.AWS_DEFAULT_REGION }}
+
+  deploy-networking:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, detect-stack-changes, deploy-infrastructure, deploy-certificates]
     if: |
       always() &&
       needs.detect-changes.outputs.backend == 'true' &&
