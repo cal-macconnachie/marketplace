@@ -18,6 +18,7 @@ import {
   createDefaultNodejsFunction,
   createNodejsFunctionWithNativeDeps
 } from './lambda-defaults'
+import { getOrCreateApiResource } from '../apigateway/resource-utils'
 
 export interface DomainLambdaConstructProps {
   envName: string
@@ -284,20 +285,8 @@ export class DomainLambdaConstruct extends Construct {
 
       // Create API Gateway integration (if API Gateway is provided and apiGw is defined)
       if (def.apiGw && api) {
-        const pathSegments = def.apiGw.path.split('/')
-        let resource: apiGW.IResource = api.root
-
-        // Create nested resources for each path segment
-        for (const segment of pathSegments) {
-          if (segment) {
-            const existingResource = resource.getResource(segment)
-            if (existingResource) {
-              resource = existingResource
-            } else {
-              resource = resource.addResource(segment)
-            }
-          }
-        }
+        // Reuse or create API Gateway resources consistently across stacks
+        const resource = getOrCreateApiResource(this, api, envName, def.apiGw.path)
 
         const integration = new apiGW.LambdaIntegration(fn)
 

@@ -44,7 +44,7 @@ export class MarketplacePublicStack extends cdk.Stack {
       rootResourceId
     })
 
-    // Import Cognito User Pool info from SSM
+    // Import Cognito User Pool info from SSM (no authorizer needed for public stack)
     const userPoolId = ssm.StringParameter.valueFromLookup(
       this,
       `/marketplace/${envName}/cognito/user-pool-id`
@@ -52,17 +52,6 @@ export class MarketplacePublicStack extends cdk.Stack {
     const userPoolClientId = ssm.StringParameter.valueFromLookup(
       this,
       `/marketplace/${envName}/cognito/user-pool-client-id`
-    )
-
-    // Import Cognito User Pool and create authorizer
-    const userPool = cdk.aws_cognito.UserPool.fromUserPoolId(this, 'UserPool', userPoolId)
-    const cognitoAuthorizer = new apiGW.CognitoUserPoolsAuthorizer(
-      this,
-      `CognitoAuthorizer-${envName}`,
-      {
-        cognitoUserPools: [userPool],
-        authorizerName: `PublicStackCognitoAuthorizer-${envName}`
-      }
     )
 
     // Import DynamoDB table names from SSM
@@ -100,7 +89,7 @@ export class MarketplacePublicStack extends cdk.Stack {
       envVars,
       endpointDefinitions: publicEndpoints,
       api,
-      cognitoAuthorizer,
+      // No Cognito authorizer passed; all public endpoints are unauthenticated
       tables
     })
 

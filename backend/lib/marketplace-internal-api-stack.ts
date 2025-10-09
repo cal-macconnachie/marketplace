@@ -92,6 +92,7 @@ export class MarketplaceInternalApiStack extends cdk.Stack {
       endpointDefinitions: internalApiEndpoints,
       api,
       cognitoAuthorizer,
+      // The organizations resource was explicitly created above; Domain construct will find it in this stack
       tables
     })
 

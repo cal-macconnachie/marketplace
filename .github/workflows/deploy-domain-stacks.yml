@@ -465,7 +465,7 @@ jobs:
   # Domain Lambda stacks (can run in parallel after Networking stack)
   deploy-public:
     runs-on: ubuntu-latest
-    needs: [detect-changes, detect-stack-changes, deploy-networking]
+    needs: [detect-changes, detect-stack-changes, deploy-networking, deploy-internal-api]
     if: |
       always() &&
       needs.detect-changes.outputs.backend == 'true' &&
@@ -514,12 +514,14 @@ jobs:
 
   deploy-payments:
     runs-on: ubuntu-latest
-    needs: [detect-changes, detect-stack-changes, deploy-networking]
+    needs: [detect-changes, detect-stack-changes, deploy-networking, deploy-internal-api, deploy-public]
     if: |
       always() &&
       needs.detect-changes.outputs.backend == 'true' &&
       needs.detect-stack-changes.outputs.payments-changed == 'true' &&
-      (needs.deploy-networking.result == 'success' || needs.deploy-networking.result == 'skipped')
+      (needs.deploy-networking.result == 'success' || needs.deploy-networking.result == 'skipped') &&
+      (needs.deploy-internal-api.result == 'success' || needs.deploy-internal-api.result == 'skipped') &&
+      (needs.deploy-public.result == 'success' || needs.deploy-public.result == 'skipped')
     env:
       ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
       STRIPE_SECRET_KEY_DEV: ${{ secrets.STRIPE_SECRET_KEY_DEV }}
@@ -560,12 +562,15 @@ jobs:
 
   deploy-products:
     runs-on: ubuntu-latest
-    needs: [detect-changes, detect-stack-changes, deploy-networking]
+    needs: [detect-changes, detect-stack-changes, deploy-networking, deploy-internal-api, deploy-public, deploy-payments]
     if: |
       always() &&
       needs.detect-changes.outputs.backend == 'true' &&
       needs.detect-stack-changes.outputs.products-changed == 'true' &&
-      (needs.deploy-networking.result == 'success' || needs.deploy-networking.result == 'skipped')
+      (needs.deploy-networking.result == 'success' || needs.deploy-networking.result == 'skipped') &&
+      (needs.deploy-internal-api.result == 'success' || needs.deploy-internal-api.result == 'skipped') &&
+      (needs.deploy-public.result == 'success' || needs.deploy-public.result == 'skipped') &&
+      (needs.deploy-payments.result == 'success' || needs.deploy-payments.result == 'skipped')
     env:
       ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
       STRIPE_SECRET_KEY_DEV: ${{ secrets.STRIPE_SECRET_KEY_DEV }}
