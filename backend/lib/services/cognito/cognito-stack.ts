@@ -1,10 +1,13 @@
 import type { CognitoStackProps } from '@marketplace/types'
 import * as cdk from 'aws-cdk-lib'
 import {
-  aws_cognito as cognito, aws_lambda as lambda, aws_certificatemanager as acm, aws_route53 as route53
+  aws_cognito as cognito, aws_lambda as lambda, aws_route53 as route53
 } from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import { domain } from '@marketplace/constants'
+// Using DnsValidatedCertificate despite deprecation as AWS hasn't provided a replacement
+// for cross-region certificate creation (required for Cognito custom domains)
+import { DnsValidatedCertificate } from 'aws-cdk-lib/aws-certificatemanager'
 
 export class CognitoStack extends Construct {
   public readonly userPool: cognito.UserPool
@@ -135,10 +138,12 @@ export class CognitoStack extends Construct {
 
     // Create custom domain or Cognito-hosted domain
     if (customDomainName && hostedZone) {
-      // Create certificate for custom domain
-      const certificate = new acm.Certificate(this, `CognitoCertificate-${envName}`, {
+      // Create certificate for custom domain in us-east-1
+      // IMPORTANT: ACM certificate for Cognito custom domains MUST be in us-east-1
+      const certificate = new DnsValidatedCertificate(this, `CognitoCertificate-${envName}`, {
         domainName: customDomainName,
-        validation: acm.CertificateValidation.fromDns(hostedZone)
+        hostedZone: hostedZone,
+        region: 'us-east-1'
       })
 
       // Create custom domain
