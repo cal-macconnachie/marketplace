@@ -1,17 +1,17 @@
-import * as cdk from 'aws-cdk-lib'
-import { Construct } from 'constructs'
-import * as apiGW from 'aws-cdk-lib/aws-apigateway'
-import * as ssm from 'aws-cdk-lib/aws-ssm'
-import * as route53 from 'aws-cdk-lib/aws-route53'
-import * as certificatemanager from 'aws-cdk-lib/aws-certificatemanager'
-import * as route53Targets from 'aws-cdk-lib/aws-route53-targets'
-import * as lambda from 'aws-cdk-lib/aws-lambda'
-import * as iam from 'aws-cdk-lib/aws-iam'
-import { CloudFrontConstruct } from './services/cloudfront/cloudfront-stack'
 import { domain } from '@marketplace/constants'
+import * as cdk from 'aws-cdk-lib'
+import * as apiGW from 'aws-cdk-lib/aws-apigateway'
+import * as certificatemanager from 'aws-cdk-lib/aws-certificatemanager'
+import * as iam from 'aws-cdk-lib/aws-iam'
+import * as lambda from 'aws-cdk-lib/aws-lambda'
+import * as route53 from 'aws-cdk-lib/aws-route53'
+import * as route53Targets from 'aws-cdk-lib/aws-route53-targets'
+import * as ssm from 'aws-cdk-lib/aws-ssm'
+import { Construct } from 'constructs'
 import * as path from 'node:path'
-import { createNodejsFunctionWithNativeDeps } from './services/lambda/lambda-defaults'
+import { CloudFrontConstruct } from './services/cloudfront/cloudfront-stack'
 import { createNativeBundlingConfig } from './services/lambda/bundling-configs'
+import { createNodejsFunctionWithNativeDeps } from './services/lambda/lambda-defaults'
 
 export interface MarketplaceNetworkingStackProps extends cdk.StackProps {
   envName?: string
@@ -90,6 +90,36 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
     usagePlan.addApiKey(apiKey)
     usagePlan.addApiStage({
       stage: api.deploymentStage
+    })
+
+    // Add a root OPTIONS method to satisfy API Gateway validation
+    // (API Gateway requires at least one method to be defined)
+    api.root.addMethod('OPTIONS', new apiGW.MockIntegration({
+      integrationResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'",
+            'method.response.header.Access-Control-Allow-Origin': "'*'",
+            'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST,PUT,DELETE,PATCH'"
+          }
+        }
+      ],
+      passthroughBehavior: apiGW.PassthroughBehavior.NEVER,
+      requestTemplates: {
+        'application/json': '{"statusCode": 200}'
+      }
+    }), {
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Headers': true,
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Methods': true
+          }
+        }
+      ]
     })
 
     // Setup custom domain for API Gateway
