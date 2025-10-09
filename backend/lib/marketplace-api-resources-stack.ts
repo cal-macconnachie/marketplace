@@ -3,6 +3,8 @@ import * as cdk from 'aws-cdk-lib'
 import * as apiGW from 'aws-cdk-lib/aws-apigateway'
 import * as ssm from 'aws-cdk-lib/aws-ssm'
 import { Construct } from 'constructs'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import { allEndpointCollections } from './services/lambda/endpoint-definitions'
 
 export interface MarketplaceApiResourcesStackProps extends cdk.StackProps {
@@ -22,20 +24,11 @@ interface ApiResourceNode {
   children: Map<string, ApiResourceNode>
 }
 
-function sanitizePathForSsm(path: string): string {
-  return path
-    .replace(/^\/+|\/+$/g, '') // trim leading/trailing slashes
-    .replaceAll('/', '-')
-    .replaceAll('{', '')
-    .replaceAll('}', '')
-    .replaceAll('*', 'star')
-}
-
 /**
  * API Gateway Resources Stack
  * Pre-creates all API Gateway resources (paths) for all domain stacks
  * Validates that no two stacks attempt to use the same path+method combination
- * Exports all resource IDs to SSM Parameter Store for domain stacks to import
+ * Writes resource IDs to a JSON file that domain stacks can read during synthesis
  *
  * This stack should be deployed AFTER MarketplaceNetworkingStack but BEFORE any domain Lambda stacks
  * Dependencies:
@@ -164,10 +157,11 @@ export class MarketplaceApiResourcesStack extends cdk.Stack {
     }
 
     // ========================================
-    // CREATE OR IMPORT ALL API GATEWAY RESOURCES
+    // CREATE ALL API GATEWAY RESOURCES
     // ========================================
 
     const createdResources = new Map<string, apiGW.IResource>()
+    const resourceMapping: Record<string, string> = {}
 
     const createResourcesRecursive = (node: ApiResourceNode, parentResource: apiGW.IResource) => {
       for (const [
@@ -175,49 +169,49 @@ export class MarketplaceApiResourcesStack extends cdk.Stack {
         childNode
       ] of node.children) {
         const fullPath = childNode.fullPath
-        const ssmParamName = `/marketplace/${envName}/api-gateway/resource/${sanitizePathForSsm(fullPath)}-id`
 
-        // Try to import existing resource from SSM if it exists
-        let resource: apiGW.IResource
-        let existingResourceId: string | undefined
-
-        try {
-          existingResourceId = ssm.StringParameter.valueFromLookup(this, ssmParamName)
-        } catch {
-          existingResourceId = undefined
-        }
-
-        if (existingResourceId && existingResourceId !== 'dummy-value-for-' + ssmParamName) {
-          // Resource already exists, import it
-          resource = apiGW.Resource.fromResourceAttributes(
-            this,
-            `ApiResourceImport-${sanitizePathForSsm(fullPath)}`,
-            {
-              restApi: api,
-              path: `/${fullPath}`,
-              resourceId: existingResourceId
-            }
-          )
-        } else {
-          // Resource doesn't exist, create it
-          resource = parentResource.addResource(segment)
-
-          // Export to SSM for domain stacks to import
-          new ssm.StringParameter(this, `ApiResourceParam-${sanitizePathForSsm(fullPath)}`, {
-            parameterName: ssmParamName,
-            stringValue: resource.resourceId,
-            description: `API Gateway Resource ID for /${fullPath}`
-          })
-        }
-
+        // Create the resource
+        const resource = parentResource.addResource(segment)
         createdResources.set(fullPath, resource)
 
-        // Recurse for children
+        // Store resource ID for output file
+        resourceMapping[fullPath] = resource.resourceId
+      }
+
+      // Recurse after all siblings are created
+      for (const childNode of node.children.values()) {
+        const resource = createdResources.get(childNode.fullPath)!
         createResourcesRecursive(childNode, resource)
       }
     }
 
     createResourcesRecursive(rootNode, api.root)
+
+    // Write resource mapping to file for domain stacks to read
+    const outputPath = path.join(__dirname, '..', '.cdk-outputs', `api-resources-${envName}.json`)
+    const outputDir = path.dirname(outputPath)
+
+    // Create output directory if it doesn't exist
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true })
+    }
+
+    // Write mapping file
+    fs.writeFileSync(
+      outputPath,
+      JSON.stringify(
+        {
+          restApiId,
+          rootResourceId,
+          resources: resourceMapping,
+          timestamp: new Date().toISOString()
+        },
+        null,
+        2
+      )
+    )
+
+    console.log(`✅ API Resource mapping written to: ${outputPath}`)
 
     // ========================================
     // OUTPUTS
@@ -248,5 +242,10 @@ export class MarketplaceApiResourcesStack extends cdk.Stack {
         description: `Number of API endpoints in ${stack} stack`
       })
     }
+
+    new cdk.CfnOutput(this, 'ResourceMappingFile', {
+      value: outputPath,
+      description: 'Path to API resource mapping file'
+    })
   }
 }

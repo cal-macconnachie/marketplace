@@ -1,18 +1,16 @@
 import { Construct } from 'constructs'
-import {
-  aws_apigateway as apiGW,
-  aws_ssm as ssm
-} from 'aws-cdk-lib'
+import { aws_apigateway as apiGW } from 'aws-cdk-lib'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 
-function sanitizePathForSsm(path: string) {
-  return path
-    .replace(/^\/+|\/+$/g, '') // trim leading/trailing slashes
-    .replaceAll('/', '-')
-    .replaceAll('{', '')
-    .replaceAll('}', '')
-    .replaceAll('*', 'star')
+interface ApiResourceMapping {
+  resources: Record<string, string>
 }
 
+/**
+ * Get or create API Gateway resource by reading from pre-generated mapping file
+ * The mapping file is created by MarketplaceApiResourcesStack deployment
+ */
 export function getOrCreateApiResource(
   scope: Construct,
   api: apiGW.IRestApi,
@@ -23,41 +21,46 @@ export function getOrCreateApiResource(
   let current: apiGW.IResource = api.root
   let builtPath = ''
 
+  // Try to load resource mapping from file
+  const mappingPath = path.join(__dirname, '..', '..', '.cdk-outputs', `api-resources-${envName}.json`)
+  let resourceMapping: ApiResourceMapping | null = null
+
+  if (fs.existsSync(mappingPath)) {
+    try {
+      const content = fs.readFileSync(mappingPath, 'utf-8')
+      resourceMapping = JSON.parse(content)
+    } catch (error) {
+      console.warn(`Failed to read API resource mapping from ${mappingPath}:`, error)
+    }
+  }
+
   for (const seg of segments) {
     builtPath = builtPath ? `${builtPath}/${seg}` : seg
-    const ssmParamName = `/marketplace/${envName}/api-gateway/resource/${sanitizePathForSsm(builtPath)}-id`
 
-    // Try import existing resource from SSM if present
-    let existingId: string | undefined
-    try {
-      existingId = ssm.StringParameter.valueFromLookup(scope, ssmParamName)
-    } catch {
-      existingId = undefined
-    }
-
-    if (existingId) {
-      // Import as existing
-      current = apiGW.Resource.fromResourceAttributes(scope, `ApiResourceImport-${sanitizePathForSsm(builtPath)}`, {
-        restApi: api,
-        path: builtPath,
-        resourceId: existingId
-      })
-      continue
-    }
-
-    // Otherwise, see if we already created it within this synthesis
-    const maybeExisting = current.getResource(seg)
-    if (maybeExisting) {
-      current = maybeExisting
+    // If we have a mapping file, import the resource
+    if (resourceMapping && resourceMapping.resources[builtPath]) {
+      current = apiGW.Resource.fromResourceAttributes(
+        scope,
+        `ApiResourceImport-${builtPath.replace(/[^a-zA-Z0-9]/g, '-')}`,
+        {
+          restApi: api,
+          path: `/${builtPath}`,
+          resourceId: resourceMapping.resources[builtPath]
+        }
+      )
     } else {
-      const created = current.addResource(seg)
-      current = created
-      // Persist ID to SSM so other stacks can import
-      new ssm.StringParameter(scope, `ApiResourceParam-${sanitizePathForSsm(builtPath)}`, {
-        parameterName: ssmParamName,
-        stringValue: current.resourceId,
-        description: `API Gateway Resource ID for /${builtPath}`
-      })
+      // Fallback: check if resource already exists in this stack
+      const maybeExisting = current.getResource(seg)
+      if (maybeExisting) {
+        current = maybeExisting
+      } else {
+        // This shouldn't happen if API Resources stack was deployed first
+        console.warn(
+          `⚠️  Creating API resource /${builtPath} on-the-fly. ` +
+            `Deploy MarketplaceApiResources-${envName} stack first to avoid race conditions.`
+        )
+        current = current.addResource(seg)
+      }
     }
   }
 

@@ -23,6 +23,7 @@ dist-ssr/
 # CDK
 .cdk.staging/
 cdk.out/
+backend/.cdk-outputs/
 
 # Environment variables
 .env
