@@ -9,7 +9,6 @@ import { Construct } from 'constructs'
 export class CognitoStack extends Construct {
   public readonly userPool: cognito.UserPool
   public readonly userPoolClient: cognito.UserPoolClient
-  public readonly cognitoDomain: cognito.UserPoolDomain
   public readonly customDomainName?: string
 
   constructor(scope: Construct, id: string, props: CognitoStackProps) {
@@ -132,14 +131,5 @@ export class CognitoStack extends Construct {
     if (appleProvider) {
       this.userPoolClient.node.addDependency(appleProvider)
     }
-
-    // Always use Cognito-hosted domain
-    // Custom domain is now handled in the Networking stack after all DNS is set up
-    this.cognitoDomain = new cognito.UserPoolDomain(this, `CognitoDomain-${envName}`, {
-      userPool: this.userPool,
-      cognitoDomain: {
-        domainPrefix: `marketplace-csm-codes-${envName.toLowerCase()}`
-      }
-    })
   }
 }

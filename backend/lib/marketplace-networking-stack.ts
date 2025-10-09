@@ -339,7 +339,7 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
 
     // Create custom domain for Cognito
     const cognitoDomain = new cognito.UserPoolDomain(this, `CognitoDomain-${envName}`, {
-      userPool: userPool,
+      userPool,
       customDomain: {
         domainName: cognitoCustomDomainName,
         certificate: cognitoCertificate
