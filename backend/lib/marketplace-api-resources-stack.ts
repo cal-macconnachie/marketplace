@@ -1,12 +1,9 @@
+import type { LambdaEndpointDefinition } from '@marketplace/types'
 import * as cdk from 'aws-cdk-lib'
 import * as apiGW from 'aws-cdk-lib/aws-apigateway'
 import * as ssm from 'aws-cdk-lib/aws-ssm'
 import { Construct } from 'constructs'
-import { publicEndpoints } from './services/lambda/endpoint-definitions/public-endpoints'
-import { paymentsEndpoints } from './services/lambda/endpoint-definitions/payments-endpoints'
-import { productsEndpoints } from './services/lambda/endpoint-definitions/products-endpoints'
-import { internalApiEndpoints } from './services/lambda/endpoint-definitions/internal-api-endpoints'
-import type { LambdaEndpointDefinition } from '@marketplace/types'
+import { allEndpointCollections } from './services/lambda/endpoint-definitions'
 
 export interface MarketplaceApiResourcesStackProps extends cdk.StackProps {
   envName?: string
@@ -65,15 +62,22 @@ export class MarketplaceApiResourcesStack extends cdk.Stack {
     })
 
     // ========================================
-    // COLLECT ALL ENDPOINTS FROM ALL STACKS
+    // COLLECT ALL ENDPOINTS FROM ALL STACKS DYNAMICALLY
     // ========================================
+    // New endpoint definition files are automatically picked up from allEndpointCollections
+    // Just add your new endpoints array to the index.ts export
 
-    const allEndpoints: Array<{ def: LambdaEndpointDefinition; stack: string }> = [
-      ...publicEndpoints.map(def => ({ def, stack: 'Public' })),
-      ...paymentsEndpoints.map(def => ({ def, stack: 'Payments' })),
-      ...productsEndpoints.map(def => ({ def, stack: 'Products' })),
-      ...internalApiEndpoints.map(def => ({ def, stack: 'InternalApi' }))
-    ]
+    const allEndpoints: Array<{ def: LambdaEndpointDefinition; stack: string }> = Object.entries(
+      allEndpointCollections
+    ).flatMap(([
+      stackName,
+      endpoints
+    ]) =>
+      endpoints.map(def => ({
+        def,
+        stack: stackName
+      }))
+    )
 
     // Filter to only endpoints with API Gateway definitions
     const apiEndpoints = allEndpoints.filter(e => e.def.apiGw)
@@ -91,7 +95,9 @@ export class MarketplaceApiResourcesStack extends cdk.Stack {
 
     const conflicts: string[] = []
 
-    for (const { def, stack } of apiEndpoints) {
+    for (const {
+      def, stack 
+    } of apiEndpoints) {
       if (!def.apiGw) continue
 
       const path = def.apiGw.path
@@ -163,8 +169,11 @@ export class MarketplaceApiResourcesStack extends cdk.Stack {
 
     const createdResources = new Map<string, apiGW.IResource>()
 
-    function createResourcesRecursive(node: ApiResourceNode, parentResource: apiGW.IResource) {
-      for (const [segment, childNode] of node.children) {
+    const createResourcesRecursive = (node: ApiResourceNode, parentResource: apiGW.IResource) => {
+      for (const [
+        segment,
+        childNode
+      ] of node.children) {
         const fullPath = childNode.fullPath
         const ssmParamName = `/marketplace/${envName}/api-gateway/resource/${sanitizePathForSsm(fullPath)}-id`
 
@@ -173,7 +182,7 @@ export class MarketplaceApiResourcesStack extends cdk.Stack {
         createdResources.set(fullPath, resource)
 
         // Export to SSM for domain stacks to import
-        new ssm.StringParameter(scope, `ApiResourceParam-${sanitizePathForSsm(fullPath)}`, {
+        new ssm.StringParameter(this, `ApiResourceParam-${sanitizePathForSsm(fullPath)}`, {
           parameterName: ssmParamName,
           stringValue: resource.resourceId,
           description: `API Gateway Resource ID for /${fullPath}`
@@ -206,7 +215,10 @@ export class MarketplaceApiResourcesStack extends cdk.Stack {
       stackCounts.set(stack, (stackCounts.get(stack) || 0) + 1)
     }
 
-    for (const [stack, count] of stackCounts) {
+    for (const [
+      stack,
+      count
+    ] of stackCounts) {
       new cdk.CfnOutput(this, `${stack}StackEndpoints`, {
         value: count.toString(),
         description: `Number of API endpoints in ${stack} stack`
