@@ -19,11 +19,6 @@ on:
         required: false
         type: boolean
         default: false
-      force-networking:
-        description: 'Networking'
-        required: false
-        type: boolean
-        default: false
       force-public:
         description: 'public Lambdas'
         required: false
@@ -54,40 +49,21 @@ on:
         required: false
         type: boolean
         default: false
-      force-certificates:
-        description: 'Certificates'
-        required: false
-        type: boolean
-        default: false
-      force-cognito-domain:
-        description: 'Cognito Domain'
-        required: false
-        type: boolean
-        default: false
-      force-api-redeploy:
-        description: 'API stage redeploy'
-        required: false
-        type: boolean
-        default: false
 
 jobs:
   # Detect which services changed
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      backend: ${{ steps.filter.outputs.backend || github.event.inputs.force-infra == 'true' || github.event.inputs.force-networking == 'true' || github.event.inputs.force-public == 'true' || github.event.inputs.force-payments == 'true' || github.event.inputs.force-products == 'true' || github.event.inputs.force-internal-api == 'true' || github.event.inputs.force-events == 'true' || github.event.inputs.force-certificates == 'true' }}
+      backend: ${{ steps.filter.outputs.backend || github.event.inputs.force-infra == 'true' || github.event.inputs.force-public == 'true' || github.event.inputs.force-payments == 'true' || github.event.inputs.force-products == 'true' || github.event.inputs.force-internal-api == 'true' || github.event.inputs.force-events == 'true' }}
       frontend: ${{ steps.filter.outputs.frontend || github.event.inputs.force-frontend == 'true' }}
       env-name: ${{ steps.env.outputs.env-name }}
       force-infra: ${{ github.event.inputs.force-infra == 'true' }}
-      force-networking: ${{ github.event.inputs.force-networking == 'true' }}
       force-public: ${{ github.event.inputs.force-public == 'true' }}
       force-payments: ${{ github.event.inputs.force-payments == 'true' }}
       force-products: ${{ github.event.inputs.force-products == 'true' }}
       force-internal-api: ${{ github.event.inputs.force-internal-api == 'true' }}
       force-events: ${{ github.event.inputs.force-events == 'true' }}
-      force-certificates: ${{ github.event.inputs.force-certificates == 'true' }}
-      force-cognito-domain: ${{ github.event.inputs.force-cognito-domain == 'true' }}
-      force-api-redeploy: ${{ github.event.inputs.force-api-redeploy == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -122,8 +98,7 @@ jobs:
       products-changed: ${{ steps.check.outputs.products-changed }}
       internal-api-changed: ${{ steps.check.outputs.internal-api-changed }}
       events-changed: ${{ steps.check.outputs.events-changed }}
-      certificates-changed: ${{ steps.check.outputs.certificates-changed }}
-      cognito-domain-changed: ${{ steps.check.outputs.cognito-domain-changed }}
+      # removed granular cert/cognito changed flags; use infra-changed instead
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -186,15 +161,13 @@ jobs:
           if echo "$FILES" | grep -qE "^backend/(lib/marketplace-certificates-stack|bin/marketplace-certificates)"; then
             CERTIFICATES_CHANGED=true
           fi
-
           COGNITO_DOMAIN_CHANGED=false
           if echo "$FILES" | grep -qE "^backend/(lib/marketplace-cognito-domain-stack|bin/marketplace-cognito-domain)"; then
             COGNITO_DOMAIN_CHANGED=true
           fi
 
           # Apply force flags
-          if [ "${{ needs.detect-changes.outputs.force-infra }}" = "true" ]; then INFRA_CHANGED=true; fi
-          if [ "${{ needs.detect-changes.outputs.force-networking }}" = "true" ]; then NETWORKING_CHANGED=true; fi
+          if [ "${{ needs.detect-changes.outputs.force-infra }}" = "true" ]; then INFRA_CHANGED=true; NETWORKING_CHANGED=true; CERTIFICATES_CHANGED=true; COGNITO_DOMAIN_CHANGED=true; fi
           if [ "${{ needs.detect-changes.outputs.force-public }}" = "true" ]; then PUBLIC_CHANGED=true; fi
           if [ "${{ needs.detect-changes.outputs.force-payments }}" = "true" ]; then PAYMENTS_CHANGED=true; fi
           if [ "${{ needs.detect-changes.outputs.force-products }}" = "true" ]; then PRODUCTS_CHANGED=true; fi
@@ -211,8 +184,7 @@ jobs:
           echo "products-changed=$PRODUCTS_CHANGED" >> $GITHUB_OUTPUT
           echo "internal-api-changed=$INTERNAL_API_CHANGED" >> $GITHUB_OUTPUT
           echo "events-changed=$EVENTS_CHANGED" >> $GITHUB_OUTPUT
-          echo "certificates-changed=$CERTIFICATES_CHANGED" >> $GITHUB_OUTPUT
-          echo "cognito-domain-changed=$COGNITO_DOMAIN_CHANGED" >> $GITHUB_OUTPUT
+          # downstream jobs use infra-changed to gate all infra: infra, certs, networking, cognito domain
 
           echo "Stack changes detected:"
           echo "  Infrastructure: $INFRA_CHANGED"
@@ -268,7 +240,7 @@ jobs:
     needs: [detect-changes, detect-stack-changes, deploy-infrastructure]
     if: |
       needs.detect-changes.outputs.backend == 'true' &&
-      needs.detect-stack-changes.outputs.certificates-changed == 'true' &&
+      needs.detect-stack-changes.outputs.infra-changed == 'true' &&
       (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
     env:
       ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
@@ -311,7 +283,7 @@ jobs:
     if: |
       always() &&
       needs.detect-changes.outputs.backend == 'true' &&
-      needs.detect-stack-changes.outputs.networking-changed == 'true' &&
+      needs.detect-stack-changes.outputs.infra-changed == 'true' &&
       (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
     env:
       ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
@@ -392,7 +364,7 @@ jobs:
     needs: [detect-changes, detect-stack-changes, deploy-networking]
     if: |
       needs.detect-changes.outputs.backend == 'true' &&
-      needs.detect-stack-changes.outputs.cognito-domain-changed == 'true' &&
+      needs.detect-stack-changes.outputs.infra-changed == 'true' &&
       (needs.deploy-networking.result == 'success' || needs.deploy-networking.result == 'skipped')
     env:
       ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
