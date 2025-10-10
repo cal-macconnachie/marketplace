@@ -131,31 +131,42 @@ jobs:
             NETWORKING_CHANGED=true
           fi
 
+          # Check for shared Lambda infrastructure changes that affect ALL domain stacks
+          SHARED_LAMBDA_CHANGED=false
+          if echo "$FILES" | grep -qE "^backend/lib/services/lambda/(domain-lambda-construct|bundling-configs|lambda-defaults)"; then
+            SHARED_LAMBDA_CHANGED=true
+          fi
+
           # Check for domain stack changes
           PUBLIC_CHANGED=false
-          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-public-stack|services/lambda/(endpoint-definitions/public-endpoints|handlers/auth/(login|register|refresh|request-register-otp|request-reset-password|reset-password)|handlers/product-manager/(get|list)|handlers/organizations/get-organization|handlers/payments/(guest-checkout|calculate-taxes)))"; then
+          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-public-stack|services/lambda/(endpoint-definitions/public-endpoints|helpers|handlers/auth/(login|register|refresh|request-register-otp|request-reset-password|reset-password)|handlers/product-manager/(get|list)|handlers/organizations/get-organization|handlers/payments/(guest-checkout|calculate-taxes)))"; then
             PUBLIC_CHANGED=true
           fi
+          if [ "$SHARED_LAMBDA_CHANGED" = "true" ]; then PUBLIC_CHANGED=true; fi
 
           PAYMENTS_CHANGED=false
-          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-payments-stack|services/lambda/(endpoint-definitions/payments-endpoints|handlers/payments/(create-payment-method|get-payment-methods|archive-payment-method|purchase-products|purchases-crud|get-products|cancel-subscription)|handlers/stripe/(create-connected-account|refresh-connect-url|create-express-login-link|delete-connected-accounts|log-meter-event)|handlers/organizations/get-purchased-products))"; then
+          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-payments-stack|services/lambda/(endpoint-definitions/payments-endpoints|helpers|handlers/payments/(create-payment-method|get-payment-methods|archive-payment-method|purchase-products|purchases-crud|get-products|cancel-subscription)|handlers/stripe/(create-connected-account|refresh-connect-url|create-express-login-link|delete-connected-accounts|log-meter-event)|handlers/organizations/get-purchased-products))"; then
             PAYMENTS_CHANGED=true
           fi
+          if [ "$SHARED_LAMBDA_CHANGED" = "true" ]; then PAYMENTS_CHANGED=true; fi
 
           PRODUCTS_CHANGED=false
-          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-products-stack|services/lambda/(endpoint-definitions/products-endpoints|handlers/product-manager|handlers/promo-manager|handlers/meter-manager))"; then
+          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-products-stack|services/lambda/(endpoint-definitions/products-endpoints|helpers|handlers/product-manager|handlers/promo-manager|handlers/meter-manager))"; then
             PRODUCTS_CHANGED=true
           fi
+          if [ "$SHARED_LAMBDA_CHANGED" = "true" ]; then PRODUCTS_CHANGED=true; fi
 
           INTERNAL_API_CHANGED=false
-          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-internal-api-stack|services/lambda/(endpoint-definitions/internal-api-endpoints|handlers/auth/(logout|change-password|admin-change-password)|handlers/organizations/(add-user-to-organization|remove-user-from-organization|create-user|set-org-admin|get-users|update-user|update|assign-products)|handlers/images))"; then
+          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-internal-api-stack|services/lambda/(endpoint-definitions/internal-api-endpoints|helpers|handlers/auth/(logout|change-password|admin-change-password)|handlers/organizations/(add-user-to-organization|remove-user-from-organization|create-user|set-org-admin|get-users|update-user|update|assign-products)|handlers/images))"; then
             INTERNAL_API_CHANGED=true
           fi
+          if [ "$SHARED_LAMBDA_CHANGED" = "true" ]; then INTERNAL_API_CHANGED=true; fi
 
           EVENTS_CHANGED=false
-          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-events-stack|services/lambda/(endpoint-definitions/events-endpoints|handlers/(stripe-event-handler|stripe-platform-event-handler|products|promos|users|organizations|purchases|purchase-carts)|handlers/stripe/handle-purchase|handlers/payments/products-purchased))"; then
+          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-events-stack|services/lambda/(endpoint-definitions/events-endpoints|helpers|handlers/(stripe-event-handler|stripe-platform-event-handler|products|promos|users|organizations|purchases|purchase-carts)|handlers/stripe/handle-purchase|handlers/payments/products-purchased))"; then
             EVENTS_CHANGED=true
           fi
+          if [ "$SHARED_LAMBDA_CHANGED" = "true" ]; then EVENTS_CHANGED=true; fi
 
           CERTIFICATES_CHANGED=false
           if echo "$FILES" | grep -qE "^backend/(lib/marketplace-certificates-stack|bin/marketplace-certificates)"; then
