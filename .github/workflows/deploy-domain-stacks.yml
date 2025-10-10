@@ -54,13 +54,23 @@ on:
         required: false
         type: boolean
         default: false
+      force-certificates:
+        description: 'Force deploy Certificates stack'
+        required: false
+        type: boolean
+        default: false
+      force-cognito-domain:
+        description: 'Force deploy Cognito Domain stack'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   # Detect which services changed
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      backend: ${{ steps.filter.outputs.backend || github.event.inputs.force-infra == 'true' || github.event.inputs.force-networking == 'true' || github.event.inputs.force-public == 'true' || github.event.inputs.force-payments == 'true' || github.event.inputs.force-products == 'true' || github.event.inputs.force-internal-api == 'true' || github.event.inputs.force-events == 'true' }}
+      backend: ${{ steps.filter.outputs.backend || github.event.inputs.force-infra == 'true' || github.event.inputs.force-networking == 'true' || github.event.inputs.force-public == 'true' || github.event.inputs.force-payments == 'true' || github.event.inputs.force-products == 'true' || github.event.inputs.force-internal-api == 'true' || github.event.inputs.force-events == 'true' || github.event.inputs.force-certificates == 'true' }}
       frontend: ${{ steps.filter.outputs.frontend || github.event.inputs.force-frontend == 'true' }}
       env-name: ${{ steps.env.outputs.env-name }}
       force-infra: ${{ github.event.inputs.force-infra == 'true' }}
@@ -70,6 +80,8 @@ jobs:
       force-products: ${{ github.event.inputs.force-products == 'true' }}
       force-internal-api: ${{ github.event.inputs.force-internal-api == 'true' }}
       force-events: ${{ github.event.inputs.force-events == 'true' }}
+      force-certificates: ${{ github.event.inputs.force-certificates == 'true' }}
+      force-cognito-domain: ${{ github.event.inputs.force-cognito-domain == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -104,6 +116,8 @@ jobs:
       products-changed: ${{ steps.check.outputs.products-changed }}
       internal-api-changed: ${{ steps.check.outputs.internal-api-changed }}
       events-changed: ${{ steps.check.outputs.events-changed }}
+      certificates-changed: ${{ steps.check.outputs.certificates-changed }}
+      cognito-domain-changed: ${{ steps.check.outputs.cognito-domain-changed }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -162,6 +176,16 @@ jobs:
             EVENTS_CHANGED=true
           fi
 
+          CERTIFICATES_CHANGED=false
+          if echo "$FILES" | grep -qE "^backend/(lib/marketplace-certificates-stack|bin/marketplace-certificates)"; then
+            CERTIFICATES_CHANGED=true
+          fi
+
+          COGNITO_DOMAIN_CHANGED=false
+          if echo "$FILES" | grep -qE "^backend/(lib/marketplace-cognito-domain-stack|bin/marketplace-cognito-domain)"; then
+            COGNITO_DOMAIN_CHANGED=true
+          fi
+
           # Apply force flags
           if [ "${{ needs.detect-changes.outputs.force-infra }}" = "true" ]; then INFRA_CHANGED=true; fi
           if [ "${{ needs.detect-changes.outputs.force-networking }}" = "true" ]; then NETWORKING_CHANGED=true; fi
@@ -170,6 +194,8 @@ jobs:
           if [ "${{ needs.detect-changes.outputs.force-products }}" = "true" ]; then PRODUCTS_CHANGED=true; fi
           if [ "${{ needs.detect-changes.outputs.force-internal-api }}" = "true" ]; then INTERNAL_API_CHANGED=true; fi
           if [ "${{ needs.detect-changes.outputs.force-events }}" = "true" ]; then EVENTS_CHANGED=true; fi
+          if [ "${{ needs.detect-changes.outputs.force-certificates }}" = "true" ]; then CERTIFICATES_CHANGED=true; fi
+          if [ "${{ needs.detect-changes.outputs.force-cognito-domain }}" = "true" ]; then COGNITO_DOMAIN_CHANGED=true; fi
 
           # Set outputs
           echo "infra-changed=$INFRA_CHANGED" >> $GITHUB_OUTPUT
@@ -179,6 +205,8 @@ jobs:
           echo "products-changed=$PRODUCTS_CHANGED" >> $GITHUB_OUTPUT
           echo "internal-api-changed=$INTERNAL_API_CHANGED" >> $GITHUB_OUTPUT
           echo "events-changed=$EVENTS_CHANGED" >> $GITHUB_OUTPUT
+          echo "certificates-changed=$CERTIFICATES_CHANGED" >> $GITHUB_OUTPUT
+          echo "cognito-domain-changed=$COGNITO_DOMAIN_CHANGED" >> $GITHUB_OUTPUT
 
           echo "Stack changes detected:"
           echo "  Infrastructure: $INFRA_CHANGED"
@@ -217,31 +245,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Ensure Yarn is installed
-        run: corepack enable
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build shared packages
-        run: yarn workspace @marketplace/constants build
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Backend setup
+        uses: ./.github/actions/backend-setup
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-
-      - name: Set CDK environment variables
-        run: |
-          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
-          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
 
       - name: CDK Deploy Infrastructure
         working-directory: backend
@@ -252,8 +261,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect-changes, detect-stack-changes, deploy-infrastructure]
     if: |
-      always() &&
       needs.detect-changes.outputs.backend == 'true' &&
+      needs.detect-stack-changes.outputs.certificates-changed == 'true' &&
       (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
     env:
       ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
@@ -261,31 +270,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Ensure Yarn is installed
-        run: corepack enable
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build shared packages
-        run: yarn workspace @marketplace/constants build
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Backend setup
+        uses: ./.github/actions/backend-setup
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-
-      - name: Set CDK environment variables
-        run: |
-          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
-          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
 
       - name: CDK Deploy Certificates Stack
         working-directory: backend
@@ -325,31 +315,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Ensure Yarn is installed
-        run: corepack enable
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build shared packages
-        run: yarn workspace @marketplace/constants build
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Backend setup
+        uses: ./.github/actions/backend-setup
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-
-      - name: Set CDK environment variables
-        run: |
-          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
-          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
 
       - name: CDK Deploy Networking Stack
         working-directory: backend
@@ -369,31 +340,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Ensure Yarn is installed
-        run: corepack enable
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build shared packages
-        run: yarn workspace @marketplace/constants build
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Backend setup
+        uses: ./.github/actions/backend-setup
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-
-      - name: Set CDK environment variables
-        run: |
-          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
-          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
 
       - name: CDK Deploy API Resources Stack
         working-directory: backend
@@ -431,10 +383,10 @@ jobs:
   # Cognito custom domain stack (must run after Networking so parent A record exists)
   deploy-cognito-domain:
     runs-on: ubuntu-latest
-    needs: [detect-changes, deploy-networking]
+    needs: [detect-changes, detect-stack-changes, deploy-networking]
     if: |
-      always() &&
       needs.detect-changes.outputs.backend == 'true' &&
+      needs.detect-stack-changes.outputs.cognito-domain-changed == 'true' &&
       (needs.deploy-networking.result == 'success' || needs.deploy-networking.result == 'skipped')
     env:
       ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
@@ -442,31 +394,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Ensure Yarn is installed
-        run: corepack enable
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build shared packages
-        run: yarn workspace @marketplace/constants build
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Backend setup
+        uses: ./.github/actions/backend-setup
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-
-      - name: Set CDK environment variables
-        run: |
-          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
-          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
 
       - name: Wait for parent DNS A record
         env:
@@ -520,31 +453,12 @@ jobs:
           name: api-resources-mapping-${{ needs.detect-changes.outputs.env-name }}
           path: backend/lib/.cdk-outputs
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Ensure Yarn is installed
-        run: corepack enable
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build shared packages
-        run: yarn workspace @marketplace/constants build
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Backend setup
+        uses: ./.github/actions/backend-setup
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-
-      - name: Set CDK environment variables
-        run: |
-          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
-          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
 
       - name: CDK Deploy Internal API Stack
         working-directory: backend
@@ -575,31 +489,12 @@ jobs:
           name: api-resources-mapping-${{ needs.detect-changes.outputs.env-name }}
           path: backend/lib/.cdk-outputs
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Ensure Yarn is installed
-        run: corepack enable
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build shared packages
-        run: yarn workspace @marketplace/constants build
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Backend setup
+        uses: ./.github/actions/backend-setup
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-
-      - name: Set CDK environment variables
-        run: |
-          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
-          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
 
       - name: CDK Deploy Public Stack
         working-directory: backend
@@ -627,31 +522,12 @@ jobs:
           name: api-resources-mapping-${{ needs.detect-changes.outputs.env-name }}
           path: backend/lib/.cdk-outputs
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Ensure Yarn is installed
-        run: corepack enable
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build shared packages
-        run: yarn workspace @marketplace/constants build
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Backend setup
+        uses: ./.github/actions/backend-setup
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-
-      - name: Set CDK environment variables
-        run: |
-          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
-          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
 
       - name: CDK Deploy Payments Stack
         working-directory: backend
@@ -679,31 +555,12 @@ jobs:
           name: api-resources-mapping-${{ needs.detect-changes.outputs.env-name }}
           path: backend/lib/.cdk-outputs
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Ensure Yarn is installed
-        run: corepack enable
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build shared packages
-        run: yarn workspace @marketplace/constants build
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Backend setup
+        uses: ./.github/actions/backend-setup
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-
-      - name: Set CDK environment variables
-        run: |
-          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
-          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
 
       - name: CDK Deploy Products Stack
         working-directory: backend
@@ -732,32 +589,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Ensure Yarn is installed
-        run: corepack enable
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build shared packages
-        run: yarn workspace @marketplace/constants build
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Backend setup
+        uses: ./.github/actions/backend-setup
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-
-      - name: Set CDK environment variables
-        run: |
-          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
-          echo "CDK_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> $GITHUB_ENV
 
       - name: CDK Deploy Events Stack
         working-directory: backend
@@ -776,24 +613,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Backend setup
+        uses: ./.github/actions/backend-setup
         with:
-          node-version: '22'
-
-      - name: Ensure Yarn is installed
-        run: corepack enable
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-region: ${{ env.AWS_REGION }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          mask-aws-account-id: 'no'
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Get stack outputs
         id: cfn-outputs

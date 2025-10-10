@@ -1,0 +1,50 @@
+name: Backend Setup
+description: Common setup for backend jobs (Node, Yarn, deps, AWS creds, CDK env)
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Ensure Yarn is installed
+      shell: bash
+      run: corepack enable
+
+    - name: Install dependencies
+      shell: bash
+      run: yarn install --immutable
+
+    - name: Build shared packages
+      shell: bash
+      run: yarn workspace @marketplace/constants build
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ inputs.aws-access-key-id }}
+        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Set CDK environment variables
+      shell: bash
+      run: |
+        echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
+        echo "CDK_DEFAULT_REGION=${{ inputs.aws-region }}" >> $GITHUB_ENV
+
+inputs:
+  node-version:
+    description: Node.js version
+    default: '22'
+    required: false
+  aws-access-key-id:
+    description: AWS access key id
+    required: true
+  aws-secret-access-key:
+    description: AWS secret access key
+    required: true
+  aws-region:
+    description: AWS region
+    required: true
+
