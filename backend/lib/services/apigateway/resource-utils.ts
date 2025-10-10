@@ -43,15 +43,22 @@ export function getOrCreateApiResource(
 
     // If we have a mapping file, import the resource
     if (resourceMapping && resourceMapping.resources[builtPath]) {
-      current = apiGW.Resource.fromResourceAttributes(
-        scope,
-        `ApiResourceImport-${builtPath.replace(/[^a-zA-Z0-9]/g, '-')}`,
-        {
-          restApi: api,
-          path: `/${builtPath}`,
-          resourceId: resourceMapping.resources[builtPath]
-        }
-      )
+      const importId = `ApiResourceImport-${builtPath.replace(/[^a-zA-Z0-9]/g, '-')}`
+      // Reuse previously imported construct if present to avoid duplicate IDs
+      const existing = scope.node.tryFindChild(importId) as unknown as apiGW.IResource | undefined
+      if (existing) {
+        current = existing
+      } else {
+        current = apiGW.Resource.fromResourceAttributes(
+          scope,
+          importId,
+          {
+            restApi: api,
+            path: `/${builtPath}`,
+            resourceId: resourceMapping.resources[builtPath]
+          }
+        )
+      }
     } else {
       // Fallback: check if resource already exists in this stack
       const maybeExisting = current.getResource(seg)
