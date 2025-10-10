@@ -40,11 +40,12 @@ export class MarketplaceApiResourcesStack extends cdk.Stack {
     const envName = props?.envName ?? 'dev'
 
     // Import API Gateway from SSM (exported by MarketplaceNetworkingStack)
-    const restApiId = ssm.StringParameter.valueFromLookup(
+    // Use valueForStringParameter for runtime lookup (not cached)
+    const restApiId = ssm.StringParameter.valueForStringParameter(
       this,
       `/marketplace/${envName}/api-gateway/rest-api-id`
     )
-    const rootResourceId = ssm.StringParameter.valueFromLookup(
+    const rootResourceId = ssm.StringParameter.valueForStringParameter(
       this,
       `/marketplace/${envName}/api-gateway/root-resource-id`
     )
