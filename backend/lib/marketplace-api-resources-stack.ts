@@ -189,7 +189,9 @@ export class MarketplaceApiResourcesStack extends cdk.Stack {
     createResourcesRecursive(rootNode, api.root)
 
     // Write resource mapping to file for domain stacks to read
-    const outputPath = path.join(__dirname, '..', '.cdk-outputs', `api-resources-${envName}.json`)
+    // Write next to compiled sources so domain stacks can find it
+    // resource-utils.ts looks under backend/lib/.cdk-outputs
+    const outputPath = path.join(__dirname, '.cdk-outputs', `api-resources-${envName}.json`)
     const outputDir = path.dirname(outputPath)
 
     // Create output directory if it doesn't exist

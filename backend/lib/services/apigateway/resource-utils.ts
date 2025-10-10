@@ -22,15 +22,19 @@ export function getOrCreateApiResource(
   let builtPath = ''
 
   // Try to load resource mapping from file
+  // Primary: backend/lib/.cdk-outputs
   const mappingPath = path.join(__dirname, '..', '..', '.cdk-outputs', `api-resources-${envName}.json`)
+  // Fallback: backend/.cdk-outputs (older location)
+  const altMappingPath = path.join(__dirname, '..', '..', '..', '.cdk-outputs', `api-resources-${envName}.json`)
   let resourceMapping: ApiResourceMapping | null = null
 
-  if (fs.existsSync(mappingPath)) {
+  const pathToUse = fs.existsSync(mappingPath) ? mappingPath : (fs.existsSync(altMappingPath) ? altMappingPath : null)
+  if (pathToUse) {
     try {
-      const content = fs.readFileSync(mappingPath, 'utf-8')
+      const content = fs.readFileSync(pathToUse, 'utf-8')
       resourceMapping = JSON.parse(content)
     } catch (error) {
-      console.warn(`Failed to read API resource mapping from ${mappingPath}:`, error)
+      console.warn(`Failed to read API resource mapping from ${pathToUse}:`, error)
     }
   }
 
@@ -66,4 +70,3 @@ export function getOrCreateApiResource(
 
   return current
 }
-
