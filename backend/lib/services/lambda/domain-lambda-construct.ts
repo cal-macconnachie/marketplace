@@ -96,7 +96,9 @@ export class DomainLambdaConstruct extends Construct {
           beforeInstall: () => [],
           afterBundling: (inputDir: string, outputDir: string): string[] => {
             const copyCommands = def.bundleTemplate!.map(file => {
-              const src = path.join(inputDir, 'lib/services/lambda/templates', file)
+              // In Docker, inputDir is /asset-input which is the repo root
+              // Template files are at backend/lib/services/lambda/templates/
+              const src = path.join(inputDir, 'backend/lib/services/lambda/templates', file)
               const dest = path.join(outputDir, file)
               return `cp "${src}" "${dest}"`
             })
