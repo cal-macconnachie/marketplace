@@ -2,7 +2,6 @@ import * as cdk from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import * as ssm from 'aws-cdk-lib/aws-ssm'
 import * as apiGW from 'aws-cdk-lib/aws-apigateway'
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
 import { DomainLambdaConstruct } from './services/lambda/domain-lambda-construct'
 import { productsEndpoints } from './services/lambda/endpoint-definitions'
 
@@ -56,18 +55,7 @@ export class MarketplaceProductsStack extends cdk.Stack {
       }
     )
 
-    // Import DynamoDB tables
-    const tableNames = {
-      products: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/products`),
-      promos: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/promos`),
-      organizations: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/organizations`)
-    }
-
-    const tables = {
-      products: dynamodb.Table.fromTableName(this, 'ProductsTable', tableNames.products),
-      promos: dynamodb.Table.fromTableName(this, 'PromosTable', tableNames.promos),
-      organizations: dynamodb.Table.fromTableName(this, 'OrganizationsTable', tableNames.organizations)
-    }
+    // No table imports needed; domain construct grants access to all tables by default
 
     const envVars = {
       'ENV_NAME': envName,
@@ -79,8 +67,7 @@ export class MarketplaceProductsStack extends cdk.Stack {
       envVars,
       endpointDefinitions: productsEndpoints,
       api,
-      cognitoAuthorizer,
-      tables
+      cognitoAuthorizer
     })
 
     new cdk.CfnOutput(this, 'ProductsLambdasDeployed', {

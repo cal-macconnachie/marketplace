@@ -3,6 +3,8 @@
  * Used by CDK stacks to define and create Lambda functions with API Gateway integration
  */
 
+import { TableName } from './dynamodb'
+
 export interface LambdaEndpointDefinition {
   name: string
   handler: string
@@ -36,7 +38,7 @@ export interface LambdaEndpointDefinition {
    * If set, this Lambda will be triggered by the specified DynamoDB table stream (event source mapping).
    */
   dynamoStreamEvent?: {
-    tableName: string
+    tableName: TableName
     batchSize?: number
     enabled?: boolean
   }

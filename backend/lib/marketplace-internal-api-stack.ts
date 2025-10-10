@@ -2,7 +2,6 @@ import * as cdk from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import * as ssm from 'aws-cdk-lib/aws-ssm'
 import * as apiGW from 'aws-cdk-lib/aws-apigateway'
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
 import { DomainLambdaConstruct } from './services/lambda/domain-lambda-construct'
 import { internalApiEndpoints } from './services/lambda/endpoint-definitions'
 
@@ -62,20 +61,7 @@ export class MarketplaceInternalApiStack extends cdk.Stack {
       }
     )
 
-    // Import DynamoDB tables
-    const tableNames = {
-      users: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/users`),
-      organizations: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/organizations`),
-      products: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/products`),
-      'purchased-products': ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/purchased-products`)
-    }
-
-    const tables = {
-      users: dynamodb.Table.fromTableName(this, 'UsersTable', tableNames.users),
-      organizations: dynamodb.Table.fromTableName(this, 'OrganizationsTable', tableNames.organizations),
-      products: dynamodb.Table.fromTableName(this, 'ProductsTable', tableNames.products),
-      'purchased-products': dynamodb.Table.fromTableName(this, 'PurchasedProductsTable', tableNames['purchased-products'])
-    }
+    // No table imports needed; domain construct grants access to all tables by default
 
     const envVars = {
       'ENV_NAME': envName,
@@ -91,9 +77,8 @@ export class MarketplaceInternalApiStack extends cdk.Stack {
       envVars,
       endpointDefinitions: internalApiEndpoints,
       api,
-      cognitoAuthorizer,
+      cognitoAuthorizer
       // The organizations resource was explicitly created above; Domain construct will find it in this stack
-      tables
     })
 
     new cdk.CfnOutput(this, 'InternalApiLambdasDeployed', {

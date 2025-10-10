@@ -1,8 +1,7 @@
 import * as cdk from 'aws-cdk-lib'
-import { Construct } from 'constructs'
-import * as ssm from 'aws-cdk-lib/aws-ssm'
 import * as apiGW from 'aws-cdk-lib/aws-apigateway'
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
+import * as ssm from 'aws-cdk-lib/aws-ssm'
+import { Construct } from 'constructs'
 import { DomainLambdaConstruct } from './services/lambda/domain-lambda-construct'
 import { publicEndpoints } from './services/lambda/endpoint-definitions'
 
@@ -54,24 +53,6 @@ export class MarketplacePublicStack extends cdk.Stack {
       `/marketplace/${envName}/cognito/user-pool-client-id`
     )
 
-    // Import DynamoDB table names from SSM
-    const tableNames = {
-      users: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/users`),
-      organizations: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/organizations`),
-      products: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/products`),
-      purchases: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/purchases`),
-      'payment-methods': ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/payment-methods`)
-    }
-
-    // Import DynamoDB tables
-    const tables = {
-      users: dynamodb.Table.fromTableName(this, 'UsersTable', tableNames.users),
-      organizations: dynamodb.Table.fromTableName(this, 'OrganizationsTable', tableNames.organizations),
-      products: dynamodb.Table.fromTableName(this, 'ProductsTable', tableNames.products),
-      purchases: dynamodb.Table.fromTableName(this, 'PurchasesTable', tableNames.purchases),
-      'payment-methods': dynamodb.Table.fromTableName(this, 'PaymentMethodsTable', tableNames['payment-methods'])
-    }
-
     // Environment variables for Lambda functions
     const envVars = {
       'ENV_NAME': envName,
@@ -88,9 +69,8 @@ export class MarketplacePublicStack extends cdk.Stack {
       envName,
       envVars,
       endpointDefinitions: publicEndpoints,
-      api,
+      api
       // No Cognito authorizer passed; all public endpoints are unauthenticated
-      tables
     })
 
     // Output

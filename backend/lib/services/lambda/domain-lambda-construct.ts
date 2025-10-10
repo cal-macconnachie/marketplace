@@ -4,7 +4,6 @@ import {
   aws_apigateway as apiGW,
   aws_iam,
   Duration,
-  aws_dynamodb as dynamodb,
   aws_lambda_event_sources as lambdaEventSources,
   aws_sqs as sqs
 } from 'aws-cdk-lib'
@@ -28,8 +27,6 @@ export interface DomainLambdaConstructProps {
   // Optional API Gateway resources (not needed for event-driven stacks)
   api?: apiGW.IRestApi
   cognitoAuthorizer?: apiGW.CognitoUserPoolsAuthorizer
-  // Optional resources
-  tables?: Record<string, dynamodb.ITable>
   queues?: Record<string, { queue: sqs.IQueue; queueName: string; queueArn: string }>
 }
 
@@ -45,7 +42,7 @@ export class DomainLambdaConstruct extends Construct {
   constructor(scope: Construct, id: string, props: DomainLambdaConstructProps) {
     super(scope, id)
     const {
-      envVars, envName, endpointDefinitions, api, cognitoAuthorizer, tables, queues 
+      envVars, envName, endpointDefinitions, api, cognitoAuthorizer, queues 
     } = props
 
     for (const def of endpointDefinitions) {
@@ -240,21 +237,7 @@ export class DomainLambdaConstruct extends Construct {
         }
       }
 
-      // Attach DynamoDB stream event source
-      if (def.dynamoStreamEvent && tables) {
-        const {
-          tableName, batchSize, enabled 
-        } = def.dynamoStreamEvent
-        const table = tables[tableName]
-        if (table) {
-          const eventSource = new lambdaEventSources.DynamoEventSource(table, {
-            startingPosition: cdk.aws_lambda.StartingPosition.LATEST,
-            batchSize: batchSize ?? 100,
-            enabled: enabled ?? true
-          })
-          fn.addEventSource(eventSource)
-        }
-      }
+      // DynamoDB stream event sources are attached by the Events stack via a dedicated helper.
 
       // Attach EventBridge event source
       if (def.eventBridgeEvent) {

@@ -82,18 +82,8 @@ export class MarketplaceInfrastructureStack extends cdk.Stack {
       description: `Cognito User Pool Client ID for ${envName}`
     })
 
-    // Export table names and stream ARNs
-    Object.entries(ddbTables.tables).forEach(([
-      name,
-      table
-    ]) => {
-      new ssm.StringParameter(this, `TableName-${name}`, {
-        parameterName: `/marketplace/${envName}/dynamodb/${name}`,
-        stringValue: table.tableName,
-        description: `DynamoDB table name for ${name} in ${envName}`
-      })
-
-      // Export stream ARN if the table has streams enabled
+    // Export only stream ARNs (table names follow a stable convention: <name>-<env>)
+    Object.entries(ddbTables.tables).forEach(([name, table]) => {
       if (table.tableStreamArn) {
         new ssm.StringParameter(this, `TableStreamArn-${name}`, {
           parameterName: `/marketplace/${envName}/dynamodb/${name}-stream-arn`,
