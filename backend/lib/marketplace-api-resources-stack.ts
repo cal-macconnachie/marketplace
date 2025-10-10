@@ -188,33 +188,27 @@ export class MarketplaceApiResourcesStack extends cdk.Stack {
 
     createResourcesRecursive(rootNode, api.root)
 
-    // Write resource mapping to file for domain stacks to read
-    // Write next to compiled sources so domain stacks can find it
-    // resource-utils.ts looks under backend/lib/.cdk-outputs
+    // Note: Do NOT write resource IDs here — they are Tokens during synth.
+    // The CI workflow generates a concrete mapping after deploy by querying API Gateway.
     const outputPath = path.join(__dirname, '.cdk-outputs', `api-resources-${envName}.json`)
     const outputDir = path.dirname(outputPath)
-
-    // Create output directory if it doesn't exist
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true })
     }
-
-    // Write mapping file
     fs.writeFileSync(
       outputPath,
       JSON.stringify(
         {
           restApiId,
           rootResourceId,
-          resources: resourceMapping,
+          resources: {},
+          note: 'Mapping populated by CI after deploy',
           timestamp: new Date().toISOString()
         },
         null,
         2
       )
     )
-
-    console.log(`✅ API Resource mapping written to: ${outputPath}`)
 
     // ========================================
     // OUTPUTS

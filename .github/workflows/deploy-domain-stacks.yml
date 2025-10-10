@@ -399,6 +399,26 @@ jobs:
         working-directory: backend
         run: yarn cdk deploy MarketplaceApiResources-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-api-resources.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }}
 
+      - name: Generate API resource mapping from API Gateway
+        run: |
+          set -euo pipefail
+          ENV_NAME="${{ needs.detect-changes.outputs.env-name }}"
+          REST_API_ID=$(aws ssm get-parameter --name "/marketplace/${ENV_NAME}/api-gateway/rest-api-id" --query "Parameter.Value" --output text)
+          ROOT_RESOURCE_ID=$(aws ssm get-parameter --name "/marketplace/${ENV_NAME}/api-gateway/root-resource-id" --query "Parameter.Value" --output text)
+          echo "Using REST_API_ID=$REST_API_ID ROOT_RESOURCE_ID=$ROOT_RESOURCE_ID"
+          # Fetch resources
+          aws apigateway get-resources --rest-api-id "$REST_API_ID" --limit 500 > resources.json
+          # Build path->id map (strip leading /, skip root)
+          jq -r '.items[] | [.path, .id] | @tsv' resources.json | awk 'BEGIN{print "{"} {path=$1; sub(/^\//, "", path); if(path=="") next; if(n++) printf ","; printf "\"" path "\":\"" $2 "\""} END{print "}"}' > mapping.json
+          mkdir -p backend/lib/.cdk-outputs
+          # Compose final JSON via jq to avoid heredoc indentation issues
+          jq -n \
+            --arg rest "$REST_API_ID" \
+            --arg root "$ROOT_RESOURCE_ID" \
+            --slurpfile map mapping.json \
+            '{restApiId:$rest, rootResourceId:$root, resources:$map[0], generatedBy:"deploy-domain-stacks.yml", timestamp:(now|toiso8601)}' \
+            > backend/lib/.cdk-outputs/api-resources-${ENV_NAME}.json
+
       - name: Upload API resource mapping
         uses: actions/upload-artifact@v4
         with:
