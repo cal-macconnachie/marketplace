@@ -442,9 +442,6 @@ jobs:
         working-directory: backend
         run: yarn cdk deploy MarketplaceInternalApi-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-internal-api.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-internal-api == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
 
-      - name: CDK Redeploy API Stage
-        working-directory: backend
-        run: yarn cdk deploy MarketplaceApiDeployment-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-api-deployment.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} -c forceRedeploy=${{ github.run_number }}
 
   deploy-public:
     runs-on: ubuntu-latest
@@ -482,9 +479,6 @@ jobs:
         working-directory: backend
         run: yarn cdk deploy MarketplacePublic-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-public.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-public == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
 
-      - name: CDK Redeploy API Stage
-        working-directory: backend
-        run: yarn cdk deploy MarketplaceApiDeployment-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-api-deployment.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} -c forceRedeploy=${{ github.run_number }}
 
   deploy-payments:
     runs-on: ubuntu-latest
@@ -519,9 +513,6 @@ jobs:
         working-directory: backend
         run: yarn cdk deploy MarketplacePayments-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-payments.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-payments == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
 
-      - name: CDK Redeploy API Stage
-        working-directory: backend
-        run: yarn cdk deploy MarketplaceApiDeployment-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-api-deployment.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} -c forceRedeploy=${{ github.run_number }}
 
   deploy-products:
     runs-on: ubuntu-latest
@@ -556,9 +547,6 @@ jobs:
         working-directory: backend
         run: yarn cdk deploy MarketplaceProducts-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-products.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-products == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
 
-      - name: CDK Redeploy API Stage
-        working-directory: backend
-        run: yarn cdk deploy MarketplaceApiDeployment-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-api-deployment.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} -c forceRedeploy=${{ github.run_number }}
 
   # Events stack can run independently (only depends on infrastructure)
   deploy-events:
@@ -593,6 +581,34 @@ jobs:
       - name: CDK Deploy Events Stack
         working-directory: backend
         run: yarn cdk deploy MarketplaceEvents-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-events.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-events == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
+
+  # Single API stage redeploy after all domain jobs (runs even if earlier jobs were skipped)
+  deploy-api-stage:
+    runs-on: ubuntu-latest
+    needs:
+      [
+        detect-changes,
+        deploy-api-resources,
+        deploy-internal-api,
+        deploy-public,
+        deploy-payments,
+        deploy-products
+      ]
+    if: ${{ needs.detect-changes.outputs.backend == 'true' && always() }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Backend setup
+        uses: ./.github/actions/backend-setup
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: CDK Deploy API Stage Redeploy
+        working-directory: backend
+        run: yarn cdk deploy MarketplaceApiDeployment-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-api-deployment.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} -c forceRedeploy=${{ github.run_number }}
 
   # (Removed) separate API stage job; redeploy happens at end of each domain job
 
