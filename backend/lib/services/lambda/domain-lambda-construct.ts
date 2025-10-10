@@ -10,6 +10,8 @@ import {
 } from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import * as path from 'node:path'
+import { getOrCreateApiResource } from '../apigateway/resource-utils'
+import { ddbTableDefinitions } from '../dynamodb/ddb-table-definitions'
 import { createNativeBundlingConfig } from './bundling-configs'
 import {
   addApiResourcePublic,
@@ -18,7 +20,6 @@ import {
   createDefaultNodejsFunction,
   createNodejsFunctionWithNativeDeps
 } from './lambda-defaults'
-import { getOrCreateApiResource } from '../apigateway/resource-utils'
 
 export interface DomainLambdaConstructProps {
   envName: string
@@ -136,6 +137,39 @@ export class DomainLambdaConstruct extends Construct {
 
       this.lambdas[def.name] = fn
 
+      // Grant DynamoDB access to ALL tables defined in ddb-table-definitions by default
+      // This removes the need to thread table objects through every stack.
+      try {
+        const stack = cdk.Stack.of(this)
+        const allTableArns: string[] = []
+        for (const t of ddbTableDefinitions) {
+          const tableName = `${t.tableName}-${envName}`
+          const tableArn = stack.formatArn({
+            service: 'dynamodb', resource: 'table', resourceName: tableName 
+          })
+          allTableArns.push(tableArn)
+          allTableArns.push(`${tableArn}/index/*`)
+        }
+        fn.addToRolePolicy(
+          new aws_iam.PolicyStatement({
+            actions: [
+              'dynamodb:GetItem',
+              'dynamodb:PutItem',
+              'dynamodb:UpdateItem',
+              'dynamodb:DeleteItem',
+              'dynamodb:Query',
+              'dynamodb:Scan',
+              'dynamodb:BatchGetItem',
+              'dynamodb:BatchWriteItem',
+              'dynamodb:DescribeTable'
+            ],
+            resources: allTableArns
+          })
+        )
+      } catch (e) {
+        console.warn('Warning: failed to attach default DynamoDB permissions for all tables', e)
+      }
+
       // Create function URL for image processor for CloudFront integration
       if (def.name === 'processImage') {
         const functionUrl = fn.addFunctionUrl({
@@ -158,34 +192,6 @@ export class DomainLambdaConstruct extends Construct {
               resources: policy.resources
             })
           )
-        }
-      }
-
-      // Grant DynamoDB table access
-      if (tables) {
-        for (const tableName of Object.keys(tables)) {
-          const table = tables[tableName]
-          if (table) {
-            fn.addToRolePolicy(
-              new aws_iam.PolicyStatement({
-                actions: [
-                  'dynamodb:GetItem',
-                  'dynamodb:PutItem',
-                  'dynamodb:UpdateItem',
-                  'dynamodb:DeleteItem',
-                  'dynamodb:Query',
-                  'dynamodb:Scan',
-                  'dynamodb:BatchGetItem',
-                  'dynamodb:BatchWriteItem',
-                  'dynamodb:DescribeTable'
-                ],
-                resources: [
-                  table.tableArn,
-                  `${table.tableArn}/index/*`
-                ]
-              })
-            )
-          }
         }
       }
 

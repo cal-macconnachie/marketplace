@@ -69,7 +69,8 @@ export class MarketplacePaymentsStack extends cdk.Stack {
       products: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/products`),
       purchases: ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/purchases`),
       'purchased-products': ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/purchased-products`),
-      'payment-methods': ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/payment-methods`)
+      'payment-methods': ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/payment-methods`),
+      'purchase-carts': ssm.StringParameter.valueFromLookup(this, `/marketplace/${envName}/dynamodb/purchase-carts`)
     }
 
     const tables = {
@@ -78,7 +79,8 @@ export class MarketplacePaymentsStack extends cdk.Stack {
       products: dynamodb.Table.fromTableName(this, 'ProductsTable', tableNames.products),
       purchases: dynamodb.Table.fromTableName(this, 'PurchasesTable', tableNames.purchases),
       'purchased-products': dynamodb.Table.fromTableName(this, 'PurchasedProductsTable', tableNames['purchased-products']),
-      'payment-methods': dynamodb.Table.fromTableName(this, 'PaymentMethodsTable', tableNames['payment-methods'])
+      'payment-methods': dynamodb.Table.fromTableName(this, 'PaymentMethodsTable', tableNames['payment-methods']),
+      'purchase-carts': dynamodb.Table.fromTableName(this, 'PurchaseCartsTable', tableNames['purchase-carts'])
     }
 
     const envVars = {
