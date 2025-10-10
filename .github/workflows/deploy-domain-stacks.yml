@@ -20,32 +20,32 @@ on:
         type: boolean
         default: false
       force-networking:
-        description: 'Networking stack (API Gateway + CloudFront)'
+        description: 'Networking'
         required: false
         type: boolean
         default: false
       force-public:
-        description: 'public Lambda stack'
+        description: 'public Lambdas'
         required: false
         type: boolean
         default: false
       force-payments:
-        description: 'payments Lambda stack'
+        description: 'payments Lambdas'
         required: false
         type: boolean
         default: false
       force-products:
-        description: 'products Lambda stack'
+        description: 'products Lambdas'
         required: false
         type: boolean
         default: false
       force-internal-api:
-        description: 'internal API Lambda stack'
+        description: 'internal API Lambdas'
         required: false
         type: boolean
         default: false
       force-events:
-        description: 'events Lambda stack'
+        description: 'events Lambdas'
         required: false
         type: boolean
         default: false
@@ -55,12 +55,12 @@ on:
         type: boolean
         default: false
       force-certificates:
-        description: 'Certificates stack'
+        description: 'Certificates'
         required: false
         type: boolean
         default: false
       force-cognito-domain:
-        description: 'Cognito Domain stack'
+        description: 'Cognito Domain'
         required: false
         type: boolean
         default: false
@@ -603,7 +603,16 @@ jobs:
   # After domain stacks add/modify methods, redeploy the API stage to make them live.
   deploy-api-stage:
     runs-on: ubuntu-latest
-    needs: [detect-changes, detect-stack-changes, deploy-api-resources, deploy-internal-api, deploy-public, deploy-payments, deploy-products]
+    needs:
+      [
+        detect-changes,
+        detect-stack-changes,
+        deploy-api-resources,
+        deploy-internal-api,
+        deploy-public,
+        deploy-payments,
+        deploy-products
+      ]
     if: |
       needs.detect-changes.outputs.backend == 'true' && (
         needs.detect-stack-changes.outputs.internal-api-changed == 'true' ||
