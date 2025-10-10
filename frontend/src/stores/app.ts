@@ -6,7 +6,7 @@ import {
   apiClient
 } from '@/services/api'
 import { dedupedConcatInPlace } from '@/utils/dedupedConcatInPlace'
-import type { AuthResponse, CreatePaymentMethodRequest, LoginRequest, Organization, PaymentMethod, Product, Purchase, PurchasedProduct, RegisterRequest, TaxCalculationRequest, TaxCalculationResult, User } from '@marketplace/types'
+import type { AuthResponse, CreatePaymentMethodRequest, LoginRequest, Notification, Organization, PaymentMethod, Product, Purchase, PurchasedProduct, RegisterRequest, TaxCalculationRequest, TaxCalculationResult, User } from '@marketplace/types'
 interface ProductFormData {
   key?: {
     group_id: string
@@ -54,6 +54,10 @@ export const useAppStore = defineStore('app', {
     purchasedProductsLoading: false,
     taxCalculation: null as TaxCalculationResult | null,
     taxLoading: false,
+    notifications: [] as Array<Notification>,
+    notificationsLastKey: undefined as Record<string, unknown> | undefined,
+    notificationsLoading: false,
+    unreadNotificationCount: 0,
     productFormData: {
       type: '',
       name: '',
@@ -337,6 +341,9 @@ export const useAppStore = defineStore('app', {
       // Clear tax calculation
       this.taxCalculation = null
       this.taxLoading = false
+
+      // Clear notifications
+      this.clearNotifications()
 
       // Clear product form data
       this.clearProductFormData()
@@ -767,6 +774,111 @@ export const useAppStore = defineStore('app', {
       } finally {
         this.purchasedProductsLoading = false
       }
+    },
+
+    async fetchNotifications(params?: {
+      unreadOnly?: boolean
+      type?: string
+      limit?: number
+      loadMore?: boolean
+    }) {
+      try {
+        this.notificationsLoading = true
+        const response = await authAPI.getNotifications({
+          unreadOnly: params?.unreadOnly,
+          type: params?.type,
+          limit: params?.limit || 50,
+          exclusiveStartKey: params?.loadMore ? this.notificationsLastKey : undefined,
+        })
+
+        if ('notifications' in response) {
+          if (params?.loadMore) {
+            // Append to existing notifications
+            this.notifications = dedupedConcatInPlace({
+              old: this.notifications,
+              next: response.notifications,
+            }).sort((a, b) => b.created_at - a.created_at)
+          } else {
+            // Replace notifications
+            this.notifications = response.notifications
+          }
+          this.notificationsLastKey = response.lastEvaluatedKey
+        }
+
+        return { success: true, data: this.notifications }
+      } catch (error: unknown) {
+        console.error('Failed to fetch notifications:', error)
+        const errorMessage =
+          (error as { response?: { data?: { message?: string } } }).response?.data?.message ||
+          'Failed to fetch notifications'
+        return { success: false, error: errorMessage }
+      } finally {
+        this.notificationsLoading = false
+      }
+    },
+
+    async fetchUnreadNotificationCount() {
+      try {
+        const response = await authAPI.getNotifications({ countOnly: true })
+        if ('count' in response) {
+          this.unreadNotificationCount = response.count
+        }
+        return { success: true, count: this.unreadNotificationCount }
+      } catch (error: unknown) {
+        console.error('Failed to fetch unread notification count:', error)
+        const errorMessage =
+          (error as { response?: { data?: { message?: string } } }).response?.data?.message ||
+          'Failed to fetch unread notification count'
+        return { success: false, error: errorMessage }
+      }
+    },
+
+    async markNotificationAsRead(notificationId: string) {
+      try {
+        await authAPI.markNotificationAsRead(notificationId)
+
+        // Update local state
+        const notification = this.notifications.find((n) => n.id === notificationId)
+        if (notification) {
+          notification.read = true
+          // Update unread count
+          this.unreadNotificationCount = Math.max(0, this.unreadNotificationCount - 1)
+        }
+
+        return { success: true }
+      } catch (error: unknown) {
+        console.error('Failed to mark notification as read:', error)
+        const errorMessage =
+          (error as { response?: { data?: { message?: string } } }).response?.data?.message ||
+          'Failed to mark notification as read'
+        return { success: false, error: errorMessage }
+      }
+    },
+
+    async markAllNotificationsAsRead() {
+      try {
+        await authAPI.markAllNotificationsAsRead()
+
+        // Update local state
+        this.notifications.forEach((notification) => {
+          notification.read = true
+        })
+        this.unreadNotificationCount = 0
+
+        return { success: true }
+      } catch (error: unknown) {
+        console.error('Failed to mark all notifications as read:', error)
+        const errorMessage =
+          (error as { response?: { data?: { message?: string } } }).response?.data?.message ||
+          'Failed to mark all notifications as read'
+        return { success: false, error: errorMessage }
+      }
+    },
+
+    clearNotifications() {
+      this.notifications = []
+      this.notificationsLastKey = undefined
+      this.unreadNotificationCount = 0
     },
   },
 })

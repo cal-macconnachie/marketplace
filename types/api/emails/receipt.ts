@@ -42,6 +42,7 @@ export interface ReceiptEmailContext {
 
   customer_name: string
   customer_email: string
+  customer_phone?: string
 
   payment_method_brand?: string
   payment_method_last4?: string
@@ -81,5 +82,6 @@ export interface ReceiptEmailContext {
     support_url?: string
     statement_descriptor?: string
   }>
-  opt_out?: boolean // If true, user has opted out of receipt emails
+  receipt_url: string
+  customer_ip_address?: string
 }

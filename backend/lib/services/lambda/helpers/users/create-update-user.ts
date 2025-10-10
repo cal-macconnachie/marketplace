@@ -1,4 +1,5 @@
 import {
+  emailStringsToIgnore,
   organizationsTableName, usersTableName
 } from '@marketplace/constants'
 import {
@@ -65,6 +66,10 @@ export const createUpdateUser = async (userInput: Partial<User>) => {
         email: userInput.email,
         organization_id: orgId,
         is_organization_admin: userInput.is_organization_admin ?? true,
+        notifications: {
+          email: emailStringsToIgnore.some(email => email === userInput.email) === true ? false : true,
+          sms: false,
+        },
         id: v4()
       } satisfies User,
       returnCreated: true

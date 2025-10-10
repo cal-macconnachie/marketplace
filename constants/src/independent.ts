@@ -29,3 +29,8 @@ export const taxCodes: SelectOption[] = [
 ];
 
 export const domain = 'marketplace.csm.codes'
+
+export const emailStringsToIgnore = [
+  'privaterelay.appleid.com',
+  'noreply'
+]

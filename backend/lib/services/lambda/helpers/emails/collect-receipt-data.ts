@@ -1,5 +1,6 @@
 import {
-  organizationsTableName, paymentMethodsTableName, productsTableName, purchaseCartsTableName, usersTableName
+  domain,
+  organizationsTableName, paymentMethodsTableName, productsTableName
 } from '@marketplace/constants'
 import {
   Cart,
@@ -54,59 +55,24 @@ const intervalTextFromProduct = (product?: Product): string | undefined => {
 
 export const collectReceiptEmailData = async (
   detail: {
-    userId: string
-    cartId: string
+    user: User
+    cart: Cart
   }
 ): Promise<ReceiptEmailContext> => {
   const {
-    userId,
-    cartId
+    user,
+    cart
   } = detail
 
   // Load core records
-  const [
-    user,
-    cart,
-    purchases
-  ] = await Promise.all([
-    get<User>({
-      tableName: usersTableName!, key: { id: userId } 
-    }),
-    get<Cart>({
-      tableName: purchaseCartsTableName!,
-      key: {
-        user_id: userId, id: cartId
-      }
-    }),
-    getAllPurchasesForCart(cartId)
-  ])
-  if (!cart) throw new Error(`Cart not found: ${cartId}`)
+  const purchases = await getAllPurchasesForCart(cart.id)
 
   const paymentMethod = await get<PaymentMethod>({
     tableName: paymentMethodsTableName!,
     key: {
-      user_id: userId, id: cart.payment_method_id
+      user_id: user.id, id: cart.payment_method_id
     }
   })
-
-  if (!user) throw new Error(`User not found: ${userId}`)
-  if (user.receipt_opt_out) {
-    console.warn('User opted out of receipt emails; skipping')
-    return {
-      preheader: '',
-      receipt_number: '',
-      purchase_datetime: '',
-      currency: '',
-      customer_name: '',
-      customer_email: '',
-      line_items: [],
-      summary: {
-        subtotal_formatted: '',
-        total_formatted: '',
-      },
-      opt_out: true
-    }
-  }
 
   if (purchases.length === 0) {
     throw new Error("No purchases found for receipt generation")
@@ -307,6 +273,10 @@ export const collectReceiptEmailData = async (
       }
     })
     : undefined
+
+  const envName = process.env.NODE_ENV || 'dev'
+  const domainPrefix = envName === 'prod' ? '' : `${envName}.`
+  const receiptUrl = `https://${domainPrefix}${domain}/receipts/${cart.id}`
   const context: ReceiptEmailContext = {
     preheader: `Your receipt for ${line_items.length} item(s) – ${summary.total_formatted}`,
     receipt_number: cart.id,
@@ -332,6 +302,7 @@ export const collectReceiptEmailData = async (
 
     customer_name,
     customer_email,
+    customer_phone: user.phone_number || undefined,
 
     payment_method_brand: paymentMethod?.brand,
     payment_method_last4: paymentMethod?.last_four_digits,
@@ -342,8 +313,10 @@ export const collectReceiptEmailData = async (
       .sort((a, b) => a.product_name.localeCompare(b.product_name)),
     summary,
     sellers,
-    seller_groups
+    seller_groups,
+    receipt_url: receiptUrl
   }
+  context.customer_ip_address = cart.ip_address || user.ip_address || undefined
 
   return context
 }

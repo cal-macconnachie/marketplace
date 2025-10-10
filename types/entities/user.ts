@@ -38,5 +38,11 @@ export interface User {
 
   // Admin
   is_internal_admin?: boolean
-  receipt_opt_out?: boolean
+  notifications?: {
+    email: boolean
+    sms: boolean
+  }
+  notification_opt_out?: {
+    [key: string]: boolean
+  }
 }

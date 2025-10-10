@@ -2,14 +2,14 @@ import {
   InvokeCommand, LambdaClient
 } from '@aws-sdk/client-lambda'
 import { fromTemporaryCredentials } from '@aws-sdk/credential-providers'
-import type { SendEmailParams } from '@marketplace/types'
+import { SendSMSParams } from '@marketplace/types/internal/sms'
 /*
-Use this function to wire up your email sending logic.
+Use this function to wire up your SMS sending logic.
 
 I'm using a lambda set up in a different aws account since i already had that system built out and production approved
 */
 // Read static config once at module load for Lambda container reuse
-const targetArn = process.env.EMAIL_LAMBDA_ARN
+const targetArn = process.env.SMS_LAMBDA_ARN
 const targetRegion = process.env.EMAIL_AWS_REGION
 const assumeRoleArn = process.env.EMAIL_ASSUME_ROLE_ARN
 
@@ -19,7 +19,7 @@ let cachedClient: LambdaClient | null = null
 async function getLambdaClient(): Promise<LambdaClient> {
   if (cachedClient) return cachedClient
 
-  if (!targetArn) throw new Error('EMAIL_LAMBDA_ARN is not set')
+  if (!targetArn) throw new Error('SMS_LAMBDA_ARN is not set')
   if (!targetRegion) throw new Error('EMAIL_AWS_REGION is not set')
 
   if (assumeRoleArn) {
@@ -29,7 +29,7 @@ async function getLambdaClient(): Promise<LambdaClient> {
         clientConfig: { region: targetRegion },
         params: {
           RoleArn: assumeRoleArn,
-          RoleSessionName: 'send-email-cross-account',
+          RoleSessionName: 'send-sms-cross-account',
         },
       }),
     })
@@ -38,24 +38,20 @@ async function getLambdaClient(): Promise<LambdaClient> {
   }
   return cachedClient
 }
-let emailClient: LambdaClient | undefined = undefined
-export async function sendEmail(params: SendEmailParams): Promise<void> {
+let smsClient: LambdaClient | undefined = undefined
+export async function sendSMS(params: SendSMSParams): Promise<void> {
   // Cross-account invoke.
-  // - If EMAIL_ASSUME_ROLE_ARN is set, assume that role in the target account first.
+  // - If SMS_ASSUME_ROLE_ARN is set, assume that role in the target account first.
   // - Otherwise, invoke directly (requires resource policy on target Lambda to allow current principal).
-  if (!emailClient) {
-    emailClient = await getLambdaClient()
+  if (!smsClient) {
+    smsClient = await getLambdaClient()
   }
-  if (!emailClient) throw new Error('Failed to get Email Lambda client')
+  if (!smsClient) throw new Error('Failed to get SMS Lambda client')
 
   const payload = {
-    to: params.to,
-    cc: params.cc,
-    bcc: params.bcc,
-    reply_to: params.reply_to,
-    from: params.from,
-    subject: params.subject,
-    body: params.body,
+    phoneNumber: params.phoneNumber,
+    message: params.message,
+    senderId: params.senderId
   }
 
   const command = new InvokeCommand({
@@ -67,7 +63,7 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
     ),
   })
 
-  const res = await emailClient.send(command)
+  const res = await smsClient.send(command)
   // For 'Event', StatusCode is typically 202 when accepted
   if (res.StatusCode && res.StatusCode >= 400) {
     throw new Error(`Cross-account email invoke failed with status ${res.StatusCode}`)

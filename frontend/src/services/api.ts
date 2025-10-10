@@ -11,6 +11,7 @@ import type {
   CreatePresignedUploadUrlRequest,
   CreatePresignedUploadUrlResponse,
   LoginRequest,
+  Notification,
   OAuthLoginRequest,
   Organization,
   PaymentMethod,
@@ -433,6 +434,48 @@ export const authAPI = {
     metadata?: Record<string, unknown>
   }): Promise<void> {
     await apiClient.post('/stripe/log-meter-event', data)
+  },
+
+  async getNotifications(params?: {
+    unreadOnly?: boolean
+    type?: string
+    limit?: number
+    exclusiveStartKey?: Record<string, unknown>
+    countOnly?: boolean
+  }): Promise<{
+    notifications: Notification[]
+    lastEvaluatedKey?: Record<string, unknown>
+  } | { count: number }> {
+    const response = await apiClient.post('/notifications', params || {})
+    return response.data
+  },
+
+  async getUnreadNotificationCountETag(etag?: string): Promise<{
+    count?: number
+    etag?: string
+    notModified?: boolean
+  }> {
+    const response = await apiClient.get('/notifications/unread-count', {
+      validateStatus: (s) => [200, 304].includes(s),
+      headers: {
+        ...(etag ? { 'If-None-Match': etag } : {}),
+      },
+    })
+    if (response.status === 304) {
+      return { notModified: true as const }
+    }
+    return {
+      count: response.data?.count as number,
+      etag: response.headers?.etag as string | undefined,
+    }
+  },
+
+  async markNotificationAsRead(notificationId: string): Promise<void> {
+    await apiClient.post('/notifications/update', { notificationId })
+  },
+
+  async markAllNotificationsAsRead(): Promise<void> {
+    await apiClient.post('/notifications/update', { markAllRead: true })
   },
 }
 

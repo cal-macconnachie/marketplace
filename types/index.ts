@@ -13,6 +13,7 @@ export * from './entities/product'
 export * from './entities/payment'
 export * from './entities/promo'
 export * from './entities/meter'
+export * from './entities/notification'
 
 // ============================================================================
 // API TYPES - Request/Response interfaces organized by domain

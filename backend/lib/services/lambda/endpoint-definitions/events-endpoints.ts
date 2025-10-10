@@ -80,6 +80,7 @@ export const eventsEndpoints: LambdaEndpointDefinition[] = [
     bundleTemplate: ['receipt.hbs'],
     environment: [
       'EMAIL_LAMBDA_ARN',
+      'SMS_LAMBDA_ARN',
       'EMAIL_AWS_REGION',
       'EMAIL_ASSUME_ROLE_ARN'
     ],

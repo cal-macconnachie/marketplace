@@ -1,8 +1,8 @@
 import * as cdk from 'aws-cdk-lib'
 import { Construct } from 'constructs'
+import { attachDynamoStreamsForEndpoints } from './services/dynamodb/stream-attach'
 import { DomainLambdaConstruct } from './services/lambda/domain-lambda-construct'
 import { eventsEndpoints } from './services/lambda/endpoint-definitions'
-import { attachDynamoStreamsForEndpoints } from './services/dynamodb/stream-attach'
 
 export interface MarketplaceEventsStackProps extends cdk.StackProps {
   envName?: string
@@ -32,6 +32,7 @@ export class MarketplaceEventsStack extends cdk.Stack {
       'STRIPE_EVENT_DESTINATION_PLATFORM': `${envName === 'dev' ? process.env.STRIPE_EVENT_DESTINATION_PLATFORM_DEV : process.env.STRIPE_EVENT_DESTINATION_PLATFORM_PROD}`,
       'EMAIL_AWS_REGION': process.env.EMAIL_AWS_REGION ?? '',
       'EMAIL_LAMBDA_ARN': process.env.EMAIL_LAMBDA_ARN ?? '',
+      'SMS_LAMBDA_ARN': process.env.SMS_LAMBDA_ARN ?? '',
       'EMAIL_ASSUME_ROLE_ARN': process.env.EMAIL_ASSUME_ROLE_ARN ?? ''
     }
 

@@ -1,9 +1,9 @@
 import { LambdaEndpointDefinition } from '@marketplace/types'
 
 /**
- * Internal API endpoints: Auth (protected), Organizations, Users, and Image Upload
+ * Internal API endpoints: Auth (protected), Organizations, Users, Image Upload, and Notifications
  * Stack: MarketplaceInternalApiStack
- * Count: 13 Lambda functions (processImage moved to Networking stack)
+ * Count: 15 Lambda functions (processImage moved to Networking stack)
  */
 export const internalApiEndpoints: LambdaEndpointDefinition[] = [
   // Protected Authentication (3 lambdas)
@@ -183,6 +183,41 @@ export const internalApiEndpoints: LambdaEndpointDefinition[] = [
     ],
     apiGw: {
       path: 'images/presigned-upload',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+
+  // Notifications (2 lambdas)
+  {
+    name: 'getNotifications',
+    handler: 'notifications/get-notifications.getNotifications',
+    description: 'Get notifications for authenticated user',
+    apiGw: {
+      path: 'notifications',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'getUnreadNotificationCount',
+    handler: 'notifications/get-unread-count.getUnreadNotificationCountHandler',
+    description: 'Get unread notification count for authenticated user',
+    apiGw: {
+      path: 'notifications/unread-count',
+      method: 'GET',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'updateNotification',
+    handler: 'notifications/update-notification.updateNotification',
+    description: 'Update notification read status',
+    apiGw: {
+      path: 'notifications/update',
       method: 'POST',
       auth: 'cognito',
       cors: true

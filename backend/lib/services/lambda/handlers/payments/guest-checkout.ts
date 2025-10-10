@@ -17,6 +17,7 @@ import {
 import { purchaseProducts } from '../../helpers/stripe/purchase-products'
 import { getStripeClient } from '../../helpers/stripe/stripe-client'
 import { convertAddressToCodes } from '../../helpers/tax/address-code-converter'
+import { createUpdateUser } from '../../helpers/users/create-update-user'
 import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 
 interface GuestCheckoutRequest {
@@ -295,33 +296,15 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
       // Create new user
       const userId = v4()
       const organizationId = v4()
-      
-      user = await create<User>({
-        tableName: usersTableName!,
-        key: { email: body.user.email },
-        record: {
-          id: userId,
-          organization_id: organizationId,
-          is_organization_admin: true,
-          given_name: body.user.given_name.trim(),
-          family_name: body.user.family_name.trim(),
-          email: body.user.email.toLowerCase().trim(),
-          address: processedAddress,
-          ip_address: body.user.ip_address || clientIp
-        },
-        returnCreated: true
-      })
-
-      // Create organization for the user
-      await create<Organization>({
-        tableName: organizationsTableName!,
-        key: { id: organizationId },
-        record: {
-          id: organizationId,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        } satisfies Organization,
-        returnCreated: true
+      user = await createUpdateUser({
+        id: userId,
+        organization_id: organizationId,
+        is_organization_admin: true,
+        given_name: body.user.given_name.trim(),
+        family_name: body.user.family_name.trim(),
+        email: body.user.email.toLowerCase().trim(),
+        address: processedAddress,
+        ip_address: body.user.ip_address || clientIp
       })
     }
 

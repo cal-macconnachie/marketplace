@@ -28,6 +28,16 @@ export interface Cart {
   purchases: { [purchaseId: string]: 'pending' | 'completed' | 'failed' }
   payment_method_id: string
   created_at: string
+  shipping_address?: {
+    full_name: string
+    address_line1: string
+    address_line2?: string
+    city: string
+    state: string
+    postal_code: string
+    country: string
+  }
+  ip_address?: string
 }
 
 export interface SerializedCartData {

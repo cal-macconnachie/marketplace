@@ -1,17 +1,18 @@
 <template>
-  <div class="editable-field">
+  <div class="editable-field" :class="{ 'field-disabled': disabled }">
     <div
       class="field-display"
+      :class="{ 'display-disabled': disabled }"
       @mouseenter="showEdit = true"
       @mouseleave="showEdit = false"
       @click="toggleValue"
     >
       <span class="field-value">
-        <div class="toggle-container">
+        <div class="toggle-container" :class="{ 'toggle-centered': !onLabel && !offLabel }">
           <div class="toggle-switch" :class="{ 'toggle-active': value }">
             <div class="toggle-slider" />
           </div>
-          <span class="toggle-label">{{ value ? onLabel : offLabel }}</span>
+          <span v-if="onLabel || offLabel" class="toggle-label">{{ value ? onLabel : offLabel }}</span>
         </div>
       </span>
       <LoadingSpinner v-if="loading" class="spinner-position" />
@@ -30,6 +31,7 @@ interface Props {
   field: string
   label?: string
   loading?: boolean
+  disabled?: boolean
   onLabel?: string
   offLabel?: string
 }
@@ -40,6 +42,7 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   loading: false,
+  disabled: false,
   onLabel: 'Enabled',
   offLabel: 'Disabled',
 })
@@ -49,7 +52,7 @@ const emit = defineEmits<Emits>()
 const showEdit = ref(false)
 
 function toggleValue() {
-  if (props.loading) return
+  if (props.loading || props.disabled) return
   emit('update', props.field, !props.value)
 }
 </script>
@@ -96,6 +99,18 @@ function toggleValue() {
   border-color: var(--color-border-hover);
 }
 
+.field-disabled {
+  opacity: 0.5;
+}
+
+.display-disabled {
+  cursor: not-allowed;
+}
+
+.display-disabled:hover {
+  border-color: var(--color-border);
+}
+
 .field-value {
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
@@ -112,6 +127,10 @@ function toggleValue() {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+}
+
+.toggle-container.toggle-centered {
+  justify-content: center;
 }
 
 .toggle-switch {

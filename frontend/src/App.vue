@@ -1,4 +1,90 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { useAppStore } from '@/stores/app'
+import { authAPI } from '@/services/api'
+
+const app = useAppStore()
+
+const timer = ref<number | undefined>(undefined)
+const etag = ref<string | undefined>(undefined)
+let backoff = 0 // ms
+
+async function poll() {
+  if (!app.isAuthenticated) return
+  if (document.hidden) return
+  try {
+    const res = await authAPI.getUnreadNotificationCountETag(etag.value)
+    if (!res.notModified && typeof res.count === 'number') {
+      app.unreadNotificationCount = res.count
+      etag.value = res.etag
+    }
+    backoff = 0
+  } catch {
+    backoff = backoff ? Math.min(backoff * 2, 5 * 60_000) : 10_000
+  } finally {
+    schedule()
+  }
+}
+
+function schedule() {
+  clear()
+  const delay = backoff || 30_000
+  timer.value = window.setTimeout(poll, delay)
+}
+
+function clear() {
+  if (timer.value) {
+    clearTimeout(timer.value)
+    timer.value = undefined
+  }
+}
+
+function start() {
+  // Safety: only start when authenticated
+  if (!app.isAuthenticated) return
+  // immediate fetch then schedule
+  void poll()
+  window.addEventListener('visibilitychange', onVisibility)
+  window.addEventListener('focus', onFocus, true)
+}
+
+function stop() {
+  clear()
+  window.removeEventListener('visibilitychange', onVisibility)
+  window.removeEventListener('focus', onFocus, true)
+}
+
+function onVisibility() {
+  if (!document.hidden) void poll()
+}
+function onFocus() {
+  void poll()
+}
+
+onMounted(() => {
+  if (app.isAuthenticated) start()
+})
+
+onUnmounted(() => {
+  stop()
+})
+
+watch(
+  () => app.isAuthenticated,
+  (authed) => {
+    if (authed) {
+      etag.value = undefined // reset etag on new session
+      start()
+    } else {
+      stop()
+      etag.value = undefined
+      backoff = 0
+      app.unreadNotificationCount = 0
+    }
+  },
+  { immediate: false },
+)
+</script>
 
 <template>
   <router-view />

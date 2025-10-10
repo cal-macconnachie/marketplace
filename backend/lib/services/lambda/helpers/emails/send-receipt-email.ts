@@ -1,20 +1,16 @@
+import {
+  domain, emailStringsToIgnore
+} from '@marketplace/constants'
+import { ReceiptEmailContext } from '@marketplace/types'
 import { compileTemplate } from '../handlebars/compile-template'
-import { collectReceiptEmailData } from './collect-receipt-data'
 import { sendEmail } from './send-email'
-import { domain } from '@marketplace/constants'
 
 export const sendReceiptEmail = async ({
-  userId,
-  cartId
+  ctx
 }: {
-  userId: string
-  cartId: string
+  ctx: ReceiptEmailContext
 }) => {
-  const ctx = await collectReceiptEmailData({
-    userId,
-    cartId
-  })
-  if (ctx.opt_out) {
+  if (!ctx.customer_email || emailStringsToIgnore.some(str => ctx.customer_email?.includes(str))) {
     return
   }
 

@@ -320,5 +320,44 @@ export const ddbTableDefinitions: Array<DdbTableDefinition> = [
     ],
     billingMode: 'PAY_PER_REQUEST',
     stream: 'NEW_AND_OLD_IMAGES'
+  },
+  {
+    tableName: 'notifications',
+    partitionKey: {
+      name: 'user_id',
+      type: 'S'
+    },
+    sortKey: {
+      name: 'id',
+      type: 'S'
+    },
+    globalSecondaryIndexes: [
+      {
+        indexName: 'user-read-created-index',
+        partitionKey: {
+          name: 'user_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'read_created_at',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      },
+      {
+        indexName: 'user-type-created-index',
+        partitionKey: {
+          name: 'user_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'type_created_at',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      }
+    ],
+    billingMode: 'PAY_PER_REQUEST',
+    stream: 'NEW_AND_OLD_IMAGES'
   }
 ]

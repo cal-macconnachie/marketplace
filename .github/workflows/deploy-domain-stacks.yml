@@ -227,6 +227,7 @@ jobs:
       STRIPE_SECRET_KEY_PROD: ${{ secrets.STRIPE_SECRET_KEY_PROD }}
       EMAIL_AWS_REGION: ${{ secrets.EMAIL_AWS_REGION }}
       EMAIL_LAMBDA_ARN: ${{ secrets.EMAIL_LAMBDA_ARN }}
+      SMS_LAMBDA_ARN: ${{ secrets.SMS_LAMBDA_ARN }}
       EMAIL_ASSUME_ROLE_ARN: ${{ secrets.EMAIL_ASSUME_ROLE_ARN }}
       CLOUDFRONT_AUTH_USERNAME: ${{ secrets.CLOUDFRONT_AUTH_USERNAME }}
       CLOUDFRONT_AUTH_PASSWORD: ${{ secrets.CLOUDFRONT_AUTH_PASSWORD }}
@@ -467,6 +468,7 @@ jobs:
       STRIPE_SECRET_KEY_PROD: ${{ secrets.STRIPE_SECRET_KEY_PROD }}
       EMAIL_AWS_REGION: ${{ secrets.EMAIL_AWS_REGION }}
       EMAIL_LAMBDA_ARN: ${{ secrets.EMAIL_LAMBDA_ARN }}
+      SMS_LAMBDA_ARN: ${{ secrets.SMS_LAMBDA_ARN }}
       EMAIL_ASSUME_ROLE_ARN: ${{ secrets.EMAIL_ASSUME_ROLE_ARN }}
     steps:
       - name: Checkout
@@ -574,6 +576,7 @@ jobs:
       STRIPE_EVENT_DESTINATION_PLATFORM_PROD: ${{ secrets.STRIPE_EVENT_DESTINATION_PLATFORM_PROD }}
       EMAIL_AWS_REGION: ${{ secrets.EMAIL_AWS_REGION }}
       EMAIL_LAMBDA_ARN: ${{ secrets.EMAIL_LAMBDA_ARN }}
+      SMS_LAMBDA_ARN: ${{ secrets.SMS_LAMBDA_ARN }}
       EMAIL_ASSUME_ROLE_ARN: ${{ secrets.EMAIL_ASSUME_ROLE_ARN }}
     steps:
       - name: Checkout

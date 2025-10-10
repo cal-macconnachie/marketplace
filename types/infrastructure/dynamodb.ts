@@ -3,7 +3,19 @@
  * Used by CDK stacks to define and create DynamoDB tables
  */
 
-export type TableName = 'users' | 'products' | 'payment-methods' | 'promos' | 'organizations' | 'purchases' | 'tax-calculations' | 'rate-limits' | 'one-time-codes' | 'purchase-carts' | 'purchased-products';
+export type TableName =
+  'users' |
+  'products' |
+  'payment-methods' |
+  'promos' | 
+  'organizations' |
+  'purchases' |
+  'tax-calculations' |
+  'rate-limits' |
+  'one-time-codes' |
+  'purchase-carts' |
+  'purchased-products' |
+  'notifications'
 
 export interface DdbTableDefinition {
   tableName: TableName

@@ -63,6 +63,16 @@
             />
           </div>
         </BaseCard>
+        <BaseCard
+          class="notification-card"
+          title="Notifications"
+          :expandable="true"
+          ref="notificationCard"
+        >
+          <template #default="{ expanded }">
+            <NotificationManager :expanded="expanded" />
+          </template>
+        </BaseCard>
         <BaseCard class="payment-card" title="Payment Methods">
           <div class="payment-methods-section">
             <PaymentMethodList
@@ -163,24 +173,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, provide, watch } from 'vue'
-import { useAppStore } from '@/stores/app'
-import { useRouter } from 'vue-router'
-import BaseCard from '@/components/ui/BaseCard.vue'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseAlert from '@/components/ui/BaseAlert.vue'
-import ThemeToggle from '@/components/ui/ThemeToggle.vue'
-import EditableField from '@/components/ui/EditableField.vue'
 import AddressSearch from '@/components/ui/AddressSearch.vue'
+import BaseAlert from '@/components/ui/BaseAlert.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseCard from '@/components/ui/BaseCard.vue'
+import EditableField from '@/components/ui/EditableField.vue'
+import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
+import NotificationManager from '@/components/ui/NotificationManager.vue'
 import PaymentMethodForm from '@/components/ui/PaymentMethodForm.vue'
 import PaymentMethodList from '@/components/ui/PaymentMethodList.vue'
 import ProductsList from '@/components/ui/ProductsList.vue'
 import SellerManager from '@/components/ui/SellerManager.vue'
-import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
-import VendorProducts from './ui/VendorProducts.vue'
+import ThemeToggle from '@/components/ui/ThemeToggle.vue'
+import { useAppStore } from '@/stores/app'
+import type { PaymentMethod, Product } from '@marketplace/types'
+import { onMounted, provide, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import InfinitePurchasesList from './ui/InfinitePurchasesList.vue'
 import SubscriptionManager from './ui/SubscriptionManager.vue'
-import type { PaymentMethod, Product } from '@marketplace/types'
+import VendorProducts from './ui/VendorProducts.vue'
 
 const app = useAppStore()
 const router = useRouter()
@@ -197,6 +208,7 @@ const canCreateProducts = ref(false)
 const vendorProductsCard = ref<InstanceType<typeof BaseCard>>()
 const sellerManagerCard = ref<InstanceType<typeof BaseCard>>()
 const subscriptionCard = ref<InstanceType<typeof BaseCard>>()
+const notificationCard = ref<InstanceType<typeof BaseCard>>()
 const isLoggingOut = ref(false)
 
 const allowedFields = ['given_name', 'family_name', 'name', 'phone_number', 'address']
@@ -586,6 +598,7 @@ onMounted(async () => {
 }
 
 .dashboard-grid > .profile-card,
+.dashboard-grid > .notification-card,
 .dashboard-grid > .payment-card,
 .dashboard-grid > .product-card,
 .dashboard-grid > .seller-management-card,
@@ -637,6 +650,12 @@ onMounted(async () => {
 }
 
 .profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.notification-info {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);

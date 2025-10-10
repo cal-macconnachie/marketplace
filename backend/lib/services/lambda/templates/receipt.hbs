@@ -341,6 +341,11 @@
             <!-- Footer -->
             <tr>
               <td class="px-24 py-16 text-center muted small">
+                {{#if receipt_url}}
+                  <div style="margin-bottom:8px;">
+                    <a href="{{receipt_url}}" style="color:#4f46e5;">View receipt online</a>
+                  </div>
+                {{/if}}
                 {{#if support_url}}
                   Need help? Visit <a href="{{support_url}}" style="color:#4f46e5;">Support</a>.
                 {{/if}}

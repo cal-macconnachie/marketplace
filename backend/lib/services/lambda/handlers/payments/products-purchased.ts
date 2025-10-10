@@ -1,13 +1,13 @@
 import { EventBridgeEvent } from 'aws-lambda'
-import { sendReceiptEmail } from '../../helpers/emails/send-receipt-email'
+import { sendReceiptNotification } from '../../helpers/notifications/send-receipt-notification'
 
 export const productsPurchased = async (event: EventBridgeEvent<'products-purchased',{
   userId: string
   cartId: string
 }>) => {
   try {
-    console.log('Sending receipt email...', event)
-    await sendReceiptEmail({
+    console.log('Sending receipt notificationdo', event)
+    await sendReceiptNotification({
       userId: event.detail.userId,
       cartId: event.detail.cartId
     })
