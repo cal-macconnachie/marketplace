@@ -15,52 +15,52 @@ on:
   workflow_dispatch:
     inputs:
       force-infra:
-        description: 'Force deploy infrastructure'
+        description: 'infrastructure'
         required: false
         type: boolean
         default: false
       force-networking:
-        description: 'Force deploy Networking stack (API Gateway + CloudFront)'
+        description: 'Networking stack (API Gateway + CloudFront)'
         required: false
         type: boolean
         default: false
       force-public:
-        description: 'Force deploy public Lambda stack'
+        description: 'public Lambda stack'
         required: false
         type: boolean
         default: false
       force-payments:
-        description: 'Force deploy payments Lambda stack'
+        description: 'payments Lambda stack'
         required: false
         type: boolean
         default: false
       force-products:
-        description: 'Force deploy products Lambda stack'
+        description: 'products Lambda stack'
         required: false
         type: boolean
         default: false
       force-internal-api:
-        description: 'Force deploy internal API Lambda stack'
+        description: 'internal API Lambda stack'
         required: false
         type: boolean
         default: false
       force-events:
-        description: 'Force deploy events Lambda stack'
+        description: 'events Lambda stack'
         required: false
         type: boolean
         default: false
       force-frontend:
-        description: 'Force deploy frontend'
+        description: 'frontend'
         required: false
         type: boolean
         default: false
       force-certificates:
-        description: 'Force deploy Certificates stack'
+        description: 'Certificates stack'
         required: false
         type: boolean
         default: false
       force-cognito-domain:
-        description: 'Force deploy Cognito Domain stack'
+        description: 'Cognito Domain stack'
         required: false
         type: boolean
         default: false
