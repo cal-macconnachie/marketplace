@@ -411,12 +411,14 @@ jobs:
           # Build path->id map (strip leading /, skip root)
           jq -r '.items[] | [.path, .id] | @tsv' resources.json | awk 'BEGIN{print "{"} {path=$1; sub(/^\//, "", path); if(path=="") next; if(n++) printf ","; printf "\"" path "\":\"" $2 "\""} END{print "}"}' > mapping.json
           mkdir -p backend/lib/.cdk-outputs
-          # Compose final JSON via jq to avoid heredoc indentation issues
+          # Compose final JSON via jq; generate timestamp via date for portability
+          TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           jq -n \
             --arg rest "$REST_API_ID" \
             --arg root "$ROOT_RESOURCE_ID" \
+            --arg ts "$TS" \
             --slurpfile map mapping.json \
-            '{restApiId:$rest, rootResourceId:$root, resources:$map[0], generatedBy:"deploy-domain-stacks.yml", timestamp:(now|toiso8601)}' \
+            '{restApiId:$rest, rootResourceId:$root, resources:$map[0], generatedBy:"deploy-domain-stacks.yml", timestamp:$ts}' \
             > backend/lib/.cdk-outputs/api-resources-${ENV_NAME}.json
 
       - name: Upload API resource mapping
