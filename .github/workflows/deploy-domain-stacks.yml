@@ -64,6 +64,11 @@ on:
         required: false
         type: boolean
         default: false
+      force-api-redeploy:
+        description: 'API stage redeploy'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   # Detect which services changed
@@ -82,6 +87,7 @@ jobs:
       force-events: ${{ github.event.inputs.force-events == 'true' }}
       force-certificates: ${{ github.event.inputs.force-certificates == 'true' }}
       force-cognito-domain: ${{ github.event.inputs.force-cognito-domain == 'true' }}
+      force-api-redeploy: ${{ github.event.inputs.force-api-redeploy == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -615,6 +621,11 @@ jobs:
       ]
     if: |
       needs.detect-changes.outputs.backend == 'true' && (
+        needs.detect-changes.outputs.force-api-redeploy == 'true' ||
+        needs.deploy-internal-api.result == 'success' ||
+        needs.deploy-public.result == 'success' ||
+        needs.deploy-payments.result == 'success' ||
+        needs.deploy-products.result == 'success' ||
         needs.detect-stack-changes.outputs.internal-api-changed == 'true' ||
         needs.detect-stack-changes.outputs.public-changed == 'true' ||
         needs.detect-stack-changes.outputs.payments-changed == 'true' ||
