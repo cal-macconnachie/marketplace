@@ -305,7 +305,13 @@ jobs:
 
   deploy-networking:
     runs-on: ubuntu-latest
-    needs: [detect-changes, detect-stack-changes, deploy-infrastructure, deploy-certificates]
+    needs:
+      [
+        detect-changes,
+        detect-stack-changes,
+        deploy-infrastructure,
+        deploy-certificates
+      ]
     if: |
       always() &&
       needs.detect-changes.outputs.backend == 'true' &&
@@ -681,7 +687,6 @@ jobs:
         working-directory: backend
         run: yarn cdk deploy MarketplaceProducts-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-products.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-products == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
 
-
   # Events stack can run independently (only depends on infrastructure)
   deploy-events:
     runs-on: ubuntu-latest
@@ -705,12 +710,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Download API resource mapping
-        uses: actions/download-artifact@v4
-        with:
-          name: api-resources-mapping-${{ needs.detect-changes.outputs.env-name }}
-          path: backend/lib/.cdk-outputs
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
