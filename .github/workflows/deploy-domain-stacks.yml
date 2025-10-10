@@ -619,18 +619,7 @@ jobs:
         deploy-payments,
         deploy-products
       ]
-    if: |
-      needs.detect-changes.outputs.backend == 'true' && (
-        needs.detect-changes.outputs.force-api-redeploy == 'true' ||
-        needs.deploy-internal-api.result == 'success' ||
-        needs.deploy-public.result == 'success' ||
-        needs.deploy-payments.result == 'success' ||
-        needs.deploy-products.result == 'success' ||
-        needs.detect-stack-changes.outputs.internal-api-changed == 'true' ||
-        needs.detect-stack-changes.outputs.public-changed == 'true' ||
-        needs.detect-stack-changes.outputs.payments-changed == 'true' ||
-        needs.detect-stack-changes.outputs.products-changed == 'true'
-      )
+    if: needs.detect-changes.outputs.backend == 'true'
     env:
       ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
     steps:
