@@ -603,8 +603,14 @@ jobs:
   # After domain stacks add/modify methods, redeploy the API stage to make them live.
   deploy-api-stage:
     runs-on: ubuntu-latest
-    needs: [detect-changes, deploy-api-resources, deploy-internal-api, deploy-public, deploy-payments, deploy-products]
-    if: needs.detect-changes.outputs.backend == 'true'
+    needs: [detect-changes, detect-stack-changes, deploy-api-resources, deploy-internal-api, deploy-public, deploy-payments, deploy-products]
+    if: |
+      needs.detect-changes.outputs.backend == 'true' && (
+        needs.detect-stack-changes.outputs.internal-api-changed == 'true' ||
+        needs.detect-stack-changes.outputs.public-changed == 'true' ||
+        needs.detect-stack-changes.outputs.payments-changed == 'true' ||
+        needs.detect-stack-changes.outputs.products-changed == 'true'
+      )
     env:
       ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
     steps:
