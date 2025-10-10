@@ -85,16 +85,20 @@ export class DomainLambdaConstruct extends Construct {
       }
 
       // Prepare bundling options for template files
+      // IMPORTANT: forceDockerBundling must be true for commandHooks.afterBundling to execute
       const bundlingOptions = def.bundleTemplate ? {
+        sourceMap: true,
+        banner: "require('source-map-support').install();",
+        nodeModules: ['source-map-support'],
+        forceDockerBundling: true, // Required for commandHooks to work
         commandHooks: {
           beforeBundling: () => [],
           beforeInstall: () => [],
           afterBundling: (inputDir: string, outputDir: string): string[] => {
             const copyCommands = def.bundleTemplate!.map(file => {
               const src = path.join(inputDir, 'lib/services/lambda/templates', file)
-              const destDir = path.join(outputDir, path.dirname(file))
               const dest = path.join(outputDir, file)
-              return `mkdir -p "${destDir}" 2>/dev/null || true && cp "${src}" "${dest}" 2>/dev/null || true`
+              return `cp "${src}" "${dest}"`
             })
             return copyCommands
           }
