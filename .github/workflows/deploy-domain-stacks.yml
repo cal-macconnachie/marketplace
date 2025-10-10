@@ -393,6 +393,13 @@ jobs:
         working-directory: backend
         run: yarn cdk deploy MarketplaceApiResources-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-api-resources.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }}
 
+      - name: Upload API resource mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-resources-mapping-${{ needs.detect-changes.outputs.env-name }}
+          path: backend/lib/.cdk-outputs/api-resources-${{ needs.detect-changes.outputs.env-name }}.json
+          if-no-files-found: error
+
   # Cognito custom domain stack (must run after Networking so parent A record exists)
   deploy-cognito-domain:
     runs-on: ubuntu-latest
@@ -479,6 +486,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Download API resource mapping
+        uses: actions/download-artifact@v4
+        with:
+          name: api-resources-mapping-${{ needs.detect-changes.outputs.env-name }}
+          path: backend/lib/.cdk-outputs
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -528,6 +541,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Download API resource mapping
+        uses: actions/download-artifact@v4
+        with:
+          name: api-resources-mapping-${{ needs.detect-changes.outputs.env-name }}
+          path: backend/lib/.cdk-outputs
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -574,6 +593,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Download API resource mapping
+        uses: actions/download-artifact@v4
+        with:
+          name: api-resources-mapping-${{ needs.detect-changes.outputs.env-name }}
+          path: backend/lib/.cdk-outputs
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -619,6 +644,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Download API resource mapping
+        uses: actions/download-artifact@v4
+        with:
+          name: api-resources-mapping-${{ needs.detect-changes.outputs.env-name }}
+          path: backend/lib/.cdk-outputs
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -674,6 +705,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Download API resource mapping
+        uses: actions/download-artifact@v4
+        with:
+          name: api-resources-mapping-${{ needs.detect-changes.outputs.env-name }}
+          path: backend/lib/.cdk-outputs
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
