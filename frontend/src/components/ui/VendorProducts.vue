@@ -71,6 +71,7 @@
               :options="categoryOptions"
               :value="app.productFormData.category"
               :error="validationErrors.category"
+              searchable
               @update="handleFieldUpdate"
             />
           </div>

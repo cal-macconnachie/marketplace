@@ -226,10 +226,16 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
     imageProcessorLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['s3:GetObject'],
-        resources: [
-          `arn:aws:s3:::${imagesBucketName}`,
-          `arn:aws:s3:::${imagesBucketName}/*`
-        ]
+        resources: [`arn:aws:s3:::${imagesBucketName}/*`]
+      })
+    )
+
+    // ListBucket permission is required on the bucket itself (not objects)
+    // for S3 to properly handle access denied vs not found scenarios
+    imageProcessorLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:ListBucket'],
+        resources: [`arn:aws:s3:::${imagesBucketName}`]
       })
     )
 

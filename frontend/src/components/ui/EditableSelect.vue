@@ -21,7 +21,22 @@
 
     <div v-else class="field-edit">
       <div class="select-wrapper">
+        <!-- Searchable Input -->
+        <input
+          v-if="searchable"
+          ref="searchInput"
+          v-model="searchQuery"
+          type="text"
+          class="edit-input search-input"
+          :class="{ 'edit-input-empty': editValue === '' }"
+          :placeholder="selectedLabel || placeholder"
+          @focus="showDropdown = true"
+          @input="handleSearchInput"
+          @keydown="handleKeydown"
+        />
+        <!-- Non-searchable Display -->
         <div
+          v-else
           ref="editInput"
           class="edit-input select-display"
           :class="{ 'edit-input-empty': editValue === '' }"
@@ -31,11 +46,17 @@
         >
           {{ selectedLabel || placeholder }}
         </div>
-        
+
         <div v-if="showDropdown" class="dropdown-overlay" @click.self="closeDropdown">
           <div class="dropdown-options" :style="dropdownStyle">
             <div
-              v-for="option in options"
+              v-if="filteredOptions.length === 0"
+              class="dropdown-option dropdown-no-results"
+            >
+              No options found
+            </div>
+            <div
+              v-for="option in filteredOptions"
               :key="option.value"
               class="dropdown-option"
               :class="{ 'option-selected': option.value === editValue }"
@@ -92,6 +113,7 @@ interface Props {
   loading?: boolean
   placeholder?: string
   options: SelectOption[]
+  searchable?: boolean
 }
 
 interface Emits {
@@ -101,6 +123,7 @@ interface Emits {
 const props = withDefaults(defineProps<Props>(), {
   loading: false,
   placeholder: 'Select an option',
+  searchable: false,
 })
 
 const emit = defineEmits<Emits>()
@@ -109,7 +132,9 @@ const isEditing = ref(false)
 const showEdit = ref(false)
 const editValue = ref('')
 const editInput = ref<HTMLDivElement>()
+const searchInput = ref<HTMLInputElement>()
 const showDropdown = ref(false)
+const searchQuery = ref('')
 const dropdownStyle = reactive({
   top: '0px',
   left: '0px',
@@ -126,26 +151,51 @@ const selectedLabel = computed(() => {
   return option?.label || ''
 })
 
+const filteredOptions = computed(() => {
+  if (!props.searchable || !searchQuery.value.trim()) {
+    return props.options
+  }
+
+  const query = searchQuery.value.toLowerCase()
+  return props.options.filter(option =>
+    option.label.toLowerCase().includes(query) ||
+    option.value.toLowerCase().includes(query)
+  )
+})
+
 async function startEditing() {
   if (props.loading) return
 
   isEditing.value = true
   editValue.value = props.value || ''
   showEdit.value = false
+  searchQuery.value = ''
 
   await nextTick()
-  editInput.value?.focus()
+  if (props.searchable) {
+    searchInput.value?.focus()
+  } else {
+    editInput.value?.focus()
+  }
   updateDropdownPosition()
   showDropdown.value = true
 }
 
 function updateDropdownPosition() {
-  if (!editInput.value) return
-  
-  const rect = editInput.value.getBoundingClientRect()
+  const element = props.searchable ? searchInput.value : editInput.value
+  if (!element) return
+
+  const rect = element.getBoundingClientRect()
   dropdownStyle.top = `${rect.bottom + 2}px`
   dropdownStyle.left = `${rect.left}px`
   dropdownStyle.width = `${rect.width}px`
+}
+
+function handleSearchInput() {
+  // Update dropdown position on search to maintain width
+  if (showDropdown.value) {
+    updateDropdownPosition()
+  }
 }
 
 function toggleDropdown() {
@@ -158,26 +208,33 @@ function toggleDropdown() {
 function closeDropdown() {
   showDropdown.value = false
   isEditing.value = false
+  searchQuery.value = ''
 }
 
 function selectOption(option: SelectOption) {
   editValue.value = option.value
-  
+
   const originalValue = props.value || ''
   if (option.value !== originalValue) {
     emit('update', props.field, option.value)
   }
-  
+
   // Exit edit mode immediately after selection
   showDropdown.value = false
   isEditing.value = false
+  searchQuery.value = ''
 }
 
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Enter') {
     event.preventDefault()
     if (showDropdown.value) {
-      showDropdown.value = false
+      // If there's a search query and only one option, select it
+      if (props.searchable && searchQuery.value && filteredOptions.value.length === 1) {
+        selectOption(filteredOptions.value[0])
+      } else {
+        showDropdown.value = false
+      }
     } else {
       showDropdown.value = true
     }
@@ -185,7 +242,8 @@ function handleKeydown(event: KeyboardEvent) {
     editValue.value = props.value || ''
     showDropdown.value = false
     isEditing.value = false
-  } else if (event.key === ' ') {
+    searchQuery.value = ''
+  } else if (event.key === ' ' && !props.searchable) {
     event.preventDefault()
     showDropdown.value = true
   }
@@ -309,6 +367,17 @@ function handleKeydown(event: KeyboardEvent) {
   cursor: not-allowed;
 }
 
+.search-input {
+  cursor: text;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.search-input::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.8;
+}
+
 .edit-input-empty {
   border-color: var(--color-border);
 }
@@ -399,6 +468,17 @@ function handleKeydown(event: KeyboardEvent) {
 
 .option-selected:hover {
   background-color: var(--color-primary-alpha);
+}
+
+.dropdown-no-results {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  cursor: default;
+  pointer-events: none;
+}
+
+.dropdown-no-results:hover {
+  background-color: transparent;
 }
 
 /* Responsive design */

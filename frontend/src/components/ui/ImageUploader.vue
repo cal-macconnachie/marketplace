@@ -13,7 +13,7 @@
     <div v-if="modelValue.length > 0" class="uploaded-images">
       <div v-for="(image, index) in modelValue" :key="index" class="image-item">
         <div class="image-preview">
-          <img :src="`${image}?w=300&h=300`" :alt="`Product image ${index + 1}`" />
+          <img :src="getImageUrl(image)" :alt="`Product image ${index + 1}`" />
           <button type="button" @click="removeImage(index)" class="remove-image-btn">×</button>
         </div>
         <div class="image-controls">
@@ -65,6 +65,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { domain } from '@marketplace/constants'
 import LoadingSpinner from './LoadingSpinner.vue'
 
 interface Props {
@@ -88,6 +89,20 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<Emits>()
+
+// Determine the image service URL based on environment
+const IMAGE_URL = import.meta.env.VITE_API_ENV === 'dev'
+  ? `https://images.${import.meta.env.VITE_API_ENV}.${domain}`
+  : `https://images.${domain}`
+
+// Construct the full image URL from the key
+const getImageUrl = (imageKey: string) => {
+  if (!imageKey) return ''
+  // If it's already a full URL, return as-is
+  if (imageKey.startsWith('http')) return imageKey
+  // Otherwise construct the URL with query params for resizing
+  return `${IMAGE_URL}/${imageKey}?w=300&h=300`
+}
 
 const imageInput = ref<HTMLInputElement>()
 const isUploading = ref(false)
