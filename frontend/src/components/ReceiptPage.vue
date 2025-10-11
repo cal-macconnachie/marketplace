@@ -215,10 +215,10 @@
 
 <script lang="ts" setup>
 import { authAPI } from '@/services/api'
+import type { ReceiptEmailContext } from '@marketplace/types'
 import html2pdf from 'html2pdf.js'
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import type { ReceiptEmailContext } from '@marketplace/types'
 
 const route = useRoute()
 const loading = ref(true)
@@ -259,9 +259,9 @@ const downloadPDF = async () => {
     const opt = {
       margin: 10,
       filename: `receipt-${receipt.value.receipt_number}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
+      image: { type: 'png' as const, quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
+      jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
     }
 
     await html2pdf().set(opt).from(element).save()
