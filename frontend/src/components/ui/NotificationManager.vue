@@ -2,10 +2,6 @@
   <div class="notification-manager">
     <!-- Collapsed/Compact State -->
     <div v-if="!expanded" class="compact-manager">
-      <div v-if="unreadCount > 0" class="notification-badge">
-        <span class="badge-count">{{ unreadCount }}</span>
-        <span class="badge-label">unread notification{{ unreadCount === 1 ? '' : 's' }}</span>
-      </div>
       <div class="notification-toggles">
         <div class="toggle-section">
           <div class="toggle-row">
@@ -190,8 +186,8 @@ const optimisticPreferences = ref<{
 const userHasPhone = computed(() => !!app.user?.phone_number)
 const userHasStripeAccount = computed(() => !!app?.organization?.stripe_account_id)
 
-// Count unread notifications
-const unreadCount = computed(() => notifications.value.filter(n => !n.read).length)
+// Use the store's unread count which is updated by polling in App.vue
+const unreadCount = computed(() => app.unreadNotificationCount)
 
 // Notification preferences from user entity, with optimistic override
 const preferences = computed(() => ({
@@ -356,39 +352,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-/* Notification Badge */
-.notification-badge {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-primary-alpha);
-  border: 1px solid var(--color-primary);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-2);
-}
-
-.badge-count {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 var(--space-2);
-  background: var(--color-primary);
-  color: white;
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1;
-}
-
-.badge-label {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
 }
 
 /* Toggle Sections */

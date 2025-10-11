@@ -1,5 +1,5 @@
-import { createRouter, createWebHistory, type NavigationGuardNext, type RouteLocationNormalized} from 'vue-router'
 import { useAppStore } from '@/stores/app'
+import { createRouter, createWebHistory, type NavigationGuardNext, type RouteLocationNormalized } from 'vue-router'
 
 const routes = [
   {
@@ -39,6 +39,12 @@ const routes = [
     name: 'Cart',
     component: () => import('@/components/CartPage.vue'),
   },
+  {
+    path: '/receipts/:cartId',
+    name: 'Receipt',
+    component: () => import('@/components/ReceiptPage.vue'),
+    meta: { requiresAuth: true },
+  }
 ]
 
 const router = createRouter({

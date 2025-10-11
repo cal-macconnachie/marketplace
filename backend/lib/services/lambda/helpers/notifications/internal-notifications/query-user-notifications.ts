@@ -35,7 +35,7 @@ export const queryUserNotifications = async ({
       // If also filtering by unread, add a filter expression
       filterExpression: unreadOnly ? '#read = :read' : undefined,
       expressionAttributeNames: unreadOnly ? { '#read': 'read' } : undefined,
-      sortOrder: 'DESC', // Newest first
+      sortOrder: 'ASC', // Newest first
       limit,
       exclusiveStartKey
     })
@@ -52,7 +52,7 @@ export const queryUserNotifications = async ({
         ':userId': userId,
         ':prefix': 'false#'
       },
-      sortOrder: 'DESC', // Newest first
+      sortOrder: 'ASC', // Newest first
       limit,
       exclusiveStartKey
     })
@@ -66,7 +66,7 @@ export const queryUserNotifications = async ({
     expressionAttributeValues: {
       ':userId': userId
     },
-    sortOrder: 'DESC', // Newest first
+    sortOrder: 'ASC', // Newest first
     limit,
     exclusiveStartKey
   })

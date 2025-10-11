@@ -189,7 +189,7 @@ export const internalApiEndpoints: LambdaEndpointDefinition[] = [
     }
   },
 
-  // Notifications (2 lambdas)
+  // Notifications (3 lambdas)
   {
     name: 'getNotifications',
     handler: 'notifications/get-notifications.getNotifications',
@@ -219,6 +219,19 @@ export const internalApiEndpoints: LambdaEndpointDefinition[] = [
     apiGw: {
       path: 'notifications/update',
       method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+
+  // Receipts (1 lambda)
+  {
+    name: 'getReceipt',
+    handler: 'receipts/get-receipt.getReceipt',
+    description: 'Get receipt data for a specific cart',
+    apiGw: {
+      path: 'receipts/{cartId}',
+      method: 'GET',
       auth: 'cognito',
       cors: true
     }

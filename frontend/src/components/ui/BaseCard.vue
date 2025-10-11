@@ -13,9 +13,15 @@
 
       <header v-if="$slots.header || title" class="card-header">
         <slot name="header">
-          <h2 v-if="title" class="card-title">{{ title }}</h2>
+          <div v-if="title" class="card-title-wrapper">
+            <h2 class="card-title">{{ title }}</h2>
+            <span v-if="badge !== undefined" @click="toggleExpanded" class="card-badge">{{ badge }}</span>
+          </div>
         </slot>
       </header>
+
+      <!-- Badge for cards without title -->
+      <span v-if="badge !== undefined && !title && !$slots.header" @click="toggleExpanded" class="card-badge-notitle">{{ badge }}</span>
 
       <div v-if="$slots.default" class="card-body">
         <slot :expanded="false" />
@@ -50,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, readonly } from 'vue'
+import { computed, readonly, ref } from 'vue'
 import BaseModal from './BaseModal.vue'
 
 interface Props {
@@ -59,6 +65,7 @@ interface Props {
   padding?: 'none' | 'sm' | 'md' | 'lg' | 'auto'
   hoverable?: boolean
   expandable?: boolean
+  badge?: string | number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -207,12 +214,61 @@ defineExpose({
   margin-bottom: var(--space-4);
 }
 
+.card-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .card-title {
   margin: 0;
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   line-height: var(--line-height-tight);
+}
+
+.card-badge {
+  position: relative;
+  right: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 12px;
+  height: calc(12px + var(--space-1));
+  padding: 0 var(--space-2);
+  background: var(--color-error);
+  color: white;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.card-badge-notitle {
+  position: absolute;
+  top: var(--space-1);
+  left: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 12px;
+  height: calc(12px + var(--space-1));
+  padding: 0 var(--space-2);
+  background: var(--color-error);
+  color: white;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  z-index: 5;
+  cursor: pointer;
+}
+
+.card-badge-notitle:hover,
+.card-badge:hover {
+  background: var(--color-error-bg);
 }
 
 .card-body {

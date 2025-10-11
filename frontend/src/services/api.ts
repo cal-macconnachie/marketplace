@@ -18,6 +18,7 @@ import type {
   Product,
   Purchase,
   PurchasedProduct,
+  ReceiptEmailContext,
   // API types
   RegisterRequest,
   RequestRegisterOtpRequest,
@@ -30,6 +31,7 @@ import type {
 } from '@marketplace/types'
 import { domain } from '@marketplace/constants'
 import axios from 'axios'
+import { getAuthToken, clearAllAuthTokens } from '@/utils/cookies'
 
 // Determine environment - can be overridden via environment variable
 const BASE_URL = import.meta.env.VITE_API_ENV === 'dev' ? `https://api.${import.meta.env.VITE_API_ENV}.${domain}` : `https://api.${domain}/`
@@ -61,8 +63,8 @@ const imageClient = axios.create({
 // Add request interceptor to include auth token if available
 apiClient.interceptors.request.use((config) => {
   // Prefer access token; fall back to id token if present
-  const accessToken = localStorage.getItem('accessToken')
-  const idToken = localStorage.getItem('authToken')
+  const accessToken = getAuthToken('ACCESS_TOKEN')
+  const idToken = getAuthToken('AUTH_TOKEN')
   const token = idToken || accessToken
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -89,7 +91,7 @@ apiClient.interceptors.response.use(
     if ((status === 401 || status === 403) && !originalRequest._retry) {
       originalRequest._retry = true // Mark the request as retried to avoid infinite loops.
       try {
-        const refreshToken = localStorage.getItem('refreshToken') // Retrieve the stored refresh token.
+        const refreshToken = getAuthToken('REFRESH_TOKEN') // Retrieve the stored refresh token.
         // Make a request to your auth server to refresh the token.
         if (refreshToken == null || refreshToken === '' || refreshToken === 'undefined')
           return Promise.reject(error)
@@ -98,18 +100,19 @@ apiClient.interceptors.response.use(
         })
 
         const { accessToken, refreshToken: newRefreshToken } = refreshResponse.data
-        // Store the new access and refresh tokens.
-        localStorage.setItem('accessToken', accessToken)
-        localStorage.setItem('refreshToken', newRefreshToken)
+        // Store the new access and refresh tokens in cookies
+        const { setAuthToken } = await import('@/utils/cookies')
+        setAuthToken('ACCESS_TOKEN', accessToken)
+        if (newRefreshToken) {
+          setAuthToken('REFRESH_TOKEN', newRefreshToken)
+        }
         // Update the authorization header with the new access token.
         apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`
         return apiClient(originalRequest) // Retry the original request with the new access token.
       } catch (refreshError) {
         // Handle refresh token errors by clearing stored tokens and redirecting to the login page.
         console.error('Token refresh failed:', refreshError)
-        localStorage.removeItem('authToken')
-        localStorage.removeItem('accessToken')
-        localStorage.removeItem('refreshToken')
+        clearAllAuthTokens()
         router.push('/auth')
         return Promise.reject(error)
       }
@@ -185,7 +188,7 @@ export const authAPI = {
   },
 
   async getCurrentUser(): Promise<User> {
-    // First try to get cognito_id from stored user data
+    // First try to get cognito_id from stored user data (kept in localStorage for non-sensitive data)
     const storedUserData = localStorage.getItem('userData')
     let cognitoId: string | undefined
 
@@ -198,9 +201,9 @@ export const authAPI = {
       }
     }
 
-    // If no cognito_id from stored data, extract from JWT
+    // If no cognito_id from stored data, extract from JWT in cookie
     if (!cognitoId) {
-      const token = localStorage.getItem('authToken')
+      const token = getAuthToken('AUTH_TOKEN')
       if (!token) throw new Error('No auth token found')
 
       try {
@@ -476,6 +479,11 @@ export const authAPI = {
 
   async markAllNotificationsAsRead(): Promise<void> {
     await apiClient.post('/notifications/update', { markAllRead: true })
+  },
+
+  async getReceipt(cartId: string): Promise<ReceiptEmailContext> {
+    const response = await apiClient.get(`/receipts/${cartId}`)
+    return response.data
   },
 }
 

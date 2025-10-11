@@ -1,7 +1,6 @@
-import { Notification } from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { queryUserNotifications } from '../../helpers/notifications/internal-notifications/query-user-notifications'
 import { getUnreadNotificationCount } from '../../helpers/notifications/internal-notifications/get-unread-notification-count'
+import { queryUserNotifications } from '../../helpers/notifications/internal-notifications/query-user-notifications'
 import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 
 /**

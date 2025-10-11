@@ -20,6 +20,14 @@
         :show="true"
       />
 
+      <!-- Purchase Complete Screen -->
+      <PurchaseCompleteScreen
+        v-else-if="showPurchaseComplete"
+        :message="purchaseCompleteMessage"
+        :referrer="source || undefined"
+        :order-summary="purchaseOrderSummary"
+      />
+
       <!-- Cart Content -->
       <div v-else class="cart-layout">
         <!-- Empty Cart -->
@@ -413,31 +421,31 @@
   </div>
 </template>
 <script lang="ts" setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
 import {
-  publicApi,
   authAPI,
+  publicApi,
 } from '@/services/api'
-import { type PaymentMethod as StripePaymentMethod } from '@stripe/stripe-js'
 import { useAppStore } from '@/stores/app'
-import LoadingSpinner from './ui/LoadingSpinner.vue'
-import BaseAlert from './ui/BaseAlert.vue'
-import BaseCard from './ui/BaseCard.vue'
-import BaseButton from './ui/BaseButton.vue'
-import BaseModal from './ui/BaseModal.vue'
-import PaymentMethodForm from './ui/PaymentMethodForm.vue'
-import PaymentMethodList from './ui/PaymentMethodList.vue'
-import GuestCheckoutForm from './ui/GuestCheckoutForm.vue'
-import QuantitySeletor from './ui/QuantitySeletor.vue'
-import ProductCard from './ui/ProductCard.vue'
-import PriceDisplay from './ui/PriceDisplay.vue'
+import type { CartItem, CheckoutData, Organization, PaymentMethod, Product, TaxCalculationItem } from '@marketplace/types'
+import { type PaymentMethod as StripePaymentMethod } from '@stripe/stripe-js'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import SignIn from './SignIn.vue'
 import AddressSearch from './ui/AddressSearch.vue'
-import type { CartItem, CheckoutData, Organization, PaymentMethod, Product, TaxCalculationItem } from '@marketplace/types'
+import BaseAlert from './ui/BaseAlert.vue'
+import BaseButton from './ui/BaseButton.vue'
+import BaseCard from './ui/BaseCard.vue'
+import BaseModal from './ui/BaseModal.vue'
+import GuestCheckoutForm from './ui/GuestCheckoutForm.vue'
+import LoadingSpinner from './ui/LoadingSpinner.vue'
+import PaymentMethodForm from './ui/PaymentMethodForm.vue'
+import PaymentMethodList from './ui/PaymentMethodList.vue'
+import PriceDisplay from './ui/PriceDisplay.vue'
+import ProductCard from './ui/ProductCard.vue'
+import PurchaseCompleteScreen from './ui/PurchaseCompleteScreen.vue'
+import QuantitySeletor from './ui/QuantitySeletor.vue'
 
 const route = useRoute()
-const router = useRouter()
 const appStore = useAppStore()
 
 const error = ref<string | null>(null)
@@ -471,6 +479,12 @@ const guestFormData = ref<{
 } | null>(null)
 const userIpAddress = ref<string | null>(null)
 const paymentMethodsInitialized = ref(false)
+const showPurchaseComplete = ref(false)
+const purchaseCompleteMessage = ref('')
+const purchaseOrderSummary = ref<{
+  totals: Record<string, number>
+  hasSubscriptions: boolean
+} | undefined>(undefined)
 
 // Computed properties
 const sourceHostname = computed(() => {
@@ -680,8 +694,8 @@ const removeItem = async (index: number) => {
     console.error('Error updating localStorage after item removal:', error)
   }
 
-  // Recalculate taxes when items are removed
-  await calculateTaxes()
+  // Recalculate taxes when items are removed (non-blocking)
+  calculateTaxes()
 }
 
 const handlePaymentMethodSelected = (paymentMethod: PaymentMethod) => {
@@ -834,8 +848,8 @@ const handleAuthSuccess = async () => {
     paymentMethodsInitialized.value = true
   }
 
-  // Recalculate taxes with authenticated user data
-  await calculateTaxes()
+  // Recalculate taxes with authenticated user data (non-blocking)
+  calculateTaxes()
 }
 
 const handleGuestFormUpdated = async (formData: {
@@ -880,8 +894,8 @@ const handleGuestFormUpdated = async (formData: {
     }
   }
 
-  // Recalculate taxes with updated user information
-  await calculateTaxes()
+  // Recalculate taxes with updated user information (non-blocking)
+  calculateTaxes()
 }
 
 const handleGuestFormCompleted = async (formData: {
@@ -920,8 +934,8 @@ const handleGuestFormCompleted = async (formData: {
     },
   }
 
-  // Recalculate taxes with user information instead of just IP
-  await calculateTaxes()
+  // Recalculate taxes with user information instead of just IP (non-blocking)
+  calculateTaxes()
 }
 
 const handleCheckout = async () => {
@@ -1043,10 +1057,16 @@ const handleCheckout = async () => {
 }
 
 const showSuccessMessage = (message: string) => {
-  // Create a more sophisticated success state
-  console.log('Success:', message)
-  // Redirect to root after successful purchase
-  router.push('/')
+  // Show purchase complete screen instead of redirecting
+  purchaseCompleteMessage.value = message
+
+  // Calculate order summary
+  purchaseOrderSummary.value = {
+    totals: totalWithTax.value,
+    hasSubscriptions: hasSubscriptionItems.value
+  }
+
+  showPurchaseComplete.value = true
 }
 
 const getUserIpAddress = async () => {
@@ -1262,16 +1282,20 @@ onMounted(async () => {
       paymentMethodsInitialized.value = true
     }
 
-    // Get user IP address if not authenticated
-    userIpAddress.value = await getUserIpAddress()
+    // Get user IP address if not authenticated (non-blocking)
+    getUserIpAddress().then(ip => {
+      userIpAddress.value = ip
+    })
 
-    // Calculate initial taxes
-    await calculateTaxes()
+    // Show page immediately, calculate taxes in background
+    productsLoading.value = false
 
     source.value = decodeURIComponent(
       (Array.isArray(route.query.source) ? route.query.source[0] : route.query.source) ?? '',
     )
-    productsLoading.value = false
+
+    // Calculate initial taxes (non-blocking)
+    calculateTaxes()
   } catch (err) {
     error.value = `Error loading cart: ${err instanceof Error ? err.message : 'Unknown error'}`
   } finally {

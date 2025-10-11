@@ -67,6 +67,7 @@
           class="notification-card"
           title="Notifications"
           :expandable="true"
+          :badge="app.unreadNotificationCount > 0 ? app.unreadNotificationCount : undefined"
           ref="notificationCard"
         >
           <template #default="{ expanded }">

@@ -6,6 +6,7 @@ import {
   apiClient
 } from '@/services/api'
 import { dedupedConcatInPlace } from '@/utils/dedupedConcatInPlace'
+import { setAuthToken, getAuthToken, clearAllAuthTokens } from '@/utils/cookies'
 import type { AuthResponse, CreatePaymentMethodRequest, LoginRequest, Notification, Organization, PaymentMethod, Product, Purchase, PurchasedProduct, RegisterRequest, TaxCalculationRequest, TaxCalculationResult, User } from '@marketplace/types'
 interface ProductFormData {
   key?: {
@@ -121,12 +122,12 @@ export const useAppStore = defineStore('app', {
       this.isLoading = false
       this.error = null
 
-      // Store tokens in localStorage - use ID token if available, otherwise access token
-      if (response.idToken) localStorage.setItem('authToken', response.idToken)
-      if (response.accessToken) localStorage.setItem('accessToken', response.accessToken)
-      if (response.refreshToken) localStorage.setItem('refreshToken', response.refreshToken)
+      // Store tokens in secure cookies
+      if (response.idToken) setAuthToken('AUTH_TOKEN', response.idToken)
+      if (response.accessToken) setAuthToken('ACCESS_TOKEN', response.accessToken)
+      if (response.refreshToken) setAuthToken('REFRESH_TOKEN', response.refreshToken)
 
-      // Store user data if provided
+      // Store user data if provided (non-sensitive data can stay in localStorage)
       if (response.user) {
         this.user = response.user
         localStorage.setItem('userData', JSON.stringify(response.user))
@@ -310,10 +311,9 @@ export const useAppStore = defineStore('app', {
       this.isLoading = false
       this.error = null
 
-      // Remove tokens and user data from localStorage
-      localStorage.removeItem('authToken')
-      localStorage.removeItem('accessToken')
-      localStorage.removeItem('refreshToken')
+      // Remove tokens from cookies
+      clearAllAuthTokens()
+      // Remove user data from localStorage (non-sensitive)
       localStorage.removeItem('userData')
     },
 
@@ -420,9 +420,9 @@ export const useAppStore = defineStore('app', {
     async logout() {
       try {
         this.setLoading(true)
-        const accessToken = localStorage.getItem('accessToken')
-        const refreshToken = localStorage.getItem('refreshToken') ?? ''
-        const token = localStorage.getItem('authToken')
+        const accessToken = getAuthToken('ACCESS_TOKEN')
+        const refreshToken = getAuthToken('REFRESH_TOKEN') ?? ''
+        const token = getAuthToken('AUTH_TOKEN')
 
         // Make logout API call if token exists
         if (accessToken && token) {
@@ -526,8 +526,8 @@ export const useAppStore = defineStore('app', {
 
     // Check if user is already authenticated (on app startup)
     async initializeAuth() {
-      const token = localStorage.getItem('authToken')
-      const refreshToken = localStorage.getItem('refreshToken')
+      const token = getAuthToken('AUTH_TOKEN')
+      const refreshToken = getAuthToken('REFRESH_TOKEN')
       const userData = localStorage.getItem('userData')
 
       if (token && refreshToken) {
