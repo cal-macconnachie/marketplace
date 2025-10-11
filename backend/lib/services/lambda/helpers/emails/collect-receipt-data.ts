@@ -240,39 +240,37 @@ export const collectReceiptEmailData = async (
     ? (process.env.MARKETPLACE_BRAND || 'CSM Marketplace')
     : (sellers[0]?.name || 'Seller')
 
-  // Build seller_groups if multi-seller
-  const seller_groups = isMultiSeller
-    ? Object.entries(groupTotals).map(([
-      sid,
-      t
-    ]) => {
-      const org = sid !== 'unknown' ? orgById[sid] : undefined
-      const descriptors = Array.from(t.descriptors)
-      const statement_descriptor = descriptors.length === 1 ? descriptors[0] : undefined
-      const support_url = org?.email
-        ? `mailto:${org.email}`
-        : (org?.phone ? `tel:${org.phone}` : undefined)
-      return {
-        seller_id: sid,
-        seller_name: org?.name,
-        seller_email: org?.email,
-        seller_phone: org?.phone,
-        address_line_1: org?.address?.line_1,
-        address_line_2: org?.address?.line_2,
-        city: org?.address?.city,
-        state: org?.address?.state,
-        postal_code: org?.address?.postal_code,
-        country: org?.address?.country,
-        items: t.items.sort((a, b) => a.product_name.localeCompare(b.product_name)),
-        subtotal_formatted: formatCurrency(t.base, currency),
-        tax_formatted: t.tax ? formatCurrency(t.tax, currency) : undefined,
-        fees_formatted: t.fees ? formatCurrency(t.fees, currency) : undefined,
-        total_formatted: formatCurrency(t.total, currency),
-        support_url,
-        statement_descriptor
-      }
-    })
-    : undefined
+  // Build seller_groups - always use groupTotals to ensure consistency
+  const seller_groups = Object.entries(groupTotals).map(([
+    sid,
+    t
+  ]) => {
+    const org = sid !== 'unknown' ? orgById[sid] : undefined
+    const descriptors = Array.from(t.descriptors)
+    const statement_descriptor = descriptors.length === 1 ? descriptors[0] : undefined
+    const support_url = org?.email
+      ? `mailto:${org.email}`
+      : (org?.phone ? `tel:${org.phone}` : undefined)
+    return {
+      seller_id: sid,
+      seller_name: org?.name,
+      seller_email: org?.email,
+      seller_phone: org?.phone,
+      address_line_1: org?.address?.line_1,
+      address_line_2: org?.address?.line_2,
+      city: org?.address?.city,
+      state: org?.address?.state,
+      postal_code: org?.address?.postal_code,
+      country: org?.address?.country,
+      items: t.items.sort((a, b) => a.product_name.localeCompare(b.product_name)),
+      subtotal_formatted: formatCurrency(t.base, currency),
+      tax_formatted: t.tax ? formatCurrency(t.tax, currency) : undefined,
+      fees_formatted: t.fees ? formatCurrency(t.fees, currency) : undefined,
+      total_formatted: formatCurrency(t.total, currency),
+      support_url,
+      statement_descriptor
+    }
+  })
 
   const envName = process.env.NODE_ENV || 'dev'
   const domainPrefix = envName === 'prod' ? '' : `${envName}.`

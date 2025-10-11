@@ -191,9 +191,7 @@ const userHasPhone = computed(() => !!app.user?.phone_number)
 const userHasStripeAccount = computed(() => !!app?.organization?.stripe_account_id)
 
 // Count unread notifications
-const unreadCount = computed(() => {
-  return notifications.value.filter(n => !n.read).length
-})
+const unreadCount = computed(() => notifications.value.filter(n => !n.read).length)
 
 // Notification preferences from user entity, with optimistic override
 const preferences = computed(() => ({
@@ -290,23 +288,29 @@ async function refreshNotifications() {
 
 async function markAsRead(notificationId: string) {
   markingAsRead.value.add(notificationId)
+
+  // Store previous state for potential rollback
+  const previousNotifications = [...notifications.value]
+
+  // Optimistically update local state immediately
+  notifications.value = notifications.value.map((n) =>
+    n.id === notificationId ? { ...n, read: true } : n
+  )
+
   try {
     await authAPI.markNotificationAsRead(notificationId)
-
-    // Update local state
-    const notification = notifications.value.find((n) => n.id === notificationId)
-    if (notification) {
-      notification.read = true
-    }
   } catch (error) {
     console.error('Failed to mark as read:', error)
+    // Revert optimistic update on error
+    notifications.value = previousNotifications
   } finally {
     markingAsRead.value.delete(notificationId)
   }
 }
 
 function formatTimestamp(timestamp: number): string {
-  const date = new Date(timestamp * 1000)
+  // Date.now() returns milliseconds, so use timestamp directly
+  const date = new Date(timestamp)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffMins = Math.floor(diffMs / 60000)
