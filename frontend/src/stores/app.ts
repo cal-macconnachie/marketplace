@@ -59,6 +59,7 @@ export const useAppStore = defineStore('app', {
     notificationsLastKey: undefined as Record<string, unknown> | undefined,
     notificationsLoading: false,
     unreadNotificationCount: 0,
+    tokenRefreshInterval: null as number | null,
     productFormData: {
       type: '',
       name: '',
@@ -311,6 +312,9 @@ export const useAppStore = defineStore('app', {
       this.isLoading = false
       this.error = null
 
+      // Stop token refresh
+      this.stopTokenRefresh()
+
       // Remove tokens from cookies
       clearAllAuthTokens()
       // Remove user data from localStorage (non-sensitive)
@@ -385,6 +389,9 @@ export const useAppStore = defineStore('app', {
           await this.fetchCurrentUser()
         }
 
+        // Start token refresh after successful registration
+        this.startTokenRefresh()
+
         return { success: true }
       } catch (error: unknown) {
         const errorMessage =
@@ -405,6 +412,9 @@ export const useAppStore = defineStore('app', {
         if (!response.user) {
           await this.fetchCurrentUser()
         }
+
+        // Start token refresh after successful login
+        this.startTokenRefresh()
 
         return { success: true }
       } catch (error: unknown) {
@@ -549,6 +559,65 @@ export const useAppStore = defineStore('app', {
         } catch {
           console.error('Failed to refresh user data, using stored data')
         }
+
+        // Start proactive token refresh
+        this.startTokenRefresh()
+      }
+    },
+
+    startTokenRefresh() {
+      // Clear any existing interval
+      if (this.tokenRefreshInterval) {
+        clearInterval(this.tokenRefreshInterval)
+      }
+
+      // Check token expiry and refresh if needed every 5 minutes
+      this.tokenRefreshInterval = window.setInterval(async () => {
+        const token = getAuthToken('AUTH_TOKEN')
+        if (!token) {
+          this.stopTokenRefresh()
+          return
+        }
+
+        try {
+          // Decode JWT to check expiry
+          const payload = JSON.parse(atob(token.split('.')[1]))
+          const expiryTime = payload.exp * 1000 // Convert to milliseconds
+          const now = Date.now()
+          const timeUntilExpiry = expiryTime - now
+
+          // If token expires in less than 10 minutes, refresh it
+          if (timeUntilExpiry < 10 * 60 * 1000) {
+            console.log('Token expiring soon, refreshing...')
+            const refreshToken = getAuthToken('REFRESH_TOKEN')
+            if (refreshToken) {
+              const response = await authAPI.refresh(refreshToken)
+              if (response.accessToken) {
+                setAuthToken('ACCESS_TOKEN', response.accessToken)
+              }
+              if (response.idToken) {
+                setAuthToken('AUTH_TOKEN', response.idToken)
+              }
+              if (response.refreshToken) {
+                setAuthToken('REFRESH_TOKEN', response.refreshToken)
+              }
+              console.log('Token refreshed successfully')
+            }
+          }
+        } catch (error) {
+          console.error('Token refresh check failed:', error)
+          // If refresh fails, clear auth and redirect
+          this.clearAuth()
+          this.stopTokenRefresh()
+          window.location.href = '/auth'
+        }
+      }, 5 * 60 * 1000) // Check every 5 minutes
+    },
+
+    stopTokenRefresh() {
+      if (this.tokenRefreshInterval) {
+        clearInterval(this.tokenRefreshInterval)
+        this.tokenRefreshInterval = null
       }
     },
     async refreshStripeAccount({

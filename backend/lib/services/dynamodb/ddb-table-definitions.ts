@@ -355,6 +355,18 @@ export const ddbTableDefinitions: Array<DdbTableDefinition> = [
           type: 'S'
         },
         projectionType: 'ALL'
+      },
+      {
+        indexName: 'user-created-index',
+        partitionKey: {
+          name: 'user_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'created_at',
+          type: 'N'
+        },
+        projectionType: 'ALL'
       }
     ],
     billingMode: 'PAY_PER_REQUEST',

@@ -1,4 +1,3 @@
-import router from '@/router'
 import type {
   AuthResponse,
   ChangePasswordRequest,
@@ -113,7 +112,9 @@ apiClient.interceptors.response.use(
         // Handle refresh token errors by clearing stored tokens and redirecting to the login page.
         console.error('Token refresh failed:', refreshError)
         clearAllAuthTokens()
-        router.push('/auth')
+        // Use window.location instead of router.push to ensure navigation works
+        // even if router is not yet initialized or in a different context
+        window.location.href = '/auth'
         return Promise.reject(error)
       }
     }

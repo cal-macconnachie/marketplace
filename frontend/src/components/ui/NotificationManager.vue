@@ -57,16 +57,67 @@
     <div v-else class="expanded-manager">
       <!-- Notifications History Section -->
       <div class="notifications-section">
-        <div class="section-header">
-          <h4 class="section-title">Recent Notifications</h4>
+        <!-- Filter Controls -->
+        <div class="filter-controls">
+          <div class="filter-groups">
+            <div class="filter-group">
+              <label class="filter-label">Show:</label>
+              <div class="filter-buttons">
+                <BaseButton
+                  :variant="!filters.unreadOnly ? 'primary' : 'outline'"
+                  size="sm"
+                  @click="updateFilter('unreadOnly', false)"
+                >
+                  All
+                </BaseButton>
+                <BaseButton
+                  :variant="filters.unreadOnly ? 'primary' : 'outline'"
+                  size="sm"
+                  @click="updateFilter('unreadOnly', true)"
+                >
+                  Unread
+                </BaseButton>
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <label class="filter-label">Type:</label>
+              <div class="filter-buttons">
+                <BaseButton
+                  :variant="!filters.type ? 'primary' : 'outline'"
+                  size="sm"
+                  @click="updateFilter('type', undefined)"
+                >
+                  All
+                </BaseButton>
+                <BaseButton
+                  :variant="filters.type === 'receipt' ? 'primary' : 'outline'"
+                  size="sm"
+                  @click="updateFilter('type', 'receipt')"
+                >
+                  Receipts
+                </BaseButton>
+                <BaseButton
+                  v-if="userHasStripeAccount"
+                  :variant="filters.type === 'sale' ? 'primary' : 'outline'"
+                  size="sm"
+                  @click="updateFilter('type', 'sale')"
+                >
+                  Sales
+                </BaseButton>
+              </div>
+            </div>
+          </div>
+
           <BaseButton
-            variant="ghost"
+            variant="primary"
             size="sm"
-            :loading="isRefreshing"
-            :disabled="isRefreshing"
-            @click="refreshNotifications"
+            :disabled="isMarkingAllRead || app.unreadNotificationCount === 0"
+            :loading="isMarkingAllRead"
+            @click="handleMarkAllAsRead"
           >
             <svg
+              v-if="!isMarkingAllRead"
               width="14"
               height="14"
               viewBox="0 0 24 24"
@@ -74,12 +125,9 @@
               stroke="currentColor"
               stroke-width="2"
             >
-              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-              <path d="M21 3v5h-5" />
-              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-              <path d="M3 21v-5h5" />
+              <path d="M20 6L9 17l-5-5" />
             </svg>
-            Refresh
+            Mark all as read
           </BaseButton>
         </div>
 
@@ -110,7 +158,13 @@
           <div
             v-for="notification in notifications"
             :key="notification.id"
-            :class="['notification-item', { unread: !notification.read }]"
+            :class="[
+              'notification-item',
+              { unread: !notification.read },
+              { expandable: hasMetadata(notification) },
+              { expanded: expandedNotifications.has(notification.id) }
+            ]"
+            @click="handleNotificationClick(notification)"
           >
             <div class="notification-indicator">
               <div v-if="!notification.read" class="unread-dot"></div>
@@ -121,25 +175,58 @@
                 <span class="notification-time">{{ formatTimestamp(notification.created_at) }}</span>
               </div>
               <p class="notification-message">{{ notification.message }}</p>
-              <div v-if="notification.metadata" class="notification-metadata">
+              <div class="notification-badges">
                 <span
-                  v-if="notification.metadata.type"
-                  :class="['notification-type', `type-${notification.metadata.type}`]"
+                  :class="['notification-type', `type-${notification.type}`]"
                 >
                   {{ formatNotificationType(notification.type) }}
                 </span>
               </div>
-            </div>
-            <div class="notification-actions">
-              <BaseButton
-                v-if="!notification.read"
-                variant="ghost"
-                size="sm"
-                @click="markAsRead(notification.id)"
-                :loading="markingAsRead.has(notification.id)"
+
+              <!-- Expandable metadata section -->
+              <div
+                v-if="hasMetadata(notification)"
+                class="notification-breakdown"
+                :class="{ visible: expandedNotifications.has(notification.id) }"
               >
-                Mark Read
-              </BaseButton>
+                <div v-if="notification.metadata?.order_id" class="breakdown-row">
+                  <span>Order ID</span>
+                  <span class="breakdown-value">{{ notification.metadata.order_id }}</span>
+                </div>
+                <div v-if="notification.metadata?.customer_name" class="breakdown-row">
+                  <span>Customer</span>
+                  <span class="breakdown-value">{{ notification.metadata.customer_name }}</span>
+                </div>
+                <div v-if="notification.metadata?.summary" class="breakdown-section">
+                  <div v-if="notification.metadata.summary.subtotal" class="breakdown-row">
+                    <span>Subtotal</span>
+                    <span class="breakdown-value">{{ notification.metadata.summary.subtotal_formatted }}</span>
+                  </div>
+                  <div v-if="notification.metadata.summary.discount" class="breakdown-row discount">
+                    <span>Discount</span>
+                    <span class="breakdown-value">-{{ notification.metadata.summary.discount_formatted }}</span>
+                  </div>
+                  <div v-if="notification.metadata.summary.tax" class="breakdown-row">
+                    <span>Tax</span>
+                    <span class="breakdown-value">{{ notification.metadata.summary.tax_formatted }}</span>
+                  </div>
+                  <div v-if="notification.metadata.summary.total" class="breakdown-row total">
+                    <span>Total</span>
+                    <span class="breakdown-value">{{ notification.metadata.summary.total_formatted }}</span>
+                  </div>
+                </div>
+                <div v-if="notification.metadata?.shipping_address" class="breakdown-section">
+                  <div class="breakdown-row">
+                    <span>Shipping Address</span>
+                  </div>
+                  <div class="shipping-address">
+                    <p>{{ notification.metadata.shipping_address.line_1 }}</p>
+                    <p v-if="notification.metadata.shipping_address.line_2">{{ notification.metadata.shipping_address.line_2 }}</p>
+                    <p>{{ notification.metadata.shipping_address.city }}, {{ notification.metadata.shipping_address.state }} {{ notification.metadata.shipping_address.postal_code }}</p>
+                    <p>{{ notification.metadata.shipping_address.country }}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -171,8 +258,16 @@ const app = useAppStore()
 const notifications = ref<Notification[]>([])
 const isInitialLoad = ref(true)
 const isLoadingNotifications = ref(false)
-const isRefreshing = ref(false)
 const markingAsRead = ref(new Set<string>())
+const isMarkingAllRead = ref(false)
+const expandedNotifications = ref(new Set<string>())
+const filters = ref<{
+  unreadOnly: boolean
+  type?: string
+}>({
+  unreadOnly: false,
+  type: undefined,
+})
 
 // Optimistic preferences state
 const optimisticPreferences = ref<{
@@ -185,9 +280,6 @@ const optimisticPreferences = ref<{
 // Computed
 const userHasPhone = computed(() => !!app.user?.phone_number)
 const userHasStripeAccount = computed(() => !!app?.organization?.stripe_account_id)
-
-// Use the store's unread count which is updated by polling in App.vue
-const unreadCount = computed(() => app.unreadNotificationCount)
 
 // Notification preferences from user entity, with optimistic override
 const preferences = computed(() => ({
@@ -260,7 +352,8 @@ async function loadNotifications() {
   try {
     const response = await authAPI.getNotifications({
       limit: 50,
-      unreadOnly: false
+      unreadOnly: filters.value.unreadOnly,
+      type: filters.value.type,
     })
 
     if ('notifications' in response) {
@@ -273,13 +366,15 @@ async function loadNotifications() {
   }
 }
 
-async function refreshNotifications() {
-  isRefreshing.value = true
-  try {
-    await loadNotifications()
-  } finally {
-    isRefreshing.value = false
+async function updateFilter(field: 'unreadOnly' | 'type', value: boolean | string | undefined) {
+  if (field === 'unreadOnly') {
+    filters.value.unreadOnly = value as boolean
+  } else if (field === 'type') {
+    filters.value.type = value as string | undefined
   }
+
+  // Reload notifications with new filters
+  await loadNotifications()
 }
 
 async function markAsRead(notificationId: string) {
@@ -295,12 +390,41 @@ async function markAsRead(notificationId: string) {
 
   try {
     await authAPI.markNotificationAsRead(notificationId)
+    // Update unread count
+    app.unreadNotificationCount = Math.max(0, app.unreadNotificationCount - 1)
   } catch (error) {
     console.error('Failed to mark as read:', error)
     // Revert optimistic update on error
     notifications.value = previousNotifications
   } finally {
     markingAsRead.value.delete(notificationId)
+  }
+}
+
+async function handleMarkAllAsRead() {
+  if (app.unreadNotificationCount === 0) return
+
+  isMarkingAllRead.value = true
+
+  // Store previous state for potential rollback
+  const previousNotifications = [...notifications.value]
+  const previousUnreadCount = app.unreadNotificationCount
+
+  // Optimistically mark all as read
+  notifications.value = notifications.value.map((n) => ({ ...n, read: true }))
+  app.unreadNotificationCount = 0
+
+  try {
+    await authAPI.markAllNotificationsAsRead()
+    // Reload notifications to get fresh state
+    await loadNotifications()
+  } catch (error) {
+    console.error('Failed to mark all as read:', error)
+    // Revert optimistic updates on error
+    notifications.value = previousNotifications
+    app.unreadNotificationCount = previousUnreadCount
+  } finally {
+    isMarkingAllRead.value = false
   }
 }
 
@@ -330,6 +454,36 @@ function formatNotificationType(type: string): string {
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
+}
+
+function hasMetadata(notification: Notification): boolean {
+  return !!(
+    notification.metadata &&
+    (notification.metadata.order_id ||
+      notification.metadata.customer_name ||
+      notification.metadata.summary ||
+      notification.metadata.shipping_address)
+  )
+}
+
+function toggleNotificationExpand(notificationId: string) {
+  if (expandedNotifications.value.has(notificationId)) {
+    expandedNotifications.value.delete(notificationId)
+  } else {
+    expandedNotifications.value.add(notificationId)
+  }
+}
+
+async function handleNotificationClick(notification: Notification) {
+  // Toggle expansion if has metadata
+  if (hasMetadata(notification)) {
+    toggleNotificationExpand(notification.id)
+  }
+
+  // Mark as read if unread
+  if (!notification.read) {
+    await markAsRead(notification.id)
+  }
 }
 
 // Lifecycle
@@ -420,6 +574,44 @@ onMounted(async () => {
   flex-direction: column;
 }
 
+/* Filter Controls */
+.filter-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+}
+
+.filter-groups {
+  display: flex;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.filter-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -486,13 +678,28 @@ onMounted(async () => {
   transition: all 0.2s ease;
 }
 
+.notification-item.expandable {
+  cursor: pointer;
+}
+
+.notification-item.expanded {
+  padding-bottom: 0;
+}
+
 .notification-item.unread {
   background: var(--color-bg-muted);
   border-color: var(--color-primary-alpha);
 }
 
-.notification-item:hover {
-  border-color: var(--color-border-hover);
+.notification-item.unread:hover,
+.notification-item.expandable:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.notification-item:not(.unread):not(.expandable) {
+  opacity: 0.7;
 }
 
 .notification-indicator {
@@ -544,10 +751,11 @@ onMounted(async () => {
   line-height: 1.5;
 }
 
-.notification-metadata {
+.notification-badges {
   display: flex;
   gap: var(--space-2);
   align-items: center;
+  margin-top: var(--space-2);
 }
 
 .notification-type {
@@ -571,16 +779,100 @@ onMounted(async () => {
   color: rgb(34, 197, 94);
 }
 
-.notification-actions {
+/* Notification Breakdown */
+.notification-breakdown {
+  margin-top: var(--space-4);
+  padding-top: 0;
+  padding-bottom: 0;
+  background: var(--color-bg-secondary);
+  margin-left: calc(-1 * var(--space-4));
+  margin-right: calc(-1 * var(--space-4));
+  padding-left: var(--space-4);
+  padding-right: var(--space-4);
+  border-radius: var(--radius-md);
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+
+.notification-breakdown.visible {
+  max-height: 500px;
+  opacity: 1;
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+
+.breakdown-section {
+  margin-top: var(--space-2);
+}
+
+.breakdown-row {
   display: flex;
-  align-items: flex-start;
-  flex-shrink: 0;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-1) 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.breakdown-row.discount {
+  color: rgb(34, 197, 94);
+}
+
+.breakdown-row.total {
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+}
+
+.breakdown-value {
+  font-family: var(--font-family-mono, monospace);
+  font-weight: var(--font-weight-medium);
+}
+
+.shipping-address {
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.shipping-address p {
+  margin: 0;
+  line-height: 1.5;
 }
 
 /* Responsive */
 @media (max-width: 640px) {
   .toggle-row {
     flex-direction: column;
+  }
+
+  .filter-controls {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .filter-groups {
+    width: 100%;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .filter-group {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filter-buttons {
+    width: 100%;
   }
 
   .notification-item {
@@ -592,14 +884,6 @@ onMounted(async () => {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-1);
-  }
-
-  .notification-actions {
-    width: 100%;
-  }
-
-  .notification-actions button {
-    width: 100%;
   }
 }
 </style>

@@ -59,10 +59,10 @@ export const queryUserNotifications = async ({
     return result
   }
 
-  // Query all notifications for the user using the read-created index for proper timestamp sorting
+  // Query all notifications for the user using the created-at index for proper timestamp sorting
   const result = await query<Notification>({
     tableName: notificationsTableName,
-    indexName: 'user-read-created-index',
+    indexName: 'user-created-index',
     keyConditionExpression: 'user_id = :userId',
     expressionAttributeValues: {
       ':userId': userId
