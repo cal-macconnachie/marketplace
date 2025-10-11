@@ -126,7 +126,8 @@ export const purchaseProducts = async ({
   const cart = await createPurchaseCart({
     userId,
     purchases: {},
-    paymentMethodId: paymentMethod.id
+    paymentMethodId: paymentMethod.id,
+    ipAddress
   })
   const cartId = cart.id
   const productsHash = products.filter(Boolean).reduce((acc: { [hash: string]: Product }, product) => {

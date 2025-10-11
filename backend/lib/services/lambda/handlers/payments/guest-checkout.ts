@@ -413,7 +413,8 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
       paymentMethodId: paymentMethod.id,
       productKeys: body.productKeys,
       promoCode: body.promoCode,
-      couponId: body.couponId
+      couponId: body.couponId,
+      ipAddress: clientIp
     })
 
     // Return success with safe user data

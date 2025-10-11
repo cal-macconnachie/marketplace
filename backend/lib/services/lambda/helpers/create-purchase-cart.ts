@@ -2,9 +2,9 @@ import {
   DynamoDBClient, PutItemCommand
 } from '@aws-sdk/client-dynamodb'
 import { marshall } from '@aws-sdk/util-dynamodb'
+import { purchaseCartsTableName } from '@marketplace/constants'
 import { Cart } from '@marketplace/types'
 import { randomBytes } from 'crypto'
-import { purchaseCartsTableName } from '@marketplace/constants'
 
 const dynamo = new DynamoDBClient({})
 
@@ -36,17 +36,17 @@ export async function createPurchaseCart(params: {
   userId: string
   purchases: { [purchaseId: string]: 'pending' | 'completed' | 'failed' }
   maxAttempts?: number
-  tableName?: string
   idLength?: number
   paymentMethodId: string
+  ipAddress?: string
 }): Promise<Cart> {
   const {
     userId,
     purchases,
     maxAttempts = 5,
-    tableName = purchaseCartsTableName!,
     idLength = 10,
-    paymentMethodId
+    paymentMethodId,
+    ipAddress
   } = params
 
   let attempts = 0
@@ -59,12 +59,13 @@ export async function createPurchaseCart(params: {
       id,
       purchases,
       payment_method_id: paymentMethodId,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      ip_address: ipAddress
     }
 
     try {
       const command = new PutItemCommand({
-        TableName: tableName,
+        TableName: purchaseCartsTableName,
         Item: marshall(cart, { removeUndefinedValues: true }),
         ConditionExpression: 'attribute_not_exists(#id)',
         ExpressionAttributeNames: { '#id': 'id' }

@@ -15,7 +15,8 @@ export const updateUser = async (event: APIGatewayProxyEvent) => {
       'name',
       'phone_number',
       'address',
-      'ip_address'
+      'ip_address',
+      'notifications'
     ]
     const keys = Object.keys(userData) as (keyof User)[]
     for (const field of keys) {
