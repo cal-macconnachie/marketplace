@@ -8,7 +8,7 @@
     <div v-else-if="error" class="error-container">
       <h2>Error Loading Receipt</h2>
       <p>{{ error }}</p>
-      <button @click="$router.push('/dashboard')" class="btn-secondary">Back to Dashboard</button>
+      <button @click="$router.push('/')" class="btn-secondary">Back to Dashboard</button>
     </div>
 
     <div v-else-if="receipt" class="receipt-wrapper">
@@ -16,7 +16,7 @@
         <button @click="downloadPDF" class="btn-primary" :disabled="downloadingPDF">
           {{ downloadingPDF ? 'Generating PDF...' : 'Download PDF' }}
         </button>
-        <button @click="$router.push('/dashboard')" class="btn-secondary">Back to Dashboard</button>
+        <button @click="$router.push('/')" class="btn-secondary">Back to Dashboard</button>
       </div>
 
       <div id="receipt-content" class="receipt-container">
@@ -275,12 +275,14 @@ const downloadPDF = async () => {
 </script>
 
 <style scoped>
+/* Page Layout */
 .receipt-page {
   min-height: 100vh;
-  background: var(--color-background-soft);
-  padding: 2rem;
+  background: var(--color-bg-secondary);
+  padding: var(--space-8);
 }
 
+/* Loading & Error States */
 .loading,
 .error-container {
   display: flex;
@@ -288,7 +290,7 @@ const downloadPDF = async () => {
   align-items: center;
   justify-content: center;
   min-height: 60vh;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .spinner {
@@ -296,7 +298,7 @@ const downloadPDF = async () => {
   height: 40px;
   border: 4px solid var(--color-border);
   border-top-color: var(--color-primary);
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   animation: spin 1s linear infinite;
 }
 
@@ -304,36 +306,54 @@ const downloadPDF = async () => {
   to { transform: rotate(360deg); }
 }
 
+.error-container h2 {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-2) 0;
+}
+
+.error-container p {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-6) 0;
+}
+
+/* Receipt Wrapper */
 .receipt-wrapper {
-  max-width: 800px;
+  max-width: var(--size-2xl);
   margin: 0 auto;
 }
 
+/* Action Buttons */
 .receipt-actions {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
   justify-content: flex-end;
 }
 
 .btn-primary,
 .btn-secondary {
-  padding: 0.75rem 1.5rem;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: var(--transition-base);
   border: none;
+  font-family: var(--font-family-sans);
 }
 
 .btn-primary {
   background: var(--color-primary);
-  color: white;
+  color: var(--color-text-inverse);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
 
@@ -343,85 +363,102 @@ const downloadPDF = async () => {
 }
 
 .btn-secondary {
-  background: var(--color-background-mute);
-  color: var(--color-text);
+  background: var(--color-bg-muted);
+  color: var(--color-text-primary);
   border: 1px solid var(--color-border);
 }
 
 .btn-secondary:hover {
-  background: var(--color-background-soft);
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-hover);
 }
 
+/* Receipt Container */
 .receipt-container {
-  background: white;
-  border-radius: 8px;
-  padding: 2rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border);
 }
 
+/* Header */
 .receipt-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-6);
 }
 
 .brand {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--color-heading);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
 }
 
 .receipt-number {
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
 }
 
+/* Divider */
 .divider {
   border: none;
   height: 1px;
   background: var(--color-border);
-  margin: 1.5rem 0;
+  margin: var(--space-6) 0;
 }
 
+/* Greeting */
 .greeting h1 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin: 0 0 1.5rem 0;
-  color: var(--color-heading);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  margin: 0 0 var(--space-6) 0;
+  color: var(--color-text-primary);
 }
 
+/* Seller Label */
 .seller-label {
-  font-size: 0.875rem;
-  font-weight: 600;
-  margin: 1.5rem 0 0.75rem 0;
-  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  margin: var(--space-6) 0 var(--space-3) 0;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .seller-group:first-child .seller-label {
   margin-top: 0;
 }
 
+/* Items Table */
 .items-table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-4);
 }
 
 .items-table th {
   text-align: left;
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--color-border);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--space-2) 0;
+  border-bottom: 2px solid var(--color-border);
 }
 
 .items-table td {
   vertical-align: top;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--color-border-soft);
-  font-size: 0.875rem;
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
 }
 
 .items-table .qty,
@@ -429,97 +466,122 @@ const downloadPDF = async () => {
 .items-table .amount {
   text-align: right;
   white-space: nowrap;
+  font-family: var(--font-family-mono);
 }
 
 .product-name {
-  font-weight: 600;
-  margin-bottom: 0.25rem;
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-1);
+  color: var(--color-text-primary);
 }
 
 .product-description {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  margin-top: 0.25rem;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-1);
+  line-height: var(--line-height-relaxed);
 }
 
 .product-meta {
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  margin-top: 0.5rem;
+  margin-top: var(--space-2);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
 .badge {
   display: inline-block;
-  font-size: 0.688rem;
-  color: var(--color-text);
-  background: var(--color-background-mute);
-  border-radius: 999px;
-  padding: 2px 8px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-full);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
 }
 
+/* Totals Section */
 .totals-section {
-  margin: 1.5rem 0;
+  margin: var(--space-6) 0;
 }
 
 .totals-table {
   width: 100%;
-  max-width: 300px;
+  max-width: 20rem;
   margin-left: auto;
 }
 
 .totals-table td {
-  padding: 0.375rem 0;
-  font-size: 0.875rem;
+  padding: var(--space-2) 0;
+  font-size: var(--font-size-sm);
 }
 
 .totals-table .label {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
 }
 
 .totals-table .value {
   text-align: right;
+  font-family: var(--font-family-mono);
+  color: var(--color-text-primary);
 }
 
 .totals-table .grand-total {
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-lg);
   border-top: 2px solid var(--color-border);
-  padding-top: 0.625rem;
+  padding-top: var(--space-3);
+  margin-top: var(--space-2);
 }
 
 .seller-meta {
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  margin-top: 0.5rem;
+  margin-top: var(--space-3);
+  line-height: var(--line-height-relaxed);
 }
 
 .seller-meta a {
   color: var(--color-primary);
   text-decoration: none;
+  transition: var(--transition-fast);
 }
 
 .seller-meta a:hover {
+  color: var(--color-primary-hover);
   text-decoration: underline;
 }
 
+/* Payment Method */
 .payment-method {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  margin-bottom: 1.5rem;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-6);
+  padding: var(--space-3);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  font-family: var(--font-family-mono);
 }
 
+/* Details Section */
 .details-section {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-  margin: 1.5rem 0;
+  gap: var(--space-8);
+  margin: var(--space-6) 0;
+  padding: var(--space-6);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
 }
 
 .detail-column {
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
 }
 
 .detail-column:last-child {
@@ -527,50 +589,75 @@ const downloadPDF = async () => {
 }
 
 .detail-label {
-  font-weight: 600;
-  margin-bottom: 0.5rem;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
 }
 
 .detail-value {
-  margin-bottom: 0.25rem;
+  margin-bottom: var(--space-1);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
 }
 
 .detail-muted {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
 }
 
 .address {
-  margin-top: 0.5rem;
-  line-height: 1.4;
+  margin-top: var(--space-2);
+  line-height: var(--line-height-relaxed);
 }
 
 .seller-info {
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .seller-info:last-child {
   margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
+/* Footer */
 .receipt-footer {
   text-align: center;
-  padding-top: 1.5rem;
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
+  padding-top: var(--space-6);
+  margin-top: var(--space-6);
+  border-top: 1px solid var(--color-border);
 }
 
+.footer-text {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
   .receipt-page {
-    padding: 1rem;
+    padding: var(--space-4);
   }
 
   .receipt-container {
-    padding: 1rem;
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
   }
 
   .receipt-actions {
     flex-direction: column;
+  }
+
+  .items-table th,
+  .items-table td {
+    font-size: var(--font-size-xs);
   }
 
   .items-table .qty,
@@ -580,14 +667,24 @@ const downloadPDF = async () => {
 
   .details-section {
     grid-template-columns: 1fr;
-    gap: 1.5rem;
+    gap: var(--space-6);
+    padding: var(--space-4);
   }
 
   .detail-column:last-child {
     text-align: left;
   }
+
+  .brand {
+    font-size: var(--font-size-xl);
+  }
+
+  .greeting h1 {
+    font-size: var(--font-size-xl);
+  }
 }
 
+/* Print Styles */
 @media print {
   .receipt-actions {
     display: none;
@@ -599,7 +696,19 @@ const downloadPDF = async () => {
   }
 
   .receipt-container {
+    background: white;
+    color: black;
     box-shadow: none;
+    border: none;
+  }
+
+  .receipt-container * {
+    color: black !important;
+    border-color: #ddd !important;
+  }
+
+  .badge {
+    border-color: #999 !important;
   }
 }
 </style>

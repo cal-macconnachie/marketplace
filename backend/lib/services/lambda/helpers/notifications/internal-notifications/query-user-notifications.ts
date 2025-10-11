@@ -35,7 +35,7 @@ export const queryUserNotifications = async ({
       // If also filtering by unread, add a filter expression
       filterExpression: unreadOnly ? '#read = :read' : undefined,
       expressionAttributeNames: unreadOnly ? { '#read': 'read' } : undefined,
-      sortOrder: 'ASC', // Newest first
+      sortOrder: 'DESC', // Newest first
       limit,
       exclusiveStartKey
     })
@@ -52,21 +52,22 @@ export const queryUserNotifications = async ({
         ':userId': userId,
         ':prefix': 'false#'
       },
-      sortOrder: 'ASC', // Newest first
+      sortOrder: 'DESC', // Newest first
       limit,
       exclusiveStartKey
     })
     return result
   }
 
-  // Query all notifications for the user
+  // Query all notifications for the user using the read-created index for proper timestamp sorting
   const result = await query<Notification>({
     tableName: notificationsTableName,
+    indexName: 'user-read-created-index',
     keyConditionExpression: 'user_id = :userId',
     expressionAttributeValues: {
       ':userId': userId
     },
-    sortOrder: 'ASC', // Newest first
+    sortOrder: 'DESC', // Newest first
     limit,
     exclusiveStartKey
   })
