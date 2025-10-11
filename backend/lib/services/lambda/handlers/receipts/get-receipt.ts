@@ -1,4 +1,4 @@
-import { cartsTableName } from '@marketplace/constants'
+import { purchaseCartsTableName } from '@marketplace/constants'
 import {
   Cart
 } from '@marketplace/types'
@@ -46,7 +46,7 @@ export const getReceipt: APIGatewayProxyHandler = async (event) => {
 
     // Fetch cart
     const cart = await get<Cart>({
-      tableName: cartsTableName!,
+      tableName: purchaseCartsTableName!,
       key: {
         user_id: user.id,
         id: cartId

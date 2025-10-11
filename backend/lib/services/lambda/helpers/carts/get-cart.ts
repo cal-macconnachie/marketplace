@@ -8,7 +8,7 @@ export const getCart = async ({
 }: {
   userId: string
   cartId: string
-}): Promise<Cart | null> => {
+}): Promise<Cart | undefined> => {
   const cart = await get<Cart>({
     tableName: purchaseCartsTableName,
     key: {
