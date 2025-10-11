@@ -41,9 +41,11 @@ export const sendReceiptNotification = async ({
   })
 
   if (user.email && user.notifications?.email) {
+    console.log('Sending receipt email to', user.email)
     await sendReceiptEmail({ ctx })
   }
   if (user.phone_number && user.notifications?.sms) {
+    console.log('Sending receipt SMS to', user.phone_number)
     await sendReceiptSMS({ ctx })
   }
 
