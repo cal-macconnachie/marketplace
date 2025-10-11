@@ -78,6 +78,7 @@
           v-else
           :given-name="appStore.user?.given_name"
           :family-name="appStore.user?.family_name"
+          :badge="appStore.unreadNotificationCount"
           size="md"
           @click="goToAccount"
         />
@@ -581,6 +582,11 @@ onMounted(async () => {
 
   // Load initial cart items
   loadCartItems()
+
+  // Fetch unread notification count if user is authenticated
+  if (appStore.isAuthenticated) {
+    await appStore.fetchUnreadNotificationCount()
+  }
 
   await fetchProducts(false, true)
 
