@@ -1,9 +1,11 @@
-import { APIGatewayProxyHandler } from 'aws-lambda'
 import { cartsTableName } from '@marketplace/constants'
-import { Cart, User } from '@marketplace/types'
+import {
+  Cart
+} from '@marketplace/types'
+import { APIGatewayProxyHandler } from 'aws-lambda'
 import { get } from '../../helpers/dynamo-helpers/get'
 import { collectReceiptEmailData } from '../../helpers/emails/collect-receipt-data'
-import { getUserFromEvent } from '../../helpers/auth/get-user-from-event'
+import { getUserFromEvent } from '../../helpers/get-user-from-event'
 
 /**
  * GET /receipts/:cartId
@@ -27,7 +29,7 @@ export const getReceipt: APIGatewayProxyHandler = async (event) => {
     }
 
     // Get authenticated user
-    const user = await getUserFromEvent(event) as User
+    const user = await getUserFromEvent(event)
 
     if (!user) {
       return {
