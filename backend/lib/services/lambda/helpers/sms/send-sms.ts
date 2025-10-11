@@ -49,9 +49,11 @@ export async function sendSMS(params: SendSMSParams): Promise<void> {
   if (!smsClient) throw new Error('Failed to get SMS Lambda client')
 
   const payload = {
-    phoneNumber: params.phoneNumber,
-    message: params.message,
-    senderId: params.senderId
+    detail: {
+      phoneNumber: params.phoneNumber,
+      message: params.message,
+      senderId: params.senderId
+    }
   }
 
   const command = new InvokeCommand({

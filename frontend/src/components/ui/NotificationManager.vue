@@ -2,6 +2,10 @@
   <div class="notification-manager">
     <!-- Collapsed/Compact State -->
     <div v-if="!expanded" class="compact-manager">
+      <div v-if="unreadCount > 0" class="notification-badge">
+        <span class="badge-count">{{ unreadCount }}</span>
+        <span class="badge-label">unread notification{{ unreadCount === 1 ? '' : 's' }}</span>
+      </div>
       <div class="notification-toggles">
         <div class="toggle-section">
           <div class="toggle-row">
@@ -11,7 +15,7 @@
               label="Email"
               :off-label="''"
               :on-label="''"
-              :loading="isUpdating"
+              :loading="isInitialLoad"
               @update="handleToggleUpdate"
             />
             <EditableToggle
@@ -20,7 +24,7 @@
               label="SMS"
               :off-label="''"
               :on-label="''"
-              :loading="isUpdating"
+              :loading="isInitialLoad"
               :disabled="!userHasPhone"
               @update="handleToggleUpdate"
             />
@@ -35,7 +39,7 @@
               label="Receipts"
               :off-label="''"
               :on-label="''"
-              :loading="isUpdating"
+              :loading="isInitialLoad"
               @update="handleToggleUpdate"
             />
             <EditableToggle
@@ -45,7 +49,7 @@
               label="Sales"
               :off-label="''"
               :on-label="''"
-              :loading="isUpdating"
+              :loading="isInitialLoad"
               @update="handleToggleUpdate"
             />
           </div>
@@ -161,7 +165,7 @@ interface Props {
   expanded?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   expanded: false,
 })
 
@@ -169,28 +173,46 @@ const app = useAppStore()
 
 // State
 const notifications = ref<Notification[]>([])
-const isUpdating = ref(false)
+const isInitialLoad = ref(true)
 const isLoadingNotifications = ref(false)
 const isRefreshing = ref(false)
 const markingAsRead = ref(new Set<string>())
+
+// Optimistic preferences state
+const optimisticPreferences = ref<{
+  email_enabled?: boolean
+  sms_enabled?: boolean
+  receipts?: boolean
+  sales?: boolean
+}>({})
 
 // Computed
 const userHasPhone = computed(() => !!app.user?.phone_number)
 const userHasStripeAccount = computed(() => !!app?.organization?.stripe_account_id)
 
-// Notification preferences from user entity
+// Count unread notifications
+const unreadCount = computed(() => {
+  return notifications.value.filter(n => !n.read).length
+})
+
+// Notification preferences from user entity, with optimistic override
 const preferences = computed(() => ({
-  email_enabled: app.user?.notifications?.email ?? true,
-  sms_enabled: app.user?.notifications?.sms ?? false,
-  receipts: !(app.user?.notification_opt_out?.receipts ?? false),
-  sales: !(app.user?.notification_opt_out?.sales ?? false),
+  email_enabled: optimisticPreferences.value.email_enabled ?? app.user?.notifications?.email ?? true,
+  sms_enabled: optimisticPreferences.value.sms_enabled ?? app.user?.notifications?.sms ?? false,
+  receipts: optimisticPreferences.value.receipts ?? !(app.user?.notification_opt_out?.receipts ?? false),
+  sales: optimisticPreferences.value.sales ?? !(app.user?.notification_opt_out?.sales ?? false),
 }))
 
 // Methods
 async function handleToggleUpdate(field: string, value: boolean) {
   if (!app.user?.id) return
 
-  isUpdating.value = true
+  // Optimistically update the UI
+  optimisticPreferences.value = {
+    ...optimisticPreferences.value,
+    [field]: value,
+  }
+
   try {
     // Prepare user update based on field
     let updates: Partial<User> = {}
@@ -220,11 +242,20 @@ async function handleToggleUpdate(field: string, value: boolean) {
     if (!result.success) {
       throw new Error(result.error || 'Failed to update preferences')
     }
+
+    // Clear optimistic state and let the real value from store take over
+    // If the returned value is different, it will show the correct state
+    optimisticPreferences.value = {
+      ...optimisticPreferences.value,
+      [field]: undefined,
+    }
   } catch (error) {
     console.error('Failed to update preference:', error)
-    // User will automatically revert via computed property
-  } finally {
-    isUpdating.value = false
+    // Revert optimistic update on error
+    optimisticPreferences.value = {
+      ...optimisticPreferences.value,
+      [field]: undefined,
+    }
   }
 }
 
@@ -303,10 +334,11 @@ function formatNotificationType(type: string): string {
 
 // Lifecycle
 onMounted(async () => {
-  // Preferences are automatically loaded from user entity via computed property
-  if (props.expanded) {
-    await loadNotifications()
-  }
+  // Mark initial load as complete since preferences are loaded from app store
+  isInitialLoad.value = false
+
+  // Always load notifications to show the badge count
+  await loadNotifications()
 })
 </script>
 
@@ -320,6 +352,39 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+/* Notification Badge */
+.notification-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-primary-alpha);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
+}
+
+.badge-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 var(--space-2);
+  background: var(--color-primary);
+  color: white;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+}
+
+.badge-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
 }
 
 /* Toggle Sections */

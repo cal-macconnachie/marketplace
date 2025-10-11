@@ -6,7 +6,7 @@ export const productsPurchased = async (event: EventBridgeEvent<'products-purcha
   cartId: string
 }>) => {
   try {
-    console.log('Sending receipt notificationdo', event)
+    console.log('Sending receipt notification', event)
     await sendReceiptNotification({
       userId: event.detail.userId,
       cartId: event.detail.cartId
