@@ -155,80 +155,13 @@
         </div>
 
         <div v-else class="notifications-list">
-          <div
+          <NotificationItem
             v-for="notification in notifications"
             :key="notification.id"
-            :class="[
-              'notification-item',
-              { unread: !notification.read },
-              { expandable: hasMetadata(notification) },
-              { expanded: expandedNotifications.has(notification.id) }
-            ]"
-            @click="handleNotificationClick(notification)"
-          >
-            <div class="notification-indicator">
-              <div v-if="!notification.read" class="unread-dot"></div>
-            </div>
-            <div class="notification-content">
-              <div class="notification-header">
-                <h5 class="notification-title">{{ notification.title }}</h5>
-                <span class="notification-time">{{ formatTimestamp(notification.created_at) }}</span>
-              </div>
-              <p class="notification-message">{{ notification.message }}</p>
-              <div class="notification-badges">
-                <span
-                  :class="['notification-type', `type-${notification.type}`]"
-                >
-                  {{ formatNotificationType(notification.type) }}
-                </span>
-              </div>
-
-              <!-- Expandable metadata section -->
-              <div
-                v-if="hasMetadata(notification)"
-                class="notification-breakdown"
-                :class="{ visible: expandedNotifications.has(notification.id) }"
-              >
-                <div v-if="notification.metadata?.order_id" class="breakdown-row">
-                  <span>Order ID</span>
-                  <span class="breakdown-value">{{ notification.metadata.order_id }}</span>
-                </div>
-                <div v-if="notification.metadata?.customer_name" class="breakdown-row">
-                  <span>Customer</span>
-                  <span class="breakdown-value">{{ notification.metadata.customer_name }}</span>
-                </div>
-                <div v-if="notification.metadata?.summary" class="breakdown-section">
-                  <div v-if="notification.metadata.summary.subtotal" class="breakdown-row">
-                    <span>Subtotal</span>
-                    <span class="breakdown-value">{{ notification.metadata.summary.subtotal_formatted }}</span>
-                  </div>
-                  <div v-if="notification.metadata.summary.discount" class="breakdown-row discount">
-                    <span>Discount</span>
-                    <span class="breakdown-value">-{{ notification.metadata.summary.discount_formatted }}</span>
-                  </div>
-                  <div v-if="notification.metadata.summary.tax" class="breakdown-row">
-                    <span>Tax</span>
-                    <span class="breakdown-value">{{ notification.metadata.summary.tax_formatted }}</span>
-                  </div>
-                  <div v-if="notification.metadata.summary.total" class="breakdown-row total">
-                    <span>Total</span>
-                    <span class="breakdown-value">{{ notification.metadata.summary.total_formatted }}</span>
-                  </div>
-                </div>
-                <div v-if="notification.metadata?.shipping_address" class="breakdown-section">
-                  <div class="breakdown-row">
-                    <span>Shipping Address</span>
-                  </div>
-                  <div class="shipping-address">
-                    <p>{{ notification.metadata.shipping_address.line_1 }}</p>
-                    <p v-if="notification.metadata.shipping_address.line_2">{{ notification.metadata.shipping_address.line_2 }}</p>
-                    <p>{{ notification.metadata.shipping_address.city }}, {{ notification.metadata.shipping_address.state }} {{ notification.metadata.shipping_address.postal_code }}</p>
-                    <p>{{ notification.metadata.shipping_address.country }}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+            :notification="notification"
+            :is-expanded="expandedNotifications.has(notification.id)"
+            @click="handleNotificationClick"
+          />
         </div>
       </div>
     </div>
@@ -243,6 +176,7 @@ import { computed, onMounted, ref } from 'vue'
 import BaseButton from './BaseButton.vue'
 import EditableToggle from './EditableToggle.vue'
 import LoadingSpinner from './LoadingSpinner.vue'
+import NotificationItem from './NotificationItem.vue'
 
 interface Props {
   expanded?: boolean
@@ -428,44 +362,6 @@ async function handleMarkAllAsRead() {
   }
 }
 
-function formatTimestamp(timestamp: number): string {
-  // Date.now() returns milliseconds, so use timestamp directly
-  const date = new Date(timestamp)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
-
-  if (diffMins < 1) return 'Just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-  })
-}
-
-function formatNotificationType(type: string): string {
-  return type
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-}
-
-function hasMetadata(notification: Notification): boolean {
-  return !!(
-    notification.metadata &&
-    (notification.metadata.order_id ||
-      notification.metadata.customer_name ||
-      notification.metadata.summary ||
-      notification.metadata.shipping_address)
-  )
-}
-
 function toggleNotificationExpand(notificationId: string) {
   if (expandedNotifications.value.has(notificationId)) {
     expandedNotifications.value.delete(notificationId)
@@ -475,10 +371,8 @@ function toggleNotificationExpand(notificationId: string) {
 }
 
 async function handleNotificationClick(notification: Notification) {
-  // Toggle expansion if has metadata
-  if (hasMetadata(notification)) {
-    toggleNotificationExpand(notification.id)
-  }
+  // Toggle expansion
+  toggleNotificationExpand(notification.id)
 
   // Mark as read if unread
   if (!notification.read) {
@@ -667,187 +561,6 @@ onMounted(async () => {
   gap: var(--space-2);
 }
 
-.notification-item {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  transition: all 0.2s ease;
-}
-
-.notification-item.expandable {
-  cursor: pointer;
-}
-
-.notification-item.expanded {
-  padding-bottom: 0;
-}
-
-.notification-item.unread {
-  background: var(--color-bg-muted);
-  border-color: var(--color-primary-alpha);
-}
-
-.notification-item.unread:hover,
-.notification-item.expandable:hover {
-  border-color: var(--color-primary);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.notification-item:not(.unread):not(.expandable) {
-  opacity: 0.7;
-}
-
-.notification-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  flex-shrink: 0;
-  padding-top: var(--space-1);
-}
-
-.unread-dot {
-  width: 8px;
-  height: 8px;
-  background: var(--color-primary);
-  border-radius: 50%;
-}
-
-.notification-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.notification-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
-  margin-bottom: var(--space-1);
-}
-
-.notification-title {
-  margin: 0;
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
-.notification-time {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-}
-
-.notification-message {
-  margin: 0 0 var(--space-2) 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-}
-
-.notification-badges {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  margin-top: var(--space-2);
-}
-
-.notification-type {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  background: var(--color-bg-secondary);
-  color: var(--color-text-secondary);
-}
-
-.notification-type.type-receipt {
-  background: rgba(59, 130, 246, 0.1);
-  color: rgb(59, 130, 246);
-}
-
-.notification-type.type-sale {
-  background: rgba(34, 197, 94, 0.1);
-  color: rgb(34, 197, 94);
-}
-
-/* Notification Breakdown */
-.notification-breakdown {
-  margin-top: var(--space-4);
-  padding-top: 0;
-  padding-bottom: 0;
-  background: var(--color-bg-secondary);
-  margin-left: calc(-1 * var(--space-4));
-  margin-right: calc(-1 * var(--space-4));
-  padding-left: var(--space-4);
-  padding-right: var(--space-4);
-  border-radius: var(--radius-md);
-  max-height: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition: all 0.3s ease;
-}
-
-.notification-breakdown.visible {
-  max-height: 500px;
-  opacity: 1;
-  padding-top: var(--space-3);
-  padding-bottom: var(--space-3);
-}
-
-.breakdown-section {
-  margin-top: var(--space-2);
-}
-
-.breakdown-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-1) 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
-.breakdown-row.discount {
-  color: rgb(34, 197, 94);
-}
-
-.breakdown-row.total {
-  border-top: 1px solid var(--color-border);
-  margin-top: var(--space-2);
-  padding-top: var(--space-2);
-  font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-md);
-  color: var(--color-text-primary);
-}
-
-.breakdown-value {
-  font-family: var(--font-family-mono, monospace);
-  font-weight: var(--font-weight-medium);
-}
-
-.shipping-address {
-  margin-top: var(--space-2);
-  padding: var(--space-2);
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
-.shipping-address p {
-  margin: 0;
-  line-height: 1.5;
-}
-
 /* Responsive */
 @media (max-width: 640px) {
   .toggle-row {
@@ -873,17 +586,6 @@ onMounted(async () => {
 
   .filter-buttons {
     width: 100%;
-  }
-
-  .notification-item {
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-
-  .notification-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-1);
   }
 }
 </style>

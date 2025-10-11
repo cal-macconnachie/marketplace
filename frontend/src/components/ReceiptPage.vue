@@ -1,22 +1,36 @@
 <template>
   <div class="receipt-page">
     <div v-if="loading" class="loading">
-      <div class="spinner"></div>
+      <LoadingSpinner :size="40" />
       <p>Loading receipt...</p>
     </div>
 
-    <div v-else-if="error" class="error-container">
-      <h2>Error Loading Receipt</h2>
-      <p>{{ error }}</p>
-      <button @click="$router.push('/')" class="btn-secondary">Back to Dashboard</button>
-    </div>
+    <BaseAlert
+      v-else-if="error"
+      variant="error"
+      title="Error Loading Receipt"
+      :message="error"
+    >
+      <template #actions>
+        <BaseButton variant="secondary" size="sm" @click="$router.push('/')">
+          Back to Dashboard
+        </BaseButton>
+      </template>
+    </BaseAlert>
 
     <div v-else-if="receipt" class="receipt-wrapper">
       <div class="receipt-actions">
-        <button @click="downloadPDF" class="btn-primary" :disabled="downloadingPDF">
+        <BaseButton
+          variant="primary"
+          :loading="downloadingPDF"
+          :disabled="downloadingPDF"
+          @click="downloadPDF"
+        >
           {{ downloadingPDF ? 'Generating PDF...' : 'Download PDF' }}
-        </button>
-        <button @click="$router.push('/')" class="btn-secondary">Back to Dashboard</button>
+        </BaseButton>
+        <BaseButton variant="secondary" @click="$router.push('/')">
+          Back to Dashboard
+        </BaseButton>
       </div>
 
       <div id="receipt-content" class="receipt-container">
@@ -219,6 +233,9 @@ import type { ReceiptEmailContext } from '@marketplace/types'
 import html2pdf from 'html2pdf.js'
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import BaseAlert from '@/components/ui/BaseAlert.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 
 const route = useRoute()
 const loading = ref(true)
@@ -282,9 +299,8 @@ const downloadPDF = async () => {
   padding: var(--space-8);
 }
 
-/* Loading & Error States */
-.loading,
-.error-container {
+/* Loading State */
+.loading {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -293,30 +309,9 @@ const downloadPDF = async () => {
   gap: var(--space-4);
 }
 
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid var(--color-border);
-  border-top-color: var(--color-primary);
-  border-radius: var(--radius-full);
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.error-container h2 {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  margin: 0 0 var(--space-2) 0;
-}
-
-.error-container p {
+.loading p {
   font-size: var(--font-size-base);
   color: var(--color-text-secondary);
-  margin: 0 0 var(--space-6) 0;
 }
 
 /* Receipt Wrapper */
@@ -331,46 +326,6 @@ const downloadPDF = async () => {
   gap: var(--space-3);
   margin-bottom: var(--space-6);
   justify-content: flex-end;
-}
-
-.btn-primary,
-.btn-secondary {
-  padding: var(--space-3) var(--space-6);
-  border-radius: var(--radius-lg);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  transition: var(--transition-base);
-  border: none;
-  font-family: var(--font-family-sans);
-}
-
-.btn-primary {
-  background: var(--color-primary);
-  color: var(--color-text-inverse);
-  box-shadow: var(--shadow-sm);
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background: var(--color-bg-muted);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
-}
-
-.btn-secondary:hover {
-  background: var(--color-bg-secondary);
-  border-color: var(--color-border-hover);
 }
 
 /* Receipt Container */

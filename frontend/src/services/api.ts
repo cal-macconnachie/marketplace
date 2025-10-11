@@ -98,15 +98,20 @@ apiClient.interceptors.response.use(
           refreshToken,
         })
 
-        const { accessToken, refreshToken: newRefreshToken } = refreshResponse.data
+        const { accessToken, idToken, refreshToken: newRefreshToken } = refreshResponse.data
         // Store the new access and refresh tokens in cookies
         const { setAuthToken } = await import('@/utils/cookies')
         setAuthToken('ACCESS_TOKEN', accessToken)
+        if (idToken) {
+          setAuthToken('AUTH_TOKEN', idToken)
+        }
         if (newRefreshToken) {
           setAuthToken('REFRESH_TOKEN', newRefreshToken)
         }
-        // Update the authorization header with the new access token.
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`
+        // Update the authorization header with the new token on the original request
+        // Prefer idToken if available, otherwise use accessToken (matches request interceptor logic)
+        const token = idToken || accessToken
+        originalRequest.headers.Authorization = `Bearer ${token}`
         return apiClient(originalRequest) // Retry the original request with the new access token.
       } catch (refreshError) {
         // Handle refresh token errors by clearing stored tokens and redirecting to the login page.

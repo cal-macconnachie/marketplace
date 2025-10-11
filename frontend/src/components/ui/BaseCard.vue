@@ -209,6 +209,15 @@ defineExpose({
   pointer-events: auto;
 }
 
+/* Mobile: always show expand button */
+@media (max-width: 768px) {
+  .expand-btn {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+  }
+}
+
 /* Card sections */
 .card-header {
   margin-bottom: var(--space-4);

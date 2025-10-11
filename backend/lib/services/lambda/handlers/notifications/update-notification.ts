@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { markNotificationRead } from '../../helpers/notifications/internal-notifications/mark-notification-read'
 import { markAllUserNotificationsRead } from '../../helpers/notifications/internal-notifications/mark-all-user-notifications-read'
+import { markNotificationRead } from '../../helpers/notifications/internal-notifications/mark-notification-read'
 import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 
 /**
@@ -39,7 +39,9 @@ export const updateNotification = async (event: APIGatewayProxyEvent) => {
       }
     }
 
-    const { notificationId, markAllRead } = JSON.parse(event.body ?? '{}')
+    const {
+      notificationId, markAllRead 
+    } = JSON.parse(event.body ?? '{}')
 
     // Validate that at least one action is specified
     if (!notificationId && !markAllRead) {

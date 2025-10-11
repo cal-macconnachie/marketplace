@@ -57,8 +57,14 @@ export const sendReceiptNotification = async ({
     message: `Your purchase of ${ctx.line_items.length} item(s) for ${ctx.summary.total_formatted} is complete.`,
     metadata: {
       order_id: cartId,
-      summary: ctx.summary, // Convert to cents
-      currency: ctx.currency
+      summary: ctx.summary,
+      currency: ctx.currency,
+      line_items: ctx.line_items.map(item => ({
+        product_name: item.product_name,
+        quantity: item.quantity,
+        unit_price_formatted: item.unit_price_formatted,
+        subtotal_formatted: item.subtotal_formatted
+      }))
     }
   })
 
@@ -87,9 +93,17 @@ export const sendReceiptNotification = async ({
             order_id: cartId,
             customer_id: userId,
             customer_name: ctx.customer_name,
+            customer_email: user.email,
+            customer_phone: user.phone_number,
             summary: ctx.summary,
             currency: ctx.currency,
-            shipping_address: cart.shipping_address
+            shipping_address: cart.shipping_address,
+            line_items: orgItems.map(item => ({
+              product_name: item.product_name,
+              quantity: item.quantity,
+              unit_price_formatted: item.unit_price_formatted,
+              subtotal_formatted: item.subtotal_formatted
+            }))
           }
         })
       )
