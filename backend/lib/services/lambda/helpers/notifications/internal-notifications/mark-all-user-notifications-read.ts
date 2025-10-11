@@ -13,7 +13,7 @@ export const markAllUserNotificationsRead = async ({
   const notifications = await queryAll<Notification>({
     tableName: notificationsTableName,
     indexName: 'user-read-created-index',
-    keyConditionExpression: 'user_id = :userId AND read_created_at BEGINS WITH :read',
+    keyConditionExpression: 'user_id = :userId AND begins_with(read_created_at, :read)',
     expressionAttributeValues: {
       ':userId': userId,
       ':read': 'false'

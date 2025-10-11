@@ -117,17 +117,19 @@ const prepareProductDataForCreate = (record: Product): Stripe.ProductCreateParam
     'is_public',
   ] as const
   const productData = { ...record } satisfies Stripe.ProductCreateParams
+  // Preserve existing metadata and add organization_id
   productData.metadata = {
+    ...record.metadata,
     organization_id: record.organization_id
   }
-  
+
   // Remove fields that don't belong in Stripe Product API
   fieldsToRemove.forEach(field => {
     delete productData[field]
   })
-  
+
   // Keep id for create operation to set our own IDs
-  
+
   return productData
 }
 
@@ -147,15 +149,17 @@ const prepareProductDataForUpdate = (record: Product): Stripe.ProductUpdateParam
     'is_public',
   ] as const
   const productData = { ...record } as Record<string, unknown>
+  // Preserve existing metadata and add organization_id
   productData.metadata = {
+    ...record.metadata,
     organization_id: record.organization_id
   }
-  
+
   // Remove fields that don't belong in Stripe Product API
   fieldsToRemove.forEach(field => {
     delete productData[field]
   })
-  
+
   return productData as Stripe.ProductUpdateParams
 }
 
@@ -438,7 +442,8 @@ export const handler = async (event: DynamoDBStreamEvent) => {
             name: stripeProduct.name,
             description: stripeProduct.description ?? '',
             active: stripeProduct.active,
-            metadata: stripeProduct.metadata,
+            // Don't overwrite metadata from Stripe - keep the DynamoDB metadata which has our custom fields
+            // Stripe metadata only has organization_id, but DynamoDB may have shipping_required, meter_unit, etc.
             statement_descriptor: stripeProduct.statement_descriptor ?? '',
           }
           

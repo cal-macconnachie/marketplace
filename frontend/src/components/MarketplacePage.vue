@@ -48,24 +48,6 @@
           </button>
         </div>
         <ThemeToggle />
-        <button v-if="cartItemCount > 0" class="cart-preview-btn" @click="showCartModal = true">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <circle cx="8" cy="21" r="1"></circle>
-            <circle cx="19" cy="21" r="1"></circle>
-            <path
-              d="m2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43h-15.12"
-            ></path>
-          </svg>
-          <span class="cart-badge">{{ cartItemCount }}</span>
-          <span class="cart-total">{{ formattedCartTotal }}</span>
-        </button>
         <BaseButton
           v-if="!appStore.isAuthenticated"
           @click="showAuthForm = true"
@@ -137,6 +119,30 @@
       <SignIn :initial-mode="authMode" :is-modal="true" @auth-success="handleAuthSuccess" />
     </BaseModal>
 
+    <!-- Floating Cart Button -->
+    <button
+      v-if="cartItemCount > 0"
+      class="cart-fab"
+      @click="showCartModal = true"
+      title="View Cart"
+    >
+      <svg
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <circle cx="8" cy="21" r="1"></circle>
+        <circle cx="19" cy="21" r="1"></circle>
+        <path
+          d="m2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43h-15.12"
+        ></path>
+      </svg>
+      <span class="cart-fab-badge">{{ cartItemCount }}</span>
+    </button>
+
     <!-- Cart Management Modal -->
     <BaseModal v-model:show="showCartModal" size="lg" :hide-scrollbar="false">
       <template #default>
@@ -152,56 +158,58 @@
         </div>
 
         <div v-else class="cart-modal-content">
-          <div class="cart-items-list">
-            <div
-              v-for="(item, index) in cartItems"
-              :key="`${item.groupId}:${item.productId}`"
-              class="cart-modal-item"
-            >
-              <div class="cart-item-wrapper">
-                <button class="remove-item-btn" @click="removeItem(index)" title="Remove item">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <polyline points="3,6 5,6 21,6"></polyline>
-                    <path
-                      d="m19,6v14a2,2 0 0,1-2,2H7a2,2 0 0,1-2-2V6m3,0V4a2,2 0 0,1,2-2h4a2,2 0 0,1,2,2v2"
-                    ></path>
-                    <line x1="10" y1="11" x2="10" y2="17"></line>
-                    <line x1="14" y1="11" x2="14" y2="17"></line>
-                  </svg>
-                </button>
-                <ProductCard
-                  v-if="productHash[`${item.groupId}:${item.productId}`]"
-                  :product="productHash[`${item.groupId}:${item.productId}`]"
-                  :compact="true"
-                  :quantity="item.quantity"
-                >
-                  <template #actions>
-                    <div
-                      class="quantity-container"
-                      v-if="
-                        !productHash[`${item.groupId}:${item.productId}`]?.default_price_data
-                          ?.recurring ||
-                        productHash[`${item.groupId}:${item.productId}`]?.default_price_data
-                          ?.recurring?.usage_type !== 'metered'
-                      "
+          <div class="cart-items-section">
+            <div class="cart-items-list">
+              <div
+                v-for="(item, index) in cartItems"
+                :key="`${item.groupId}:${item.productId}`"
+                class="cart-modal-item"
+              >
+                <div class="cart-item-wrapper">
+                  <button class="remove-item-btn" @click="removeItem(index)" title="Remove item">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
                     >
-                      <QuantitySeletor
-                        :min="1"
-                        :max="99"
-                        v-model.number="item.quantity"
-                        size="xs"
-                        @update:model-value="updateCartItemQuantity(item)"
-                      />
-                    </div>
-                  </template>
-                </ProductCard>
+                      <polyline points="3,6 5,6 21,6"></polyline>
+                      <path
+                        d="m19,6v14a2,2 0 0,1-2,2H7a2,2 0 0,1-2-2V6m3,0V4a2,2 0 0,1,2-2h4a2,2 0 0,1,2,2v2"
+                      ></path>
+                      <line x1="10" y1="11" x2="10" y2="17"></line>
+                      <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
+                  </button>
+                  <ProductCard
+                    v-if="productHash[`${item.groupId}:${item.productId}`]"
+                    :product="productHash[`${item.groupId}:${item.productId}`]"
+                    :compact="true"
+                    :quantity="item.quantity"
+                  >
+                    <template #actions>
+                      <div
+                        class="quantity-container"
+                        v-if="
+                          !productHash[`${item.groupId}:${item.productId}`]?.default_price_data
+                            ?.recurring ||
+                          productHash[`${item.groupId}:${item.productId}`]?.default_price_data
+                            ?.recurring?.usage_type !== 'metered'
+                        "
+                      >
+                        <QuantitySeletor
+                          :min="1"
+                          :max="99"
+                          v-model.number="item.quantity"
+                          size="xs"
+                          @update:model-value="updateCartItemQuantity(item)"
+                        />
+                      </div>
+                    </template>
+                  </ProductCard>
+                </div>
               </div>
             </div>
           </div>
@@ -466,20 +474,6 @@ const totalDueNow = computed(() => {
   })
 
   return totals
-})
-
-const formattedCartTotal = computed(() => {
-  const totals = Object.entries(totalDueNow.value)
-  if (totals.length === 0) return ''
-
-  const [currency, amount] = totals[0]
-  const formatter = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency.toUpperCase(),
-    minimumFractionDigits: 2,
-  })
-
-  return formatter.format(amount / 100)
 })
 
 const fetchProducts = async (reset = false, initialLoad = false) => {
@@ -808,49 +802,53 @@ watch(products, (newProducts) => {
   max-width: 500px;
 }
 
-/* Cart Preview Button */
-.cart-preview-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
+/* Floating Cart Button */
+.cart-fab {
+  position: fixed;
+  bottom: var(--space-6);
+  right: var(--space-6);
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: white;
+  border: none;
   cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.cart-preview-btn:hover {
-  background: var(--color-bg-secondary);
-  border-color: var(--color-primary);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.cart-badge {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
-  height: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+  z-index: 100;
+}
+
+.cart-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.cart-fab:active {
+  transform: scale(0.95);
+}
+
+.cart-fab-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
   padding: 0 var(--space-1);
-  background: var(--color-primary);
+  background: var(--color-error, #dc2626);
   color: white;
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
+  border: 2px solid var(--color-bg-secondary);
 }
 
-.cart-total {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
-/* Cart Modal */
 .cart-modal-header {
   padding-bottom: var(--space-4);
   border-bottom: 1px solid var(--color-border);
@@ -881,10 +879,15 @@ watch(products, (newProducts) => {
 }
 
 .cart-modal-content {
-  display: grid;
-  grid-template-columns: 1fr 400px;
+  display: flex;
+  flex-direction: row;
   gap: var(--space-6);
   align-items: start;
+}
+
+.cart-items-section {
+  flex: 1;
+  min-width: 0;
 }
 
 .cart-items-list {
@@ -958,6 +961,8 @@ watch(products, (newProducts) => {
   background: var(--color-bg-secondary);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
+  flex-shrink: 0;
+  width: 350px;
 }
 
 .summary-section {
@@ -1044,16 +1049,24 @@ watch(products, (newProducts) => {
     font-size: var(--font-size-base);
   }
 
-  .cart-preview-btn {
-    padding: var(--space-2);
+  .cart-fab {
+    bottom: var(--space-4);
+    right: var(--space-4);
+    width: 56px;
+    height: 56px;
   }
 
-  .cart-total {
-    display: none;
+  .cart-fab-badge {
+    min-width: 20px;
+    height: 20px;
   }
 
   .cart-modal-content {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .cart-modal-summary {
+    width: 100%;
   }
 
   .cart-items-list {

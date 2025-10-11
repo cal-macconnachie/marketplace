@@ -584,6 +584,10 @@ const handleEdit = (product?: Product) => {
       'showMarketingFeatures',
       Boolean(product.marketing_features && product.marketing_features.length > 0),
     )
+    app.setProductFormToggleState(
+      'requiresShipping',
+      Boolean(product.metadata?.shipping_required === 'true'),
+    )
   } else {
     // Clear form for new product
     app.setProductFormData({
@@ -868,6 +872,15 @@ const handleSubmit = async () => {
       }
     }
 
+    // Get existing product metadata if editing
+    const existingProduct = app.productFormData.key
+      ? products.value.find(
+          (p) =>
+            p.group_id === app.productFormData.key?.group_id &&
+            p.id === app.productFormData.key?.id,
+        )
+      : undefined
+
     // Build product object matching API Product interface
     const product: Product = {
       group_id: `${app.user?.organization_id}.${app.productFormData.category}`,
@@ -891,12 +904,19 @@ const handleSubmit = async () => {
               (f) => f?.name != null && f.name.trim() !== '',
             )
           : [],
+      // Preserve existing metadata when editing
+      metadata: existingProduct?.metadata ? { ...existingProduct.metadata } : {},
     }
     if (app.productFormToggleStates.requiresShipping) {
       if (!product.metadata) {
         product.metadata = {}
       }
       product.metadata.shipping_required = 'true'
+    } else {
+      // Remove shipping_required if toggle is off
+      if (product.metadata?.shipping_required) {
+        delete product.metadata.shipping_required
+      }
     }
     // Store meter unit in metadata for metered products
     if (

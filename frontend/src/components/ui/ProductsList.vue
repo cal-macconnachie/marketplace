@@ -301,170 +301,177 @@
   <BaseModal
     ref="confirmDialogRef"
     v-model:show="showConfirmDialog"
-    size="md"
+    size="lg"
     @close="handleModalClose"
   >
     <template #default>
-        <!-- Product Header with Image and Badge -->
-        <div class="product-header-section">
-          <!-- Product Image -->
-          <div
-            v-if="selectedProduct?.images && selectedProduct.images.length > 0"
-            class="product-image-preview"
-          >
-            <ImageCarousel
-              :images="selectedProduct.images"
-              :alt="selectedProduct.name"
-              size="sm"
-              hide-arrows
-            />
-          </div>
-          <div v-else class="product-image-placeholder">
-            <svg width="48" height="48" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fill-rule="evenodd"
-                d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                clip-rule="evenodd"
+      <div class="modal-content-wrapper">
+        <!-- Left Column: Product Info -->
+        <div class="product-info-column">
+          <!-- Product Header with Image and Badge -->
+          <div class="product-header-section">
+            <!-- Product Image -->
+            <div
+              v-if="selectedProduct?.images && selectedProduct.images.length > 0"
+              class="product-image-preview"
+            >
+              <ImageCarousel
+                :images="selectedProduct.images"
+                :alt="selectedProduct.name"
+                size="sm"
+                hide-arrows
               />
-            </svg>
+            </div>
+            <div v-else class="product-image-placeholder">
+              <svg width="48" height="48" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fill-rule="evenodd"
+                  d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </div>
+
+            <!-- Product Info -->
+            <div class="product-header-info">
+              <h3 id="modal-title" class="product-name">{{ selectedProduct?.name }}</h3>
+              <ProductBadge
+                v-if="selectedProduct"
+                :price-data="selectedProduct.default_price_data"
+                class="product-badge-modal"
+              />
+            </div>
           </div>
 
-          <!-- Product Info -->
-          <div class="product-header-info">
-            <h3 id="modal-title" class="product-name">{{ selectedProduct?.name }}</h3>
-            <ProductBadge
-              v-if="selectedProduct"
-              :price-data="selectedProduct.default_price_data"
-              class="product-badge-modal"
+          <!-- Product Description -->
+          <div v-if="selectedProduct?.description" class="product-description-section">
+            <p class="product-full-description">{{ selectedProduct.description }}</p>
+          </div>
+
+          <!-- Marketing Features -->
+          <div v-if="selectedProduct?.marketing_features?.length" class="product-features-section">
+            <h4 class="section-title">What's Included:</h4>
+            <ul class="product-features-list">
+              <li v-for="feature in selectedProduct.marketing_features" :key="feature.name">
+                {{ feature.name }}
+              </li>
+            </ul>
+          </div>
+
+          <!-- Important Notices -->
+          <BaseAlert
+            v-if="
+              selectedProduct?.default_price_data.recurring &&
+              selectedProduct?.default_price_data.recurring.usage_type === 'metered'
+            "
+            variant="info"
+            :show="true"
+            class="billing-notice"
+          >
+            <template #default>
+              <strong>Metered Billing:</strong> You'll be charged based on your actual usage at the
+              base price per {{ selectedProduct.default_price_data.unit_label || 'unit' }}. Usage is
+              tracked and billed automatically.
+            </template>
+          </BaseAlert>
+          <BaseAlert
+            v-else-if="selectedProduct?.default_price_data.recurring"
+            variant="info"
+            :show="true"
+            class="billing-notice"
+          >
+            <template #default>
+              <strong>Recurring Subscription:</strong> This will create a subscription that
+              automatically renews every
+              {{ selectedProduct.default_price_data.recurring.interval_count || 1 }}
+              {{ selectedProduct.default_price_data.recurring.interval
+              }}{{
+                (selectedProduct.default_price_data.recurring.interval_count || 1) > 1 ? 's' : ''
+              }}.
+            </template>
+          </BaseAlert>
+        </div>
+
+        <!-- Right Column: Pricing -->
+        <div class="pricing-column">
+          <!-- Price Summary -->
+          <div class="price-summary-section">
+            <h4 class="section-title">Price Summary</h4>
+            <div class="price-breakdown">
+              <div class="price-line">
+                <span class="price-label">
+                  {{
+                    selectedProduct?.default_price_data.recurring &&
+                    selectedProduct?.default_price_data.recurring.usage_type === 'metered'
+                      ? 'Base Price (per unit)'
+                      : selectedProduct?.default_price_data.recurring
+                        ? 'Subscription Price'
+                        : 'Unit Price'
+                  }}:
+                </span>
+                <div class="price-value">
+                  <PriceDisplay
+                    v-if="selectedProduct"
+                    :amount="selectedProduct.default_price_data.unit_amount"
+                    :currency="selectedProduct.default_price_data.currency"
+                    :recurring="!!selectedProduct.default_price_data.recurring"
+                    :usage_type="
+                      selectedProduct.default_price_data.recurring?.usage_type || 'licensed'
+                    "
+                    :interval="selectedProduct.default_price_data.recurring?.interval || 'month'"
+                    :interval_count="
+                      selectedProduct.default_price_data.recurring?.interval_count || 1
+                    "
+                    :unit="selectedProduct.default_price_data.unit_label"
+                    size="sm"
+                  />
+                </div>
+              </div>
+
+              <div v-if="selectedProduct && !isMeteredProduct(selectedProduct)" class="price-line">
+                <span class="price-label">Quantity:</span>
+                <span class="price-value">{{ dialogQuantity }}</span>
+              </div>
+
+              <div class="price-line total-line">
+                <span class="price-label">Total:</span>
+                <div class="price-amount">
+                  <PriceDisplay
+                    v-if="selectedProduct"
+                    :amount="
+                      selectedProduct.default_price_data.unit_amount *
+                      (isMeteredProduct(selectedProduct) ? 1 : dialogQuantity)
+                    "
+                    :currency="selectedProduct.default_price_data.currency"
+                    :recurring="!!selectedProduct.default_price_data.recurring"
+                    :usage_type="
+                      selectedProduct.default_price_data.recurring?.usage_type || 'licensed'
+                    "
+                    :interval="selectedProduct.default_price_data.recurring?.interval || 'month'"
+                    :interval_count="
+                      selectedProduct.default_price_data.recurring?.interval_count || 1
+                    "
+                    :unit="selectedProduct.default_price_data.unit_label"
+                    size="lg"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Quantity Selector -->
+          <div v-if="selectedProduct && !isMeteredProduct(selectedProduct)" class="quantity-section">
+            <label class="quantity-label" for="quantity-selector">Quantity:</label>
+            <QuantitySelector
+              id="quantity-selector"
+              v-model="dialogQuantity"
+              :min="1"
+              :max="99"
+              size="md"
+              @update:model-value="updateDialogQuantity"
             />
           </div>
         </div>
-
-        <!-- Product Description -->
-        <div v-if="selectedProduct?.description" class="product-description-section">
-          <p class="product-full-description">{{ selectedProduct.description }}</p>
-        </div>
-
-        <!-- Marketing Features -->
-        <div v-if="selectedProduct?.marketing_features?.length" class="product-features-section">
-          <h4 class="section-title">What's Included:</h4>
-          <ul class="product-features-list">
-            <li v-for="feature in selectedProduct.marketing_features" :key="feature.name">
-              {{ feature.name }}
-            </li>
-          </ul>
-        </div>
-
-        <!-- Quantity Selector -->
-        <div v-if="selectedProduct && !isMeteredProduct(selectedProduct)" class="quantity-section">
-          <label class="quantity-label" for="quantity-selector">Quantity:</label>
-          <QuantitySelector
-            id="quantity-selector"
-            v-model="dialogQuantity"
-            :min="1"
-            :max="99"
-            size="md"
-            @update:model-value="updateDialogQuantity"
-          />
-        </div>
-
-        <!-- Price Summary -->
-        <div class="price-summary-section">
-          <h4 class="section-title">Price Summary</h4>
-          <div class="price-breakdown">
-            <div class="price-line">
-              <span class="price-label">
-                {{
-                  selectedProduct?.default_price_data.recurring &&
-                  selectedProduct?.default_price_data.recurring.usage_type === 'metered'
-                    ? 'Base Price (per unit)'
-                    : selectedProduct?.default_price_data.recurring
-                      ? 'Subscription Price'
-                      : 'Unit Price'
-                }}:
-              </span>
-              <div class="price-value">
-                <PriceDisplay
-                  v-if="selectedProduct"
-                  :amount="selectedProduct.default_price_data.unit_amount"
-                  :currency="selectedProduct.default_price_data.currency"
-                  :recurring="!!selectedProduct.default_price_data.recurring"
-                  :usage_type="
-                    selectedProduct.default_price_data.recurring?.usage_type || 'licensed'
-                  "
-                  :interval="selectedProduct.default_price_data.recurring?.interval || 'month'"
-                  :interval_count="
-                    selectedProduct.default_price_data.recurring?.interval_count || 1
-                  "
-                  :unit="selectedProduct.default_price_data.unit_label"
-                  size="sm"
-                />
-              </div>
-            </div>
-
-            <div v-if="selectedProduct && !isMeteredProduct(selectedProduct)" class="price-line">
-              <span class="price-label">Quantity:</span>
-              <span class="price-value">{{ dialogQuantity }}</span>
-            </div>
-
-            <div class="price-line total-line">
-              <span class="price-label">Total:</span>
-              <div class="price-amount">
-                <PriceDisplay
-                  v-if="selectedProduct"
-                  :amount="
-                    selectedProduct.default_price_data.unit_amount *
-                    (isMeteredProduct(selectedProduct) ? 1 : dialogQuantity)
-                  "
-                  :currency="selectedProduct.default_price_data.currency"
-                  :recurring="!!selectedProduct.default_price_data.recurring"
-                  :usage_type="
-                    selectedProduct.default_price_data.recurring?.usage_type || 'licensed'
-                  "
-                  :interval="selectedProduct.default_price_data.recurring?.interval || 'month'"
-                  :interval_count="
-                    selectedProduct.default_price_data.recurring?.interval_count || 1
-                  "
-                  :unit="selectedProduct.default_price_data.unit_label"
-                  size="lg"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Important Notices -->
-        <BaseAlert
-          v-if="
-            selectedProduct?.default_price_data.recurring &&
-            selectedProduct?.default_price_data.recurring.usage_type === 'metered'
-          "
-          variant="info"
-          :show="true"
-          class="billing-notice"
-        >
-          <template #default>
-            <strong>Metered Billing:</strong> You'll be charged based on your actual usage at the
-            base price per {{ selectedProduct.default_price_data.unit_label || 'unit' }}. Usage is
-            tracked and billed automatically.
-          </template>
-        </BaseAlert>
-        <BaseAlert
-          v-else-if="selectedProduct?.default_price_data.recurring"
-          variant="info"
-          :show="true"
-          class="billing-notice"
-        >
-          <template #default>
-            <strong>Recurring Subscription:</strong> This will create a subscription that
-            automatically renews every
-            {{ selectedProduct.default_price_data.recurring.interval_count || 1 }}
-            {{ selectedProduct.default_price_data.recurring.interval
-            }}{{
-              (selectedProduct.default_price_data.recurring.interval_count || 1) > 1 ? 's' : ''
-            }}.
-          </template>
-        </BaseAlert>
+      </div>
     </template>
 
     <template #footer>
@@ -483,17 +490,17 @@
   </BaseModal>
 </template>
 <script setup lang="ts">
-import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { generateEmbedCode } from '@/utils/embedScript'
-import ProductCard from './ProductCard.vue'
-import BaseButton from './BaseButton.vue'
+import type { Product } from '@marketplace/types'
+import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import BaseAlert from './BaseAlert.vue'
+import BaseButton from './BaseButton.vue'
 import BaseModal from './BaseModal.vue'
+import ImageCarousel from './ImageCarousel.vue'
 import PriceDisplay from './PriceDisplay.vue'
 import ProductBadge from './ProductBadge.vue'
-import ImageCarousel from './ImageCarousel.vue'
+import ProductCard from './ProductCard.vue'
 import QuantitySelector from './QuantitySeletor.vue'
-import type { Product } from '@marketplace/types'
 
 interface Props {
   products?: Product[]
@@ -873,10 +880,9 @@ onUnmounted(() => {
 
 .grid-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, 300px);
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: var(--space-4);
   width: 100%;
-  justify-content: start;
 }
 
 .list-container {
@@ -1040,6 +1046,26 @@ onUnmounted(() => {
 .embed-btn svg {
   flex-shrink: 0;
   transform: translateY(2px);
+}
+
+/* Modal Layout */
+.modal-content-wrapper {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.product-info-column {
+  flex: 1;
+  min-width: 0;
+}
+
+.pricing-column {
+  flex-shrink: 0;
+  width: 350px;
+  position: sticky;
+  top: 0;
 }
 
 /* Product Header Section */
@@ -1260,6 +1286,15 @@ onUnmounted(() => {
 
   .carousel-nav--next {
     right: var(--space-2);
+  }
+
+  .modal-content-wrapper {
+    flex-direction: column;
+  }
+
+  .pricing-column {
+    width: 100%;
+    position: static;
   }
 
   .product-header-section {

@@ -195,17 +195,33 @@ const handleClose = () => {
   }
 }
 
+// Store scroll position
+const scrollPosition = ref(0)
+
 // Lock body scroll when modal is open
 watch(
   () => props.show,
   (isOpen) => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden'
+      // Save current scroll position
+      scrollPosition.value = window.scrollY
+
+      // Add a class to body to lock scroll
+      document.body.classList.add('modal-open')
+
+      // Set the top position to maintain visual position
+      document.body.style.top = `-${scrollPosition.value}px`
     } else {
-      document.body.style.overflow = ''
+      // Remove the class to restore scroll
+      document.body.classList.remove('modal-open')
+
+      // Clear the top position
+      document.body.style.top = ''
+
+      // Restore scroll position
+      window.scrollTo(0, scrollPosition.value)
     }
   },
-  { immediate: true },
 )
 
 // Handle ESC key globally
@@ -221,7 +237,13 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalEscape)
-  document.body.style.overflow = ''
+  // Clean up scroll lock
+  document.body.classList.remove('modal-open')
+  document.body.style.top = ''
+  // Restore scroll position if modal was open when unmounted
+  if (scrollPosition.value > 0) {
+    window.scrollTo(0, scrollPosition.value)
+  }
 })
 
 // Expose close method so parent can trigger animated close
@@ -229,6 +251,16 @@ defineExpose({
   close: handleClose,
 })
 </script>
+
+<style>
+/* Global styles for body when modal is open - NOT scoped */
+body.modal-open {
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+</style>
 
 <style scoped>
 /* Modal Overlay */

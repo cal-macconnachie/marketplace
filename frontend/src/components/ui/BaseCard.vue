@@ -38,6 +38,7 @@
       :show="isExpanded"
       :title="title"
       size="xl"
+      variant="drawer"
       @close="closeModal"
     >
       <template v-if="$slots.header" #header>
