@@ -39,7 +39,7 @@ export const sendReceiptNotification = async ({
     user,
     cart
   })
-
+  console.log(user)
   if (user.email && user.notifications?.email) {
     console.log('Sending receipt email to', user.email)
     await sendReceiptEmail({ ctx })

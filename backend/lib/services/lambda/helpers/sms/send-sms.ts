@@ -48,19 +48,17 @@ export async function sendSMS(params: SendSMSParams): Promise<void> {
   }
   if (!smsClient) throw new Error('Failed to get SMS Lambda client')
 
-  const payload = {
-    detail: {
-      phoneNumber: params.phoneNumber,
-      message: params.message,
-      senderId: params.senderId
-    }
+  const detail = {
+    phoneNumber: params.phoneNumber,
+    message: params.message,
+    senderId: params.senderId
   }
 
   const command = new InvokeCommand({
     FunctionName: targetArn!, // full ARN for cross-account invocation
     InvocationType: 'Event', // async fire-and-forget
     Payload: Buffer.from(
-      JSON.stringify({ payload })
+      JSON.stringify({ detail })
     ),
   })
 

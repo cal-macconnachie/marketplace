@@ -124,7 +124,7 @@ const handleGoToReferrer = () => {
 }
 
 const handleGoToAccount = () => {
-  router.push('/account')
+  router.push('/')
 }
 </script>
 
