@@ -30,7 +30,7 @@
   <PaymentVerificationModal
     v-if="showVerificationModal && currentPurchase && stripe"
     :show="showVerificationModal"
-    :client-secret="currentPurchase.requires_action.client_secret"
+    :client-secret="currentPurchase.requires_action?.client_secret"
     @verification-success="handleVerificationSuccess"
     @verification-error="handleVerificationError"
     @close="handleVerificationClose"
@@ -39,11 +39,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
 import { useAppStore } from '@/stores/app'
-import type { Purchase } from '@marketplace/types'
 import type { Stripe } from '@stripe/stripe-js'
 import { loadStripe } from '@stripe/stripe-js'
+import { computed, onMounted, ref } from 'vue'
 import BaseAlert from './BaseAlert.vue'
 import BaseButton from './BaseButton.vue'
 import PaymentVerificationModal from './PaymentVerificationModal.vue'
