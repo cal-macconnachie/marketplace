@@ -112,7 +112,8 @@ export const createPaymentMethod = async (event: APIGatewayProxyEvent) => {
         brand,
         expiry_month,
         expiry_year,
-        status: paymentMethodStatus
+        status: paymentMethodStatus,
+        verified_on_session: setupIntent.status === 'succeeded'
       },
       returnCreated: true
     })

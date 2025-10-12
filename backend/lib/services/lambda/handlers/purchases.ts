@@ -1,6 +1,6 @@
 import { unmarshall } from '@aws-sdk/util-dynamodb'
-import { DynamoDBStreamEvent } from 'aws-lambda'
 import { Purchase } from '@marketplace/types'
+import { DynamoDBStreamEvent } from 'aws-lambda'
 import { putEvents } from '../helpers/eventbridge/put-events'
 import { adjustPurchaseAmount } from '../helpers/purchases/adjust-purchase-amount'
 import { updatePurchasedProductAmount } from '../helpers/purchases/update-purchased-product-amount'

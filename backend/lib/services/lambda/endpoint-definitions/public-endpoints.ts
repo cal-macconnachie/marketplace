@@ -3,7 +3,7 @@ import { LambdaEndpointDefinition } from '@marketplace/types'
 /**
  * Public API endpoints that don't require authentication
  * Stack: MarketplacePublicStack
- * Count: 12 Lambda functions
+ * Count: 13 Lambda functions
  */
 export const publicEndpoints: LambdaEndpointDefinition[] = [
   // Authentication & Authorization (6 lambdas)
@@ -164,7 +164,7 @@ export const publicEndpoints: LambdaEndpointDefinition[] = [
     }
   },
 
-  // Public Payment Operations (3 lambdas)
+  // Public Payment Operations (4 lambdas)
   {
     name: 'guestCheckout',
     handler: 'payments/guest-checkout.guestCheckout',
@@ -200,6 +200,17 @@ export const publicEndpoints: LambdaEndpointDefinition[] = [
         resources: ['*']
       }
     ]
+  },
+  {
+    name: 'guestCheckoutStatus',
+    handler: 'payments/guest-checkout-status.guestCheckoutStatus',
+    description: 'Get Guest Checkout Status for Polling',
+    apiGw: {
+      path: 'guest-checkout-status/{userId}',
+      method: 'GET',
+      auth: 'none',
+      cors: true
+    }
   },
   {
     name: 'calculateTaxes',

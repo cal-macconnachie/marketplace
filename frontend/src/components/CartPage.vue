@@ -1262,7 +1262,19 @@ const handleGuestVerificationSuccess = async () => {
   showGuestVerificationModal.value = false
 
   try {
-    await publicApi.guestCheckoutComplete(guestCheckoutContext.value)
+    const response = await publicApi.guestCheckoutComplete(guestCheckoutContext.value)
+
+    // Check if we got a 202 processing response
+    if ('status' in response && response.status === 'processing') {
+      // Payment verification is still being processed - poll for status
+      const pollResult = await pollCheckoutStatus()
+
+      if (!pollResult.success) {
+        checkoutError.value = pollResult.error || 'Checkout is taking longer than expected. Please check your email for confirmation.'
+        processingCheckout.value = false
+        return
+      }
+    }
 
     // Success - show confirmation
     showSuccessMessage(
@@ -1297,6 +1309,41 @@ const handleGuestVerificationSuccess = async () => {
     }
   } finally {
     processingCheckout.value = false
+  }
+}
+
+const pollCheckoutStatus = async (maxAttempts = 10): Promise<{ success: boolean; error?: string }> => {
+  // Poll by retrying the guestCheckoutComplete call
+  // The backend will keep checking if the payment method verification is complete
+
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(resolve => setTimeout(resolve, 3000)) // Wait 3 seconds between polls
+
+    try {
+      if (!guestCheckoutContext.value) {
+        return { success: false, error: 'Checkout context lost' }
+      }
+
+      const retryResponse = await publicApi.guestCheckoutComplete(guestCheckoutContext.value)
+
+      // If we got a success response (not processing), we're done
+      if ('success' in retryResponse && retryResponse.success) {
+        return { success: true }
+      }
+
+      // Still processing, continue polling
+      if ('status' in retryResponse && retryResponse.status === 'processing') {
+        continue
+      }
+    } catch (error) {
+      console.error(`Poll attempt ${i + 1} failed:`, error)
+      // Continue polling even on error
+    }
+  }
+
+  return {
+    success: false,
+    error: 'Checkout is taking longer than expected. Please check your email for confirmation or contact support if you were charged.'
   }
 }
 

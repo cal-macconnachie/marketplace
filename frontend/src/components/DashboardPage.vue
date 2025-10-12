@@ -29,6 +29,7 @@
     </header>
     <main class="dashboard-main">
       <div class="dashboard-grid">
+        <PaymentActionRequired v-if="app.hasPurchased" />
         <BaseCard class="profile-card" title="Profile">
           <div class="profile-info">
             <div class="row">
@@ -181,6 +182,7 @@ import BaseCard from '@/components/ui/BaseCard.vue'
 import EditableField from '@/components/ui/EditableField.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import NotificationManager from '@/components/ui/NotificationManager.vue'
+import PaymentActionRequired from '@/components/ui/PaymentActionRequired.vue'
 import PaymentMethodForm from '@/components/ui/PaymentMethodForm.vue'
 import PaymentMethodList from '@/components/ui/PaymentMethodList.vue'
 import ProductsList from '@/components/ui/ProductsList.vue'
@@ -603,10 +605,15 @@ onMounted(async () => {
 .dashboard-grid > .payment-card,
 .dashboard-grid > .product-card,
 .dashboard-grid > .seller-management-card,
-.dashboard-grid > .purchases-card {
+.dashboard-grid > .purchases-card,
+.dashboard-grid > .payment-action-alert {
   display: block;
   break-inside: avoid;
   margin-bottom: var(--space-6);
+}
+
+.dashboard-grid > .payment-action-alert {
+  column-span: all;
 }
 
 .overview-card {

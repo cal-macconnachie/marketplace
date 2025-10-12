@@ -1,4 +1,13 @@
-import { User } from '@marketplace/types'
+import {
+  paymentMethodsTableName
+} from '@marketplace/constants'
+import {
+  PaymentMethod,
+  User
+} from '@marketplace/types'
+import {
+  get
+} from '../dynamo-helpers/get'
 import { calculatePlatformFee } from './calculate-platform-fee'
 import { getStripeClient } from './stripe-client'
 
@@ -21,6 +30,19 @@ export const createDestinationCharge = async ({
 }) => {
   const stripe = getStripeClient()
 
+  // Get payment method to check if it's verified on-session
+  const paymentMethod = await get<PaymentMethod>({
+    tableName: paymentMethodsTableName!,
+    key: {
+      user_id: user.id,
+      id: paymentMethodId
+    }
+  })
+
+  if (!paymentMethod) {
+    throw new Error('Payment method not found')
+  }
+
   // Create metadata object with cart and product info
   const metadata: Record<string, string> = {}
   if (cartId) {
@@ -31,7 +53,7 @@ export const createDestinationCharge = async ({
   }
   metadata.user_id = user.id
 
-  // Create a new payment intent for the destination charge
+  // Create and confirm payment intent in one call
   const paymentIntent = await stripe.paymentIntents.create({
     amount,
     currency,
@@ -49,12 +71,36 @@ export const createDestinationCharge = async ({
       enabled: true,
       allow_redirects: 'never' as const
     },
+    confirm: true, // Auto-confirm
+    off_session: paymentMethod.verified_on_session ?? false, // Use off_session if verified
     ...(Object.keys(metadata).length > 0 ? { metadata } : {})
   })
+
   if (!paymentIntent) {
     throw new Error('Failed to create payment intent')
   }
-  const confirmedPaymentIntent = await stripe.paymentIntents.confirm(paymentIntent.id, {})
 
-  return confirmedPaymentIntent
+  // Check if additional action is required (3DS)
+  if (paymentIntent.status === 'requires_action') {
+    console.log(`PaymentIntent ${paymentIntent.id} requires additional action (3DS)`)
+
+    // Don't throw error - return PaymentIntent so webhook can handle requires_action
+    // The Purchase record will be created with status='pending' and requires_action data
+    return paymentIntent
+  }
+
+  if (paymentIntent.status === 'requires_payment_method') {
+    throw new Error('Payment method declined. Please use a different payment method.')
+  }
+
+  if (paymentIntent.status === 'requires_confirmation') {
+    // This shouldn't happen with confirm: true, but handle just in case
+    return await stripe.paymentIntents.confirm(paymentIntent.id)
+  }
+
+  if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'requires_capture') {
+    throw new Error(`Payment failed with status: ${paymentIntent.status}`)
+  }
+
+  return paymentIntent
 }

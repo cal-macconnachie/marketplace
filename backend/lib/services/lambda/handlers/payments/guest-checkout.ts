@@ -439,7 +439,8 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
         brand,
         expiry_month: Number(expiry_month),
         expiry_year: Number(expiry_year),
-        status: paymentMethodStatus
+        status: paymentMethodStatus,
+        verified_on_session: setupIntent.status === 'succeeded'
       },
       returnCreated: true
     })

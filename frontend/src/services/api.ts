@@ -9,6 +9,9 @@ import type {
   CreatePaymentMethodResponse,
   CreatePresignedUploadUrlRequest,
   CreatePresignedUploadUrlResponse,
+  GuestCheckoutCompleteResponse,
+  GuestCheckoutProcessingResponse,
+  GuestCheckoutStatusResponse,
   LoginRequest,
   Notification,
   OAuthLoginRequest,
@@ -593,11 +596,15 @@ export const publicApi = {
       postal_code: string
       country: string
     }
-  }): Promise<{
-    success: boolean
-    message: string
-  }> {
+  }): Promise<GuestCheckoutCompleteResponse | GuestCheckoutProcessingResponse> {
     const response = await apiClient.post('/guest-checkout-complete', data)
+    return response.data
+  },
+
+  async getGuestCheckoutStatus(userId: string, cartId: string): Promise<GuestCheckoutStatusResponse> {
+    const response = await apiClient.get(`/guest-checkout-status/${userId}`, {
+      params: { cartId }
+    })
     return response.data
   },
 

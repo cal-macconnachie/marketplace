@@ -1,10 +1,12 @@
 import {
   organizationsTableName,
-  paymentMethodsTableName
+  paymentMethodsTableName,
+  usersTableName
 } from '@marketplace/constants'
 import {
   Organization,
-  PaymentMethod
+  PaymentMethod,
+  User
 } from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { get } from '../../helpers/dynamo-helpers/get'
@@ -125,13 +127,16 @@ export const guestCheckoutComplete = async (event: APIGatewayProxyEvent) => {
       if (paymentMethod.status === 'pending_verification') {
         let successfulSetupIntent = null
         let attempts = 0
-        const maxAttempts = 2 // Initial attempt + 1 retry
+        const maxAttempts = 5 // Increased from 2 to 5 for better retry coverage
+        const baseDelay = 2000 // 2 seconds base delay
 
-        // Try to find successful SetupIntent, with one retry after 3 seconds
+        // Try to find successful SetupIntent with exponential backoff
         while (attempts < maxAttempts && !successfulSetupIntent) {
           if (attempts > 0) {
-            console.log(`Attempt ${attempts + 1}/${maxAttempts}: Waiting 3 seconds before checking SetupIntent status...`)
-            await new Promise(resolve => setTimeout(resolve, 3000))
+            // Exponential backoff: 2s, 3s, 4.5s, 6.75s = ~16 seconds total
+            const delay = baseDelay * Math.pow(1.5, attempts - 1)
+            console.log(`Attempt ${attempts + 1}/${maxAttempts}: Waiting ${delay}ms before checking SetupIntent status...`)
+            await new Promise(resolve => setTimeout(resolve, delay))
           }
 
           const setupIntents = await stripe.setupIntents.list({
@@ -144,16 +149,21 @@ export const guestCheckoutComplete = async (event: APIGatewayProxyEvent) => {
         }
 
         if (!successfulSetupIntent) {
-          // Verification truly hasn't completed yet after retries
+          // Verification hasn't completed yet - return 202 to indicate async processing
+          // Frontend should poll the status endpoint
           return {
-            statusCode: 400,
+            statusCode: 202,
             body: JSON.stringify({
-              error: 'Payment method verification is still pending. Please try again in a moment.'
+              status: 'processing',
+              message: 'Your payment verification is being processed. This usually completes within 30 seconds.',
+              userId: body.userId,
+              retryAfter: 5
             }),
             headers: {
               'Access-Control-Allow-Origin': '*',
               'Access-Control-Allow-Credentials': true,
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/json',
+              'Retry-After': '5'
             }
           }
         }
@@ -166,7 +176,8 @@ export const guestCheckoutComplete = async (event: APIGatewayProxyEvent) => {
             id: body.paymentMethodId
           },
           updates: {
-            status: 'active'
+            status: 'active',
+            verified_on_session: true
           }
         })
 
@@ -174,28 +185,31 @@ export const guestCheckoutComplete = async (event: APIGatewayProxyEvent) => {
       }
 
       if (!stripePaymentMethod.customer) {
-        // Payment method not attached to customer, do it now
-        const userPaymentMethods = await get<PaymentMethod[]>({
-          tableName: paymentMethodsTableName!,
-          key: { user_id: body.userId }
+        // Get customer ID from user record, not from the unattached payment method
+        const user = await get<User>({
+          tableName: usersTableName!,
+          key: {
+            id: body.userId
+          }
         })
 
-        if (userPaymentMethods && userPaymentMethods.length > 0) {
-          // Get stripe customer ID from any payment method
-          const customerStripeId = stripePaymentMethod.customer
-
-          if (customerStripeId) {
-            await stripe.paymentMethods.attach(body.paymentMethodId, {
-              customer: customerStripeId as string
-            })
-
-            await stripe.customers.update(customerStripeId as string, {
-              invoice_settings: {
-                default_payment_method: body.paymentMethodId
-              }
-            })
-          }
+        if (!user?.stripe_id) {
+          throw new Error('User does not have a Stripe customer ID')
         }
+
+        // Attach payment method to customer
+        await stripe.paymentMethods.attach(body.paymentMethodId, {
+          customer: user.stripe_id
+        })
+
+        // Set as default payment method
+        await stripe.customers.update(user.stripe_id, {
+          invoice_settings: {
+            default_payment_method: body.paymentMethodId
+          }
+        })
+
+        console.log(`Attached payment method ${body.paymentMethodId} to customer ${user.stripe_id}`)
       }
     } catch (stripeError) {
       console.error('Error verifying Stripe payment method:', stripeError)
@@ -223,7 +237,7 @@ export const guestCheckoutComplete = async (event: APIGatewayProxyEvent) => {
     }
 
     // Process the purchase
-    await purchaseProducts({
+    const purchaseResult = await purchaseProducts({
       userId: body.userId,
       paymentMethodId: body.paymentMethodId,
       productKeys: body.productKeys,
@@ -237,7 +251,8 @@ export const guestCheckoutComplete = async (event: APIGatewayProxyEvent) => {
       statusCode: 200,
       body: JSON.stringify({
         success: true,
-        message: 'Purchase completed successfully'
+        message: 'Purchase completed successfully',
+        cartId: purchaseResult.cartId
       }),
       headers: {
         'Access-Control-Allow-Origin': '*',

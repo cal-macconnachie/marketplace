@@ -78,7 +78,8 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                   id: paymentMethodId
                 },
                 updates: {
-                  status: 'active'
+                  status: 'active',
+                  verified_on_session: true
                 }
               })
 
@@ -228,6 +229,54 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
       }
 
       console.log(`PaymentIntent failed for customer ${customerId}, amount: ${paymentIntent.amount} ${paymentIntent.currency}`)
+      break
+    }
+
+    case 'payment_intent.requires_action': {
+      // Handle payment intents that require additional action (3DS, etc.)
+      const paymentIntent = event.detail.data.object as Stripe.PaymentIntent
+      const customerId = typeof paymentIntent.customer === 'string' ? paymentIntent.customer : paymentIntent.customer?.id
+      const user = await getUserByStripeId(customerId!)
+
+      const purchaseIds = paymentIntent.metadata?.purchase_ids ? JSON.parse(paymentIntent.metadata.purchase_ids) : []
+      for (const purchaseId of purchaseIds) {
+        if (user) {
+          try {
+            // Get the purchase to add requires_action data
+            const purchase = await get<Purchase>({
+              tableName: purchasesTableName!,
+              key: {
+                user_id: user.id,
+                id: purchaseId
+              }
+            })
+
+            if (purchase) {
+              // Update purchase with requires_action information
+              await update<Purchase>({
+                tableName: purchasesTableName!,
+                key: {
+                  user_id: user.id,
+                  id: purchaseId
+                },
+                updates: {
+                  requires_action: {
+                    payment_intent_id: paymentIntent.id,
+                    client_secret: paymentIntent.client_secret || '',
+                    next_action: paymentIntent.next_action
+                  }
+                }
+              })
+
+              console.log(`Added requires_action to purchase ${purchaseId} for PaymentIntent ${paymentIntent.id}`)
+            }
+          } catch (error) {
+            console.error(`Failed to update purchase ${purchaseId} with requires_action:`, error)
+          }
+        }
+      }
+
+      console.log(`PaymentIntent ${paymentIntent.id} requires action for customer ${customerId}`)
       break
     }
     

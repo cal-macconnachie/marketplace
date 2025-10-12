@@ -10,6 +10,7 @@ export interface PaymentMethod {
   expiry_year: number
   archived?: boolean
   status?: 'pending_verification' | 'active' | 'failed'
+  verified_on_session?: boolean
 }
 
 /**
@@ -53,4 +54,44 @@ export interface Purchase {
     }
   }
   status: 'completed' | 'pending' | 'failed'
+  requires_action?: {
+    payment_intent_id: string
+    client_secret: string
+    next_action?: unknown
+  }
+}
+
+/**
+ * Guest checkout status response for polling
+ */
+export interface GuestCheckoutStatusResponse {
+  paymentMethodStatus: 'pending_verification' | 'active' | 'failed'
+  purchases: Array<{
+    id: string
+    status: 'completed' | 'pending' | 'failed'
+    requiresAction: boolean
+    clientSecret?: string
+    paymentIntentId?: string
+  }>
+  ready: boolean
+  requiresAction: boolean
+}
+
+/**
+ * Guest checkout complete response when processing is still ongoing
+ */
+export interface GuestCheckoutProcessingResponse {
+  status: 'processing'
+  message: string
+  userId: string
+  retryAfter: number
+}
+
+/**
+ * Guest checkout complete success response
+ */
+export interface GuestCheckoutCompleteResponse {
+  success: true
+  message: string
+  cartId: string
 }

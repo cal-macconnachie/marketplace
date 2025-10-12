@@ -48,6 +48,7 @@ export const eventsEndpoints: LambdaEndpointDefinition[] = [
           'setup_intent.setup_failed',
           'payment_intent.succeeded',
           'payment_intent.payment_failed',
+          'payment_intent.requires_action',
           'transfer.created',
           'application_fee.created',
           'charge.dispute.created',
