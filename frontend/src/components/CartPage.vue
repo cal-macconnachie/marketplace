@@ -120,6 +120,15 @@
                     @update="handleFieldUpdate"
                     :loading="fieldUpdating === 'address'"
                   />
+                  <AddressSearch
+                    v-if="requiresShipping"
+                    class="address-search"
+                    label="Shipping Address"
+                    :value="formatAddress(shippingAddress ?? appStore.user?.address ?? {}) || ''"
+                    field="shippingAddress"
+                    @update="handleShippingAddressUpdate"
+                    :loading="fieldUpdating === 'shippingAddress'"
+                  />
                   <PaymentMethodList
                     :payment-methods="appStore.paymentMethods"
                     :show-selection="true"
@@ -136,6 +145,15 @@
                     field="address"
                     @update="handleFieldUpdate"
                     :loading="fieldUpdating === 'address'"
+                  />
+                  <AddressSearch
+                    v-if="requiresShipping"
+                    class="address-search"
+                    label="Shipping Address"
+                    :value="formatAddress(shippingAddress ?? appStore.user?.address ?? {}) || ''"
+                    field="shippingAddress"
+                    @update="handleShippingAddressUpdate"
+                    :loading="fieldUpdating === 'shippingAddress'"
                   />
                   <PaymentMethodForm
                     :has-existing-payment-method="false"
@@ -418,6 +436,17 @@
     <BaseModal v-model:show="showAuthForm" size="md" :hide-scrollbar="true">
       <SignIn :initial-mode="authMode" :is-modal="true" @auth-success="handleAuthSuccess" />
     </BaseModal>
+
+    <!-- Guest Checkout Verification Modal -->
+    <PaymentVerificationModal
+      v-if="showGuestVerificationModal && guestVerificationClientSecret"
+      :show="showGuestVerificationModal"
+      :client-secret="guestVerificationClientSecret"
+      @verification-success="handleGuestVerificationSuccess"
+      @verification-error="handleGuestVerificationError"
+      @close="handleGuestVerificationClose"
+      :stripe="stripe"
+    />
   </div>
 </template>
 <script lang="ts" setup>
@@ -427,7 +456,7 @@ import {
 } from '@/services/api'
 import { useAppStore } from '@/stores/app'
 import type { CartItem, CheckoutData, Organization, PaymentMethod, Product, TaxCalculationItem } from '@marketplace/types'
-import { type PaymentMethod as StripePaymentMethod } from '@stripe/stripe-js'
+import { type Stripe, type PaymentMethod as StripePaymentMethod } from '@stripe/stripe-js'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import SignIn from './SignIn.vue'
@@ -440,6 +469,7 @@ import GuestCheckoutForm from './ui/GuestCheckoutForm.vue'
 import LoadingSpinner from './ui/LoadingSpinner.vue'
 import PaymentMethodForm from './ui/PaymentMethodForm.vue'
 import PaymentMethodList from './ui/PaymentMethodList.vue'
+import PaymentVerificationModal from './ui/PaymentVerificationModal.vue'
 import PriceDisplay from './ui/PriceDisplay.vue'
 import ProductCard from './ui/ProductCard.vue'
 import PurchaseCompleteScreen from './ui/PurchaseCompleteScreen.vue'
@@ -477,6 +507,14 @@ const guestFormData = ref<{
   }
   paymentMethod: PaymentMethod
 } | null>(null)
+const shippingAddress = ref<{
+  line1: string
+  line2: string
+  city: string
+  state: string
+  postalCode: string
+  country: string
+} | null>(null)
 const userIpAddress = ref<string | null>(null)
 const paymentMethodsInitialized = ref(false)
 const showPurchaseComplete = ref(false)
@@ -485,6 +523,25 @@ const purchaseOrderSummary = ref<{
   totals: Record<string, number>
   hasSubscriptions: boolean
 } | undefined>(undefined)
+
+// Guest checkout verification state
+const showGuestVerificationModal = ref(false)
+const guestVerificationClientSecret = ref<string | null>(null)
+const guestCheckoutContext = ref<{
+  userId: string
+  paymentMethodId: string
+  productKeys: Array<{ id: string; group_id: string }>
+  shippingAddress?: {
+    full_name: string
+    address_line1: string
+    address_line2?: string
+    city: string
+    state: string
+    postal_code: string
+    country: string
+  }
+} | null>(null)
+const stripe: Stripe | null = null
 
 // Computed properties
 const sourceHostname = computed(() => {
@@ -775,6 +832,45 @@ async function handleFieldUpdate(
   }
 }
 
+async function handleShippingAddressUpdate(
+  field: string,
+  value: string | { [key: string]: string | undefined },
+) {
+  fieldUpdating.value = field
+  updateError.value = null
+
+  if (typeof value === 'object' && value !== null) {
+    const addressValue = value as {
+      line_1?: string
+      line_2?: string
+      city?: string
+      state?: string
+      country?: string
+      postal_code?: string
+    }
+    shippingAddress.value = {
+      line1: addressValue.line_1 || '',
+      line2: addressValue.line_2 || '',
+      city: addressValue.city || '',
+      state: addressValue.state || '',
+      postalCode: addressValue.postal_code || '',
+      country: addressValue.country || '',
+    }
+  } else {
+    const parsed = parseAddress(value as string)
+    shippingAddress.value = {
+      line1: parsed.line_1 || '',
+      line2: parsed.line_2 || '',
+      city: parsed.city || '',
+      state: parsed.state || '',
+      postalCode: parsed.postal_code || '',
+      country: parsed.country || '',
+    }
+  }
+
+  fieldUpdating.value = null
+}
+
 function formatAddress(address: {
   line_1?: string
   line_2?: string
@@ -846,6 +942,18 @@ const handleAuthSuccess = async () => {
   if (appStore.user?.id) {
     await appStore.getPaymentMethods(appStore.user.id)
     paymentMethodsInitialized.value = true
+
+    // Initialize shipping address with user's address if shipping is required
+    if (requiresShipping.value && appStore.user.address) {
+      shippingAddress.value = {
+        line1: appStore.user.address.line_1 || '',
+        line2: appStore.user.address.line_2 || '',
+        city: appStore.user.address.city || '',
+        state: appStore.user.address.state || '',
+        postalCode: appStore.user.address.postal_code || '',
+        country: appStore.user.address.country || '',
+      }
+    }
   }
 
   // Recalculate taxes with authenticated user data (non-blocking)
@@ -910,6 +1018,14 @@ const handleGuestFormCompleted = async (formData: {
     postal_code: string
     country: string
   }
+  shippingAddress?: {
+    line1: string
+    line2: string
+    city: string
+    state: string
+    postal_code: string
+    country: string
+  }
   paymentMethod: StripePaymentMethod
 }) => {
   guestFormData.value = {
@@ -932,6 +1048,28 @@ const handleGuestFormCompleted = async (formData: {
       expiry_year: formData.paymentMethod.card?.exp_year || 0,
       user_id: 'TODO',
     },
+  }
+
+  // Store shipping address if provided
+  if (formData.shippingAddress) {
+    shippingAddress.value = {
+      line1: formData.shippingAddress.line1,
+      line2: formData.shippingAddress.line2,
+      city: formData.shippingAddress.city,
+      state: formData.shippingAddress.state,
+      postalCode: formData.shippingAddress.postal_code,
+      country: formData.shippingAddress.country,
+    }
+  } else {
+    // If no separate shipping address, use billing address
+    shippingAddress.value = {
+      line1: formData.address.line1,
+      line2: formData.address.line2,
+      city: formData.address.city,
+      state: formData.address.state,
+      postalCode: formData.address.postal_code,
+      country: formData.address.country,
+    }
   }
 
   // Recalculate taxes with user information instead of just IP (non-blocking)
@@ -978,6 +1116,19 @@ const handleCheckout = async () => {
         paymentMethodId: selectedPaymentMethod.value.id,
         productKeys,
         // promoCode and couponId can be added later when promo functionality is implemented
+        ...(requiresShipping.value && shippingAddress.value ? {
+          shippingAddress: {
+            full_name: appStore.user.given_name && appStore.user.family_name
+              ? `${appStore.user.given_name} ${appStore.user.family_name}`
+              : appStore.fullName || '',
+            address_line1: shippingAddress.value.line1,
+            address_line2: shippingAddress.value.line2,
+            city: shippingAddress.value.city,
+            state: shippingAddress.value.state,
+            postal_code: shippingAddress.value.postalCode,
+            country: shippingAddress.value.country,
+          }
+        } : {})
       }
 
       await authAPI.purchaseProducts(purchaseData)
@@ -1016,9 +1167,46 @@ const handleCheckout = async () => {
         },
         productKeys,
         // promoCode and couponId can be added later when promo functionality is implemented
+        ...(requiresShipping.value && shippingAddress.value ? {
+          shippingAddress: {
+            full_name: `${guestFormData.value.firstName} ${guestFormData.value.lastName}`,
+            address_line1: shippingAddress.value.line1,
+            address_line2: shippingAddress.value.line2,
+            city: shippingAddress.value.city,
+            state: shippingAddress.value.state,
+            postal_code: shippingAddress.value.postalCode,
+            country: shippingAddress.value.country,
+          }
+        } : {})
       }
 
-      await publicApi.guestCheckout(guestCheckoutData)
+      const response = await publicApi.guestCheckout(guestCheckoutData)
+
+      // Check if verification is required
+      if (response.requires_action && response.setup_intent_client_secret && response.user?.id && response.payment_method_id) {
+        // Store context for after verification
+        guestCheckoutContext.value = {
+          userId: response.user.id,
+          paymentMethodId: response.payment_method_id,
+          productKeys,
+          ...(requiresShipping.value && shippingAddress.value ? {
+            shippingAddress: {
+              full_name: `${guestFormData.value.firstName} ${guestFormData.value.lastName}`,
+              address_line1: shippingAddress.value.line1,
+              address_line2: shippingAddress.value.line2,
+              city: shippingAddress.value.city,
+              state: shippingAddress.value.state,
+              postal_code: shippingAddress.value.postalCode,
+              country: shippingAddress.value.country,
+            }
+          } : {})
+        }
+
+        guestVerificationClientSecret.value = response.setup_intent_client_secret
+        showGuestVerificationModal.value = true
+        processingCheckout.value = false
+        return
+      }
 
       // Success - show confirmation
       showSuccessMessage(
@@ -1054,6 +1242,67 @@ const handleCheckout = async () => {
   } finally {
     processingCheckout.value = false
   }
+}
+
+const handleGuestVerificationSuccess = async () => {
+  if (!guestCheckoutContext.value) {
+    checkoutError.value = 'Verification context lost. Please try again.'
+    showGuestVerificationModal.value = false
+    return
+  }
+
+  processingCheckout.value = true
+  checkoutError.value = null
+  showGuestVerificationModal.value = false
+
+  try {
+    await publicApi.guestCheckoutComplete(guestCheckoutContext.value)
+
+    // Success - show confirmation
+    showSuccessMessage(
+      `Order processed successfully! A confirmation has been sent to ${guestFormData.value?.email}.`,
+    )
+
+    // Clear cart after successful checkout
+    cartItems.value = []
+    selectedPaymentMethod.value = null
+    guestFormData.value = null
+    guestCheckoutContext.value = null
+
+    // Clear cart from localStorage
+    clearCartFromLocalStorage()
+  } catch (err) {
+    console.error('Guest checkout completion failed:', err)
+
+    // Handle API error responses with structured error messages
+    if (err && typeof err === 'object' && 'response' in err && err.response) {
+      const response = err.response as { data?: { error?: string }; statusText?: string }
+      if (response.data && response.data.error) {
+        checkoutError.value = response.data.error
+      } else if (response.statusText) {
+        checkoutError.value = `Checkout failed: ${response.statusText}`
+      } else {
+        checkoutError.value = 'Checkout failed. Please try again.'
+      }
+    } else if (err instanceof Error) {
+      checkoutError.value = err.message
+    } else {
+      checkoutError.value = 'Checkout failed. Please try again.'
+    }
+  } finally {
+    processingCheckout.value = false
+  }
+}
+
+const handleGuestVerificationError = (error: string) => {
+  showGuestVerificationModal.value = false
+  checkoutError.value = `Payment verification failed: ${error}`
+  processingCheckout.value = false
+}
+
+const handleGuestVerificationClose = () => {
+  showGuestVerificationModal.value = false
+  processingCheckout.value = false
 }
 
 const showSuccessMessage = (message: string) => {
@@ -1280,6 +1529,18 @@ onMounted(async () => {
     if (appStore.isAuthenticated && appStore.user?.id) {
       await appStore.getPaymentMethods(appStore.user.id)
       paymentMethodsInitialized.value = true
+
+      // Initialize shipping address with user's address if shipping is required
+      if (requiresShipping.value && appStore.user.address) {
+        shippingAddress.value = {
+          line1: appStore.user.address.line_1 || '',
+          line2: appStore.user.address.line_2 || '',
+          city: appStore.user.address.city || '',
+          state: appStore.user.address.state || '',
+          postalCode: appStore.user.address.postal_code || '',
+          country: appStore.user.address.country || '',
+        }
+      }
     }
 
     // Get user IP address if not authenticated (non-blocking)

@@ -403,6 +403,15 @@ export const authAPI = {
     }>
     promoCode?: string
     couponId?: string
+    shippingAddress?: {
+      full_name: string
+      address_line1: string
+      address_line2?: string
+      city: string
+      state: string
+      postal_code: string
+      country: string
+    }
   }): Promise<void> {
     await apiClient.post('/purchase-products', data)
   },
@@ -544,8 +553,52 @@ export const publicApi = {
     }>
     promoCode?: string
     couponId?: string
-  }): Promise<void> {
-    await apiClient.post('/guest-checkout', data)
+    shippingAddress?: {
+      full_name: string
+      address_line1: string
+      address_line2?: string
+      city: string
+      state: string
+      postal_code: string
+      country: string
+    }
+  }): Promise<{
+    success?: boolean
+    user?: User
+    message?: string
+    requires_action?: boolean
+    next_action?: unknown
+    setup_intent_client_secret?: string
+    payment_method_id?: string
+  }> {
+    const response = await apiClient.post('/guest-checkout', data)
+    return response.data
+  },
+
+  async guestCheckoutComplete(data: {
+    userId: string
+    paymentMethodId: string
+    productKeys: Array<{
+      id: string
+      group_id: string
+    }>
+    promoCode?: string
+    couponId?: string
+    shippingAddress?: {
+      full_name: string
+      address_line1: string
+      address_line2?: string
+      city: string
+      state: string
+      postal_code: string
+      country: string
+    }
+  }): Promise<{
+    success: boolean
+    message: string
+  }> {
+    const response = await apiClient.post('/guest-checkout-complete', data)
+    return response.data
   },
 
   async fetchPublicProducts({

@@ -18,12 +18,12 @@ export const calculateTaxes = async (event: APIGatewayProxyEvent) => {
   try {
     const { body } = event
     const {
-      items, userId, ipAddress
+      items, userId
     }: {
       items: ItemsInterface[]
       userId?: string
-      ipAddress?: string
     } = JSON.parse(body || '{}')
+    const ipAddress = event.requestContext.identity.sourceIp
 
     if (!Array.isArray(items) || items.length === 0) {
       return {

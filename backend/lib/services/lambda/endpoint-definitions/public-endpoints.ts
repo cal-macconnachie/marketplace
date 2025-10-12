@@ -3,7 +3,7 @@ import { LambdaEndpointDefinition } from '@marketplace/types'
 /**
  * Public API endpoints that don't require authentication
  * Stack: MarketplacePublicStack
- * Count: 11 Lambda functions
+ * Count: 12 Lambda functions
  */
 export const publicEndpoints: LambdaEndpointDefinition[] = [
   // Authentication & Authorization (6 lambdas)
@@ -164,7 +164,7 @@ export const publicEndpoints: LambdaEndpointDefinition[] = [
     }
   },
 
-  // Public Payment Operations (2 lambdas)
+  // Public Payment Operations (3 lambdas)
   {
     name: 'guestCheckout',
     handler: 'payments/guest-checkout.guestCheckout',
@@ -172,6 +172,24 @@ export const publicEndpoints: LambdaEndpointDefinition[] = [
     environment: ['STRIPE_SECRET_KEY'],
     apiGw: {
       path: 'guest-checkout',
+      method: 'POST',
+      auth: 'none',
+      cors: true
+    },
+    iamPolicies: [
+      {
+        actions: ['events:PutEvents'],
+        resources: ['*']
+      }
+    ]
+  },
+  {
+    name: 'guestCheckoutComplete',
+    handler: 'payments/guest-checkout-complete.guestCheckoutComplete',
+    description: 'Complete Guest Checkout after 3DS Verification',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'guest-checkout-complete',
       method: 'POST',
       auth: 'none',
       cors: true

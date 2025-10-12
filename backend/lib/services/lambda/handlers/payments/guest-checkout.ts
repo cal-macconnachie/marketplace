@@ -48,6 +48,15 @@ interface GuestCheckoutRequest {
   }>
   promoCode?: string
   couponId?: string
+  shippingAddress?: {
+    full_name: string
+    address_line1: string
+    address_line2?: string
+    city: string
+    state: string
+    postal_code: string
+    country: string
+  }
 }
 
 const validateEmail = (email: string): boolean => {
@@ -226,6 +235,44 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
       }
     }
 
+    // Validate and process shipping address if provided
+    let processedShippingAddress: GuestCheckoutRequest['shippingAddress'] | undefined
+    if (body.shippingAddress) {
+      if (!body.shippingAddress.full_name || !body.shippingAddress.address_line1 ||
+          !body.shippingAddress.state || !body.shippingAddress.city ||
+          !body.shippingAddress.country || !body.shippingAddress.postal_code) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({
+            error: 'shippingAddress must include full_name, address_line1, state, city, country, and postal_code'
+          }),
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': true,
+            'Content-Type': 'application/json'
+          }
+        }
+      }
+
+      // Convert country and state to proper codes for shipping address
+      const convertedShippingCodes = convertAddressToCodes({
+        country: body.shippingAddress.country,
+        state: body.shippingAddress.state,
+        city: body.shippingAddress.city,
+        postal_code: body.shippingAddress.postal_code
+      })
+
+      processedShippingAddress = {
+        full_name: body.shippingAddress.full_name.trim(),
+        address_line1: body.shippingAddress.address_line1.trim(),
+        address_line2: body.shippingAddress.address_line2?.trim(),
+        country: convertedShippingCodes.country,
+        state: convertedShippingCodes.state,
+        city: convertedShippingCodes.city || body.shippingAddress.city,
+        postal_code: convertedShippingCodes.postal_code || body.shippingAddress.postal_code
+      }
+    }
+
     if (body.user?.ip_address && !validateIpAddress(body.user.ip_address)) {
       return {
         statusCode: 400,
@@ -357,19 +404,29 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
       }
     })
 
-    if (setupIntent.status !== 'succeeded') {
+    let paymentMethodStatus: 'pending_verification' | 'active' = 'active'
+    let nextAction = null
+
+    if (setupIntent.status === 'requires_action' && setupIntent.next_action) {
+      // 3DS or other verification required
+      paymentMethodStatus = 'pending_verification'
+      nextAction = setupIntent.next_action
+    } else if (setupIntent.status !== 'succeeded') {
       throw new Error(`Setup intent failed with status: ${setupIntent.status}`)
     }
 
-    await stripe.paymentMethods.attach(paymentMethodId, {
-      customer: user.stripe_id
-    })
+    // Only attach and set as default if verification succeeded immediately
+    if (setupIntent.status === 'succeeded') {
+      await stripe.paymentMethods.attach(paymentMethodId, {
+        customer: user.stripe_id
+      })
 
-    await stripe.customers.update(user.stripe_id, {
-      invoice_settings: {
-        default_payment_method: paymentMethodId
-      }
-    })
+      await stripe.customers.update(user.stripe_id, {
+        invoice_settings: {
+          default_payment_method: paymentMethodId
+        }
+      })
+    }
 
     const paymentMethod = await create<PaymentMethod>({
       tableName: paymentMethodsTableName!,
@@ -383,38 +440,70 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
         last_four_digits,
         brand,
         expiry_month: Number(expiry_month),
-        expiry_year: Number(expiry_year)
+        expiry_year: Number(expiry_year),
+        status: paymentMethodStatus
       },
       returnCreated: true
     })
 
-    // Update organization default payment method if not set
-    const organization = await get<Organization>({
-      tableName: organizationsTableName!,
-      key: { id: user.organization_id }
-    })
-
-    if (organization && !organization.default_payment_method) {
-      await update<Organization>({
+    // Update organization default payment method if not set (only if verification succeeded)
+    if (setupIntent.status === 'succeeded') {
+      const organization = await get<Organization>({
         tableName: organizationsTableName!,
-        key: { id: organization.id },
-        updates: {
-          default_payment_method: {
-            id: paymentMethod.id,
-            user_id: user.id
-          }
-        }
+        key: { id: user.organization_id }
       })
+
+      if (organization && !organization.default_payment_method) {
+        await update<Organization>({
+          tableName: organizationsTableName!,
+          key: { id: organization.id },
+          updates: {
+            default_payment_method: {
+              id: paymentMethod.id,
+              user_id: user.id
+            }
+          }
+        })
+      }
     }
 
-    // Step 4: Purchase products
+    // If verification is required, return immediately without processing purchase
+    if (nextAction) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const responseBody: any = {
+        requires_action: true,
+        next_action: nextAction,
+        setup_intent_client_secret: setupIntent.client_secret,
+        user: {
+          id: user.id,
+          given_name: user.given_name,
+          family_name: user.family_name,
+          email: user.email,
+          address: user.address
+        },
+        payment_method_id: paymentMethod.id
+      }
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify(responseBody),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
+      }
+    }
+
+    // Step 4: Purchase products (only if verification succeeded)
     await purchaseProducts({
       userId: user.id,
       paymentMethodId: paymentMethod.id,
       productKeys: body.productKeys,
       promoCode: body.promoCode,
       couponId: body.couponId,
-      ipAddress: clientIp
+      ipAddress: clientIp,
+      shippingAddress: processedShippingAddress
     })
 
     // Return success with safe user data
@@ -428,7 +517,7 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
 
     return {
       statusCode: 201,
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         success: true,
         user: safeUser,
         message: 'Guest checkout completed successfully'

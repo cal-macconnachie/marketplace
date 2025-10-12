@@ -17,7 +17,8 @@ export const purchaseProducts = async ({
   productKeys,
   promoCode,
   couponId,
-  ipAddress
+  ipAddress,
+  shippingAddress
 }: {
   userId: string,
   paymentMethodId?: string,
@@ -28,6 +29,15 @@ export const purchaseProducts = async ({
   promoCode?: string
   couponId?: string
   ipAddress?: string
+  shippingAddress?: {
+    full_name: string
+    address_line1: string
+    address_line2?: string
+    city: string
+    state: string
+    postal_code: string
+    country: string
+  }
 }) => {
   const uniqueProductKeys = productKeys.reduce((acc: string[], product) => {
     const key = `${product.id}:${product.group_id}`
@@ -127,7 +137,8 @@ export const purchaseProducts = async ({
     userId,
     purchases: {},
     paymentMethodId: paymentMethod.id,
-    ipAddress
+    ipAddress,
+    shippingAddress
   })
   const cartId = cart.id
   const productsHash = products.filter(Boolean).reduce((acc: { [hash: string]: Product }, product) => {
@@ -230,7 +241,8 @@ export const purchaseProducts = async ({
       const meteredCart = await createPurchaseCart({
         userId,
         purchases: {},
-        paymentMethodId: paymentMethod.id
+        paymentMethodId: paymentMethod.id,
+        shippingAddress
       })
 
       const meteredSubscriptionResponse = await createSubscriptionPurchase({

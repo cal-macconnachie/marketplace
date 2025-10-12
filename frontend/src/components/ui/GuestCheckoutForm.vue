@@ -139,6 +139,7 @@ interface GuestFormData {
 interface Emits {
   (e: 'form-completed', data: GuestFormData & { paymentMethod: PaymentMethod }): void
   (e: 'form-updated', data: GuestFormData): void
+  (e: 'verification-required', data: { clientSecret: string; paymentMethod: PaymentMethod }): void
 }
 
 const emit = defineEmits<Emits>()
@@ -510,6 +511,11 @@ const handleSubmit = async () => {
     processing.value = false
   }
 }
+
+// Expose submitForm method to parent (must be after handleSubmit is defined)
+defineExpose({
+  submitForm: handleSubmit,
+})
 
 onMounted(() => {
   // Don't initialize Stripe immediately - wait for form to be filled

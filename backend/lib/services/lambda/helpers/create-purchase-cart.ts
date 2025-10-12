@@ -39,6 +39,15 @@ export async function createPurchaseCart(params: {
   idLength?: number
   paymentMethodId: string
   ipAddress?: string
+  shippingAddress?: {
+    full_name: string
+    address_line1: string
+    address_line2?: string
+    city: string
+    state: string
+    postal_code: string
+    country: string
+  }
 }): Promise<Cart> {
   const {
     userId,
@@ -46,7 +55,8 @@ export async function createPurchaseCart(params: {
     maxAttempts = 5,
     idLength = 10,
     paymentMethodId,
-    ipAddress
+    ipAddress,
+    shippingAddress
   } = params
 
   let attempts = 0
@@ -60,7 +70,8 @@ export async function createPurchaseCart(params: {
       purchases,
       payment_method_id: paymentMethodId,
       created_at: new Date().toISOString(),
-      ip_address: ipAddress
+      ip_address: ipAddress,
+      shipping_address: shippingAddress
     }
 
     try {
