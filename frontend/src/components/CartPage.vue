@@ -1459,7 +1459,10 @@ const handlePaymentIntentVerificationSuccess = async () => {
       // Clear cart from localStorage
       clearCartFromLocalStorage()
     } else {
+      // Payment failed after verification - show error and keep cart
       checkoutError.value = pollResult.error || 'Purchase processing failed after verification. Please contact support.'
+      processingCheckout.value = false
+      return // Exit early, don't reset processing state or clear context
     }
   }
 

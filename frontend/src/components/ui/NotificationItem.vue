@@ -85,8 +85,8 @@
             <span>Shipping Address</span>
           </div>
           <div class="shipping-address">
-            <p>{{ notification.metadata.shipping_address.line_1 }}</p>
-            <p v-if="notification.metadata.shipping_address.line_2">{{ notification.metadata.shipping_address.line_2 }}</p>
+            <p>{{ notification.metadata.shipping_address.address_line1 }}</p>
+            <p v-if="notification.metadata.shipping_address.address_line2">{{ notification.metadata.shipping_address.address_line2 }}</p>
             <p>{{ notification.metadata.shipping_address.city }}, {{ notification.metadata.shipping_address.state }} {{ notification.metadata.shipping_address.postal_code }}</p>
             <p>{{ notification.metadata.shipping_address.country }}</p>
           </div>
@@ -239,7 +239,7 @@ function handlePrintShippingLabel() {
   const phoneHtml = props.notification.metadata.customer_phone
     ? '<div>Phone: ' + props.notification.metadata.customer_phone + '</div>'
     : ''
-  const line2Html = address.line_2 ? '<div>' + address.line_2 + '</div>' : ''
+  const line2Html = address.address_line2 ? '<div>' + address.address_line2 + '</div>' : ''
 
   const htmlContent = '<!DOCTYPE html>' +
     '<html>' +
@@ -264,7 +264,7 @@ function handlePrintShippingLabel() {
     '<div class="label">Ship To:</div>' +
     '<div class="address">' +
     '<div>' + customerName + '</div>' +
-    '<div>' + address.line_1 + '</div>' +
+    '<div>' + address.address_line1 + '</div>' +
     line2Html +
     '<div>' + address.city + ', ' + address.state + ' ' + address.postal_code + '</div>' +
     '<div>' + address.country + '</div>' +
