@@ -1,5 +1,5 @@
-import { PurchasedProduct } from '@marketplace/types'
 import { purchasedProductsTableName } from '@marketplace/constants'
+import { PurchasedProduct } from '@marketplace/types'
 import { query } from '../dynamo-helpers/query'
 import { update } from '../dynamo-helpers/update'
 
@@ -20,7 +20,7 @@ export const updatePurchasedProductAmount = async ({
     limit: 1
   })
   if (purchasedProducts.length === 0) {
-    throw new Error(`No purchased product found for purchase ID ${purchaseId}`)
+    return
   }
   const purchasedProduct = purchasedProducts[0]
   await update({
