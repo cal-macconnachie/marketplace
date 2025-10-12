@@ -342,10 +342,8 @@ export const guestCheckout = async (event: APIGatewayProxyEvent) => {
     } else {
       // Create new user
       const userId = v4()
-      const organizationId = v4()
       user = await createUpdateUser({
         id: userId,
-        organization_id: organizationId,
         is_organization_admin: true,
         given_name: body.user.given_name.trim(),
         family_name: body.user.family_name.trim(),

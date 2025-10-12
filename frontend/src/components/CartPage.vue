@@ -439,7 +439,7 @@
 
     <!-- Guest Checkout Verification Modal -->
     <PaymentVerificationModal
-      v-if="showGuestVerificationModal && guestVerificationClientSecret"
+      v-if="showGuestVerificationModal && guestVerificationClientSecret && stripe"
       :show="showGuestVerificationModal"
       :client-secret="guestVerificationClientSecret"
       @verification-success="handleGuestVerificationSuccess"
@@ -474,6 +474,7 @@ import PriceDisplay from './ui/PriceDisplay.vue'
 import ProductCard from './ui/ProductCard.vue'
 import PurchaseCompleteScreen from './ui/PurchaseCompleteScreen.vue'
 import QuantitySeletor from './ui/QuantitySeletor.vue'
+import { loadStripe } from '@stripe/stripe-js'
 
 const route = useRoute()
 const appStore = useAppStore()
@@ -541,7 +542,7 @@ const guestCheckoutContext = ref<{
     country: string
   }
 } | null>(null)
-const stripe: Stripe | null = null
+const stripe = ref<Stripe | null>(null)
 
 // Computed properties
 const sourceHostname = computed(() => {
@@ -1184,6 +1185,11 @@ const handleCheckout = async () => {
 
       // Check if verification is required
       if (response.requires_action && response.setup_intent_client_secret && response.user?.id && response.payment_method_id) {
+        // Ensure Stripe is loaded
+        if (!stripe.value) {
+          throw new Error('Payment system not initialized. Please refresh the page and try again.')
+        }
+
         // Store context for after verification
         guestCheckoutContext.value = {
           userId: response.user.id,
@@ -1429,6 +1435,12 @@ watch(
 
 onMounted(async () => {
   try {
+    // Initialize Stripe
+    const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
+    if (stripePublishableKey) {
+      stripe.value = await loadStripe(stripePublishableKey)
+    }
+
     // Initialize app store authentication
     await appStore.initializeAuth()
 
