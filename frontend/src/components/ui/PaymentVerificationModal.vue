@@ -75,6 +75,7 @@ interface Props {
   show: boolean
   stripe: Stripe | null
   clientSecret?: string
+  paymentIntentMode?: boolean // If true, use confirmCardPayment instead of confirmCardSetup
 }
 
 interface Emits {
@@ -83,7 +84,9 @@ interface Emits {
   (e: 'verification-error', error: string): void
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  paymentIntentMode: false
+})
 const emit = defineEmits<Emits>()
 
 const isVerifying = ref(false)
@@ -114,26 +117,51 @@ async function handleVerification() {
     // Wait for the DOM to be ready
     await nextTick()
 
-    // Use Stripe's confirmCardSetup with the client secret
-    const { error, setupIntent } = await props.stripe.confirmCardSetup(props.clientSecret, {
-      // Stripe will automatically handle 3D Secure and other verification methods
-    })
+    if (props.paymentIntentMode) {
+      // Handle PaymentIntent verification (for charges)
+      const { error, paymentIntent } = await props.stripe.confirmCardPayment(props.clientSecret, {
+        // Stripe will automatically handle 3D Secure and other verification methods
+      })
 
-    if (error) {
-      console.error('Verification error:', error)
-      verificationError.value = error.message || 'Verification failed. Please try again.'
-      emit('verification-error', verificationError.value)
-    } else if (setupIntent) {
-      // Verification successful
-      if (setupIntent.status === 'succeeded') {
-        emit('verification-success')
-      } else if (setupIntent.status === 'requires_action') {
-        verificationError.value =
-          'Additional verification required. Please contact your bank or try a different card.'
+      if (error) {
+        console.error('Payment verification error:', error)
+        verificationError.value = error.message || 'Payment verification failed. Please try again.'
         emit('verification-error', verificationError.value)
-      } else {
-        verificationError.value = `Verification status: ${setupIntent.status}. Please try again.`
+      } else if (paymentIntent) {
+        // Verification successful
+        if (paymentIntent.status === 'succeeded' || paymentIntent.status === 'requires_capture') {
+          emit('verification-success')
+        } else if (paymentIntent.status === 'requires_action') {
+          verificationError.value =
+            'Additional verification required. Please contact your bank or try a different card.'
+          emit('verification-error', verificationError.value)
+        } else {
+          verificationError.value = `Payment status: ${paymentIntent.status}. Please try again.`
+          emit('verification-error', verificationError.value)
+        }
+      }
+    } else {
+      // Handle SetupIntent verification (for payment methods)
+      const { error, setupIntent } = await props.stripe.confirmCardSetup(props.clientSecret, {
+        // Stripe will automatically handle 3D Secure and other verification methods
+      })
+
+      if (error) {
+        console.error('Verification error:', error)
+        verificationError.value = error.message || 'Verification failed. Please try again.'
         emit('verification-error', verificationError.value)
+      } else if (setupIntent) {
+        // Verification successful
+        if (setupIntent.status === 'succeeded') {
+          emit('verification-success')
+        } else if (setupIntent.status === 'requires_action') {
+          verificationError.value =
+            'Additional verification required. Please contact your bank or try a different card.'
+          emit('verification-error', verificationError.value)
+        } else {
+          verificationError.value = `Verification status: ${setupIntent.status}. Please try again.`
+          emit('verification-error', verificationError.value)
+        }
       }
     }
   } catch (err) {

@@ -437,7 +437,7 @@
       <SignIn :initial-mode="authMode" :is-modal="true" @auth-success="handleAuthSuccess" />
     </BaseModal>
 
-    <!-- Guest Checkout Verification Modal -->
+    <!-- Guest Checkout SetupIntent Verification Modal -->
     <PaymentVerificationModal
       v-if="showGuestVerificationModal && guestVerificationClientSecret && stripe"
       :show="showGuestVerificationModal"
@@ -446,6 +446,18 @@
       @verification-error="handleGuestVerificationError"
       @close="handleGuestVerificationClose"
       :stripe="stripe"
+    />
+
+    <!-- PaymentIntent Verification Modal (for charge 3DS) -->
+    <PaymentVerificationModal
+      v-if="showPaymentIntentVerificationModal && paymentIntentClientSecret && stripe"
+      :show="showPaymentIntentVerificationModal"
+      :client-secret="paymentIntentClientSecret"
+      @verification-success="handlePaymentIntentVerificationSuccess"
+      @verification-error="handlePaymentIntentVerificationError"
+      @close="handlePaymentIntentVerificationClose"
+      :stripe="stripe"
+      payment-intent-mode
     />
   </div>
 </template>
@@ -1264,13 +1276,25 @@ const handleGuestVerificationSuccess = async () => {
   try {
     const response = await publicApi.guestCheckoutComplete(guestCheckoutContext.value)
 
-    // Check if we got a 202 processing response
+    // Check if we got a 202 processing response (SetupIntent still verifying)
     if ('status' in response && response.status === 'processing') {
       // Payment verification is still being processed - poll for status
       const pollResult = await pollCheckoutStatus()
 
       if (!pollResult.success) {
         checkoutError.value = pollResult.error || 'Checkout is taking longer than expected. Please check your email for confirmation.'
+        processingCheckout.value = false
+        return
+      }
+    }
+
+    // Response includes userId and cartId for polling purchase status
+    if ('success' in response && response.success && response.userId && response.cartId) {
+      // Poll for purchase completion and PaymentIntent 3DS requirements
+      const purchaseResult = await pollPurchaseStatus(response.userId, response.cartId)
+
+      if (!purchaseResult.success) {
+        checkoutError.value = purchaseResult.error || 'Purchase processing failed. Please check your email or contact support.'
         processingCheckout.value = false
         return
       }
@@ -1345,6 +1369,114 @@ const pollCheckoutStatus = async (maxAttempts = 10): Promise<{ success: boolean;
     success: false,
     error: 'Checkout is taking longer than expected. Please check your email for confirmation or contact support if you were charged.'
   }
+}
+
+// State for PaymentIntent verification
+const showPaymentIntentVerificationModal = ref(false)
+const paymentIntentClientSecret = ref<string | null>(null)
+const paymentIntentPollContext = ref<{ userId: string; cartId: string } | null>(null)
+
+const pollPurchaseStatus = async (userId: string, cartId: string, maxAttempts = 20): Promise<{ success: boolean; error?: string }> => {
+  // Poll the guest-checkout-status endpoint to check purchase status
+  // This handles both purchase completion and PaymentIntent 3DS requirements
+
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds between polls
+
+    try {
+      const statusResponse = await publicApi.getGuestCheckoutStatus(userId, cartId)
+
+      // Check if any purchases require action (PaymentIntent 3DS)
+      if (statusResponse.requiresAction && statusResponse.purchases) {
+        const purchaseRequiringAction = statusResponse.purchases.find(p => p.requiresAction)
+
+        if (purchaseRequiringAction && purchaseRequiringAction.clientSecret) {
+          console.log('PaymentIntent requires 3DS verification')
+          paymentIntentClientSecret.value = purchaseRequiringAction.clientSecret
+          paymentIntentPollContext.value = { userId, cartId }
+          showPaymentIntentVerificationModal.value = true
+
+          // Wait for user to complete verification
+          // The modal will call handlePaymentIntentVerificationSuccess which will continue polling
+          // Returning false here will exit this poll loop, but verification success will start a new one
+          return { success: true } // Don't treat this as an error, verification modal will handle it
+        }
+      }
+
+      // Check if all purchases are complete
+      if (statusResponse.ready) {
+        console.log('All purchases completed successfully')
+        return { success: true }
+      }
+
+      // Check for any failed purchases
+      const failedPurchases = statusResponse.purchases?.filter(p => p.status === 'failed')
+      if (failedPurchases && failedPurchases.length > 0) {
+        return {
+          success: false,
+          error: `${failedPurchases.length} purchase(s) failed. Please contact support.`
+        }
+      }
+
+      // Still processing, continue polling
+      console.log(`Purchase status poll attempt ${i + 1}: not ready yet`)
+    } catch (error) {
+      console.error(`Purchase status poll attempt ${i + 1} failed:`, error)
+      // Continue polling even on error
+    }
+  }
+
+  return {
+    success: false,
+    error: 'Purchase processing is taking longer than expected. Please check your email for confirmation or contact support.'
+  }
+}
+
+const handlePaymentIntentVerificationSuccess = async () => {
+  showPaymentIntentVerificationModal.value = false
+  paymentIntentClientSecret.value = null
+
+  // Continue polling after successful PaymentIntent verification
+  if (paymentIntentPollContext.value) {
+    const { userId, cartId } = paymentIntentPollContext.value
+    console.log('PaymentIntent verification successful, continuing to poll for completion')
+
+    // Continue polling for final purchase completion
+    const pollResult = await pollPurchaseStatus(userId, cartId)
+
+    if (pollResult.success) {
+      showSuccessMessage(
+        `Order processed successfully! A confirmation has been sent to ${guestFormData.value?.email}.`,
+      )
+
+      // Clear cart after successful checkout
+      cartItems.value = []
+      selectedPaymentMethod.value = null
+      guestFormData.value = null
+      guestCheckoutContext.value = null
+      paymentIntentPollContext.value = null
+
+      // Clear cart from localStorage
+      clearCartFromLocalStorage()
+    } else {
+      checkoutError.value = pollResult.error || 'Purchase processing failed after verification. Please contact support.'
+    }
+  }
+
+  processingCheckout.value = false
+}
+
+const handlePaymentIntentVerificationError = (error: string) => {
+  showPaymentIntentVerificationModal.value = false
+  paymentIntentClientSecret.value = null
+  checkoutError.value = `Payment verification failed: ${error}`
+  processingCheckout.value = false
+}
+
+const handlePaymentIntentVerificationClose = () => {
+  showPaymentIntentVerificationModal.value = false
+  paymentIntentClientSecret.value = null
+  processingCheckout.value = false
 }
 
 const handleGuestVerificationError = (error: string) => {

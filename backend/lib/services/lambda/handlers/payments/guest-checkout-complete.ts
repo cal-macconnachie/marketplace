@@ -252,6 +252,7 @@ export const guestCheckoutComplete = async (event: APIGatewayProxyEvent) => {
       body: JSON.stringify({
         success: true,
         message: 'Purchase completed successfully',
+        userId: body.userId,
         cartId: purchaseResult.cartId
       }),
       headers: {

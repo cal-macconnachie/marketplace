@@ -93,5 +93,6 @@ export interface GuestCheckoutProcessingResponse {
 export interface GuestCheckoutCompleteResponse {
   success: true
   message: string
+  userId: string
   cartId: string
 }
