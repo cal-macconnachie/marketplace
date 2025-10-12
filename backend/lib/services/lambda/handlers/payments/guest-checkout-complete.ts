@@ -114,26 +114,64 @@ export const guestCheckoutComplete = async (event: APIGatewayProxyEvent) => {
       }
     }
 
-    // Check if payment method is active (verification completed)
-    if (paymentMethod.status === 'pending_verification') {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          error: 'Payment method verification is still pending'
-        }),
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Credentials': true,
-          'Content-Type': 'application/json'
-        }
-      }
-    }
-
     // Get the stripe client and verify the payment method is properly attached
     const stripe = getStripeClient()
 
     try {
       const stripePaymentMethod = await stripe.paymentMethods.retrieve(body.paymentMethodId)
+
+      // If payment method is still pending verification in our DB, check Stripe's status
+      // and update it if the verification succeeded (race condition with webhook)
+      if (paymentMethod.status === 'pending_verification') {
+        let successfulSetupIntent = null
+        let attempts = 0
+        const maxAttempts = 2 // Initial attempt + 1 retry
+
+        // Try to find successful SetupIntent, with one retry after 3 seconds
+        while (attempts < maxAttempts && !successfulSetupIntent) {
+          if (attempts > 0) {
+            console.log(`Attempt ${attempts + 1}/${maxAttempts}: Waiting 3 seconds before checking SetupIntent status...`)
+            await new Promise(resolve => setTimeout(resolve, 3000))
+          }
+
+          const setupIntents = await stripe.setupIntents.list({
+            payment_method: body.paymentMethodId,
+            limit: 1
+          })
+
+          successfulSetupIntent = setupIntents.data.find(si => si.status === 'succeeded')
+          attempts++
+        }
+
+        if (!successfulSetupIntent) {
+          // Verification truly hasn't completed yet after retries
+          return {
+            statusCode: 400,
+            body: JSON.stringify({
+              error: 'Payment method verification is still pending. Please try again in a moment.'
+            }),
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Credentials': true,
+              'Content-Type': 'application/json'
+            }
+          }
+        }
+
+        // SetupIntent succeeded, update our DB to match Stripe's state
+        await update<PaymentMethod>({
+          tableName: paymentMethodsTableName!,
+          key: {
+            user_id: body.userId,
+            id: body.paymentMethodId
+          },
+          updates: {
+            status: 'active'
+          }
+        })
+
+        console.log(`Updated payment method ${body.paymentMethodId} to active after detecting successful SetupIntent (attempts: ${attempts})`)
+      }
 
       if (!stripePaymentMethod.customer) {
         // Payment method not attached to customer, do it now
