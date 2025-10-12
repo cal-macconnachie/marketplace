@@ -79,8 +79,8 @@ interface Props {
 
 interface Emits {
   (e: 'close'): void
-  (e: 'success'): void
-  (e: 'error', error: string): void
+  (e: 'verification-success'): void
+  (e: 'verification-error', error: string): void
 }
 
 const props = defineProps<Props>()
@@ -122,24 +122,24 @@ async function handleVerification() {
     if (error) {
       console.error('Verification error:', error)
       verificationError.value = error.message || 'Verification failed. Please try again.'
-      emit('error', verificationError.value)
+      emit('verification-error', verificationError.value)
     } else if (setupIntent) {
       // Verification successful
       if (setupIntent.status === 'succeeded') {
-        emit('success')
+        emit('verification-success')
       } else if (setupIntent.status === 'requires_action') {
         verificationError.value =
           'Additional verification required. Please contact your bank or try a different card.'
-        emit('error', verificationError.value)
+        emit('verification-error', verificationError.value)
       } else {
         verificationError.value = `Verification status: ${setupIntent.status}. Please try again.`
-        emit('error', verificationError.value)
+        emit('verification-error', verificationError.value)
       }
     }
   } catch (err) {
     console.error('Verification failed:', err)
     verificationError.value = 'Verification failed. Please try again.'
-    emit('error', verificationError.value)
+    emit('verification-error', verificationError.value)
   } finally {
     isVerifying.value = false
   }
