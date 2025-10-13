@@ -1,3 +1,5 @@
+import { clearAllAuthTokens, getAuthToken } from '@/utils/cookies'
+import { domain } from '@marketplace/constants'
 import type {
   AuthResponse,
   ChangePasswordRequest,
@@ -9,9 +11,6 @@ import type {
   CreatePaymentMethodResponse,
   CreatePresignedUploadUrlRequest,
   CreatePresignedUploadUrlResponse,
-  GuestCheckoutCompleteResponse,
-  GuestCheckoutProcessingResponse,
-  GuestCheckoutStatusResponse,
   LoginRequest,
   Notification,
   OAuthLoginRequest,
@@ -31,9 +30,7 @@ import type {
   // Entity types
   User
 } from '@marketplace/types'
-import { domain } from '@marketplace/constants'
 import axios from 'axios'
-import { getAuthToken, clearAllAuthTokens } from '@/utils/cookies'
 
 // Determine environment - can be overridden via environment variable
 const BASE_URL = import.meta.env.VITE_API_ENV === 'dev' ? `https://api.${import.meta.env.VITE_API_ENV}.${domain}` : `https://api.${domain}/`
@@ -415,8 +412,13 @@ export const authAPI = {
       postal_code: string
       country: string
     }
-  }): Promise<void> {
-    await apiClient.post('/purchase-products', data)
+  }): Promise<{
+    success: boolean
+    cartId: string
+    meteredCartItems?: string[]
+  }> {
+    const response = await apiClient.post('/purchase-products', data)
+    return response.data
   },
 
   async getPurchasedProducts({

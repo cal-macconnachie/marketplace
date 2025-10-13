@@ -458,8 +458,9 @@ import {
   publicApi,
 } from '@/services/api'
 import { useAppStore } from '@/stores/app'
+import { poll } from '@/utils/polling'
 import type { CartItem, CheckoutData, Organization, PaymentMethod, Product, TaxCalculationItem } from '@marketplace/types'
-import { type Stripe, type PaymentMethod as StripePaymentMethod } from '@stripe/stripe-js'
+import { loadStripe, type Stripe } from '@stripe/stripe-js'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import SignIn from './SignIn.vue'
@@ -472,13 +473,11 @@ import GuestCheckoutForm from './ui/GuestCheckoutForm.vue'
 import LoadingSpinner from './ui/LoadingSpinner.vue'
 import PaymentMethodForm from './ui/PaymentMethodForm.vue'
 import PaymentMethodList from './ui/PaymentMethodList.vue'
-import StripeVerificationModal from './ui/StripeVerificationModal.vue'
 import PriceDisplay from './ui/PriceDisplay.vue'
 import ProductCard from './ui/ProductCard.vue'
 import PurchaseCompleteScreen from './ui/PurchaseCompleteScreen.vue'
 import QuantitySeletor from './ui/QuantitySeletor.vue'
-import { loadStripe } from '@stripe/stripe-js'
-import { poll } from '@/utils/polling'
+import StripeVerificationModal from './ui/StripeVerificationModal.vue'
 
 const route = useRoute()
 const appStore = useAppStore()
@@ -1179,8 +1178,15 @@ const pollUntilCartReady = async (
   userId: string,
   cartId: string
 ): Promise<{ success: boolean; error?: string }> => {
-  const result = await poll({
+  let waitingForVerification = false
+
+  const result = await poll<{ ready: boolean; requiresAction?: boolean; purchases?: Array<{ id: string; status: string; requiresAction?: boolean; clientSecret?: string }> }>({
     checkFn: async () => {
+      // If we're waiting for verification, don't make another API call
+      if (waitingForVerification) {
+        return { ready: false }
+      }
+
       const status = await publicApi.publicGetCartStatus(cartId, userId)
 
       // Check if PaymentIntent verification required
@@ -1192,9 +1198,10 @@ const pollUntilCartReady = async (
           paymentVerificationUserId.value = userId
           paymentVerificationCartId.value = cartId
           showPaymentVerificationModal.value = true
+          waitingForVerification = true
 
-          // Return special status to pause polling
-          return { ready: false, waitingForVerification: true }
+          // Return status to pause polling
+          return { ready: false }
         }
       }
 
@@ -1202,7 +1209,7 @@ const pollUntilCartReady = async (
     },
     conditionFn: (status) => {
       // Continue polling if not ready and not waiting for verification
-      return !status.ready && !status.waitingForVerification
+      return !status.ready && !waitingForVerification
     },
     maxAttempts: 20,
     initialDelay: 2000,
