@@ -130,6 +130,18 @@
             <!-- Stripe Card Element will mount here -->
           </div>
         </div>
+
+        <!-- Payment Method Creation Button -->
+        <BaseButton
+          @click="handleSubmit"
+          :loading="processing"
+          :disabled="!stripeLoaded || processing || !!error"
+          variant="primary"
+          full-width
+          size="md"
+        >
+          {{ processing ? 'Adding Payment Method...' : 'Add Payment Method' }}
+        </BaseButton>
       </div>
     </form>
 
@@ -148,24 +160,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { publicApi } from '@/services/api'
+import { poll } from '@/utils/polling'
 import {
   loadStripe,
   type Stripe,
-  type StripeElements,
   type StripeCardElement,
-  type PaymentMethod,
+  type StripeElements,
 } from '@stripe/stripe-js'
-import BaseAlert from './BaseAlert.vue'
-import LoadingSpinner from './LoadingSpinner.vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import AddressSearch from './AddressSearch.vue'
+import BaseAlert from './BaseAlert.vue'
+import BaseButton from './BaseButton.vue'
 import EditableField from './EditableField.vue'
 import EditableToggle from './EditableToggle.vue'
+import LoadingSpinner from './LoadingSpinner.vue'
 import PhoneNumberField from './PhoneNumberField.vue'
-import BaseButton from './BaseButton.vue'
 import StripeVerificationModal from './StripeVerificationModal.vue'
-import { publicApi } from '@/services/api'
-import { poll } from '@/utils/polling'
 
 interface GuestFormData {
   firstName: string
@@ -193,6 +204,7 @@ interface GuestFormData {
 interface Emits {
   (e: 'form-completed', data: { userId: string; paymentMethodId: string }): void
   (e: 'form-updated', data: GuestFormData): void
+  (e: 'payment-method-added', data: { userId: string; paymentMethodId: string }): void
 }
 
 const emit = defineEmits<Emits>()
@@ -555,11 +567,6 @@ const initializeStripe = async () => {
       } else {
         error.value = null
       }
-
-      // Auto-submit when card is complete and form is valid
-      if (event.complete && !error?.value && !processing?.value) {
-        handleSubmit()
-      }
     })
 
     stripeLoaded.value = true
@@ -638,7 +645,10 @@ const handleSubmit = async () => {
     }
 
     // No verification needed - payment method is active
-    emit('form-completed', {
+    pendingPaymentMethodId.value = paymentMethod.id
+
+    // Emit payment method added event
+    emit('payment-method-added', {
       userId: registeredUserId.value,
       paymentMethodId: paymentMethod.id,
     })
@@ -686,17 +696,20 @@ const handleVerificationSuccess = async () => {
       throw new Error('Payment method verification timed out. Please try again.')
     }
 
-    // Payment method is now active
-    emit('form-completed', {
+    // Payment method is now active - store for later use
+    // Don't clear pendingPaymentMethodId as it will be used for checkout
+
+    // Emit payment method added event
+    emit('payment-method-added', {
       userId: registeredUserId.value,
       paymentMethodId: pendingPaymentMethodId.value,
     })
   } catch (err) {
     console.error('Payment method verification failed:', err)
     error.value = err instanceof Error ? err.message : 'Verification failed. Please try again.'
+    pendingPaymentMethodId.value = null
   } finally {
     processing.value = false
-    pendingPaymentMethodId.value = null
   }
 }
 

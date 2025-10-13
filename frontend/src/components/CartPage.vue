@@ -238,7 +238,7 @@
                     <GuestCheckoutForm
                       :requires-shipping="requiresShipping"
                       @form-updated="handleGuestFormUpdated"
-                      @form-completed="handleGuestFormCompleted"
+                      @payment-method-added="handleGuestPaymentMethodAdded"
                     />
                   </div>
                 </div>
@@ -1009,7 +1009,7 @@ const handleGuestFormUpdated = async (formData: {
   calculateTaxes()
 }
 
-const handleGuestFormCompleted = async (data: {
+const handleGuestPaymentMethodAdded = (data: {
   userId: string
   paymentMethodId: string
 }) => {
@@ -1028,8 +1028,7 @@ const handleGuestFormCompleted = async (data: {
     expiry_year: 0,
   }
 
-  // Now we can proceed to checkout automatically
-  await handleCheckout()
+  // Payment method is added, user can now click "Complete Purchase"
 }
 
 const handleCheckout = async () => {
@@ -1180,7 +1179,13 @@ const pollUntilCartReady = async (
 ): Promise<{ success: boolean; error?: string }> => {
   let waitingForVerification = false
 
-  const result = await poll<{ ready: boolean; requiresAction?: boolean; purchases?: Array<{ id: string; status: string; requiresAction?: boolean; clientSecret?: string }> }>({
+  const result = await poll<{
+    success?: boolean;
+    cartStatus?: string;
+    ready?: boolean;
+    requiresAction?: boolean;
+    purchases?: Array<{ id: string; status: string; requiresAction?: boolean; clientSecret?: string }>
+  }>({
     checkFn: async () => {
       // If we're waiting for verification, don't make another API call
       if (waitingForVerification) {
@@ -1188,6 +1193,11 @@ const pollUntilCartReady = async (
       }
 
       const status = await publicApi.publicGetCartStatus(cartId, userId)
+
+      // Check new response format: { success: true, cartStatus: "succeeded" }
+      if (status.success && status.cartStatus === 'succeeded') {
+        return { ready: true, success: true, cartStatus: 'succeeded' }
+      }
 
       // Check if PaymentIntent verification required
       if (status.requiresAction && status.purchases) {
@@ -1208,6 +1218,10 @@ const pollUntilCartReady = async (
       return status
     },
     conditionFn: (status) => {
+      // Stop polling if cart succeeded
+      if (status.success && status.cartStatus === 'succeeded') {
+        return false
+      }
       // Continue polling if not ready and not waiting for verification
       return !status.ready && !waitingForVerification
     },

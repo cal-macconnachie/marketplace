@@ -591,7 +591,9 @@ export const publicApi = {
   },
 
   async publicGetCartStatus(cartId: string, userId: string): Promise<{
-    ready: boolean
+    success?: boolean
+    cartStatus?: string
+    ready?: boolean
     requiresAction?: boolean
     purchases?: Array<{
       id: string
