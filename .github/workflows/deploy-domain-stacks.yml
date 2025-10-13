@@ -105,6 +105,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Node.js for pattern extraction
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Check which stacks changed
         id: check
         run: |
@@ -118,6 +123,10 @@ jobs:
           else
             FILES=$(git diff --name-only HEAD~1 HEAD)
           fi
+
+          echo "Changed files:"
+          echo "$FILES"
+          echo ""
 
           # Check for infrastructure changes
           INFRA_CHANGED=false
@@ -137,37 +146,50 @@ jobs:
             SHARED_LAMBDA_CHANGED=true
           fi
 
-          # Check for domain stack changes
+          # Dynamically generate patterns from endpoint definitions
+          cd backend/scripts
+
+          # Generate patterns for each domain stack
+          PUBLIC_PATTERN=$(npx ts-node extract-handler-paths.ts --stack=public 2>/dev/null || echo "")
+          PAYMENTS_PATTERN=$(npx ts-node extract-handler-paths.ts --stack=payments 2>/dev/null || echo "")
+          PRODUCTS_PATTERN=$(npx ts-node extract-handler-paths.ts --stack=products 2>/dev/null || echo "")
+          INTERNAL_API_PATTERN=$(npx ts-node extract-handler-paths.ts --stack=internal-api 2>/dev/null || echo "")
+          EVENTS_PATTERN=$(npx ts-node extract-handler-paths.ts --stack=events 2>/dev/null || echo "")
+
+          cd ../..
+
+          # Check for domain stack changes using dynamic patterns
           PUBLIC_CHANGED=false
-          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-public-stack|services/lambda/(endpoint-definitions/public-endpoints|helpers|handlers/auth/(login|register|refresh|request-register-otp|request-reset-password|reset-password)|handlers/product-manager/(get|list)|handlers/organizations/get-organization|handlers/payments/(guest-checkout|calculate-taxes)))"; then
+          if [ -n "$PUBLIC_PATTERN" ] && echo "$FILES" | grep -qE "$PUBLIC_PATTERN"; then
             PUBLIC_CHANGED=true
           fi
           if [ "$SHARED_LAMBDA_CHANGED" = "true" ]; then PUBLIC_CHANGED=true; fi
 
           PAYMENTS_CHANGED=false
-          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-payments-stack|services/lambda/(endpoint-definitions/payments-endpoints|helpers|handlers/payments/(create-payment-method|get-payment-methods|archive-payment-method|purchase-products|purchases-crud|get-products|cancel-subscription)|handlers/stripe/(create-connected-account|refresh-connect-url|create-express-login-link|delete-connected-accounts|log-meter-event)|handlers/organizations/get-purchased-products))"; then
+          if [ -n "$PAYMENTS_PATTERN" ] && echo "$FILES" | grep -qE "$PAYMENTS_PATTERN"; then
             PAYMENTS_CHANGED=true
           fi
           if [ "$SHARED_LAMBDA_CHANGED" = "true" ]; then PAYMENTS_CHANGED=true; fi
 
           PRODUCTS_CHANGED=false
-          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-products-stack|services/lambda/(endpoint-definitions/products-endpoints|helpers|handlers/product-manager|handlers/promo-manager|handlers/meter-manager))"; then
+          if [ -n "$PRODUCTS_PATTERN" ] && echo "$FILES" | grep -qE "$PRODUCTS_PATTERN"; then
             PRODUCTS_CHANGED=true
           fi
           if [ "$SHARED_LAMBDA_CHANGED" = "true" ]; then PRODUCTS_CHANGED=true; fi
 
           INTERNAL_API_CHANGED=false
-          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-internal-api-stack|services/lambda/(endpoint-definitions/internal-api-endpoints|helpers|handlers/auth/(logout|change-password|admin-change-password)|handlers/organizations/(add-user-to-organization|remove-user-from-organization|create-user|set-org-admin|get-users|update-user|update|assign-products)|handlers/images))"; then
+          if [ -n "$INTERNAL_API_PATTERN" ] && echo "$FILES" | grep -qE "$INTERNAL_API_PATTERN"; then
             INTERNAL_API_CHANGED=true
           fi
           if [ "$SHARED_LAMBDA_CHANGED" = "true" ]; then INTERNAL_API_CHANGED=true; fi
 
           EVENTS_CHANGED=false
-          if echo "$FILES" | grep -qE "^backend/lib/(marketplace-events-stack|services/lambda/(endpoint-definitions/events-endpoints|helpers|handlers/(stripe-event-handler|stripe-platform-event-handler|products|promos|users|organizations|purchases|purchase-carts)|handlers/stripe/handle-purchase|handlers/payments/products-purchased))"; then
+          if [ -n "$EVENTS_PATTERN" ] && echo "$FILES" | grep -qE "$EVENTS_PATTERN"; then
             EVENTS_CHANGED=true
           fi
           if [ "$SHARED_LAMBDA_CHANGED" = "true" ]; then EVENTS_CHANGED=true; fi
 
+          # Check for certificate and cognito domain changes
           CERTIFICATES_CHANGED=false
           if echo "$FILES" | grep -qE "^backend/(lib/marketplace-certificates-stack|bin/marketplace-certificates)"; then
             CERTIFICATES_CHANGED=true
