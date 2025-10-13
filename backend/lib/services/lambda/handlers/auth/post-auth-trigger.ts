@@ -1,7 +1,7 @@
-import { PostAuthenticationTriggerEvent } from 'aws-lambda'
-import { createUpdateUser } from '../../helpers/users/create-update-user'
-import { v4 } from 'uuid'
 import { User } from '@marketplace/types'
+import { PostAuthenticationTriggerEvent } from 'aws-lambda'
+import { v4 } from 'uuid'
+import { createUpdateUser } from '../../helpers/users/create-update-user'
 import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 
 export const postAuthTrigger = async (event: PostAuthenticationTriggerEvent) => {
@@ -25,8 +25,7 @@ export const postAuthTrigger = async (event: PostAuthenticationTriggerEvent) => 
         id: v4(),
         email,
         cognito_id: cognitoId,
-        is_organization_admin: true, // Default to false, can be updated later
-        // Add social provider info if available
+        is_organization_admin: true,
         ...(userAttributes.identities && {
           social_provider: JSON.parse(userAttributes.identities)[0]?.providerName
         })

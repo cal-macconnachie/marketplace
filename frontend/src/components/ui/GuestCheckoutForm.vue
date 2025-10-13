@@ -12,6 +12,7 @@
             :required="true"
             :error="errors.firstName"
             @update="handleFieldUpdate"
+            :disabled="isRegistered"
           />
           <EditableField
             :value="formData.lastName"
@@ -21,6 +22,7 @@
             :required="true"
             :error="errors.lastName"
             @update="handleFieldUpdate"
+            :disabled="isRegistered"
           />
         </div>
         <EditableField
@@ -31,6 +33,18 @@
           :required="true"
           :error="errors.email"
           @update="handleFieldUpdate"
+          :disabled="isRegistered"
+        />
+
+        <PhoneNumberField
+          :value="formData.phoneNumber"
+          field="phoneNumber"
+          label="Phone Number *"
+          placeholder="Enter your phone number"
+          :required="true"
+          :error="errors.phoneNumber"
+          @update="handleFieldUpdate"
+          :disabled="isRegistered"
         />
 
         <AddressSearch
@@ -43,6 +57,7 @@
             errors.address || errors.addressCity || errors.addressState || errors.addressPostal
           "
           @update="handleFieldUpdate"
+          :disabled="isRegistered"
         />
 
         <EditableToggle
@@ -53,6 +68,7 @@
           off-label="Ship to different address"
           :required="false"
           @update="handleFieldUpdate"
+          :disabled="isRegistered"
         />
 
         <AddressSearch
@@ -69,11 +85,32 @@
             errors.shippingAddressPostal
           "
           @update="handleFieldUpdate"
+          :disabled="isRegistered"
         />
       </div>
 
-      <!-- Payment Method -->
-      <div v-if="hasCustomer" class="form-section">
+      <!-- Registration Step -->
+      <div v-if="!isRegistered && !waitingForStripeCustomer" class="registration-step">
+        <BaseButton
+          @click="handleRegistration"
+          :loading="registeringUser"
+          :disabled="!canRegister || registeringUser"
+          variant="primary"
+          full-width
+          size="md"
+        >
+          {{ registeringUser ? 'Creating Account...' : 'Continue to Payment' }}
+        </BaseButton>
+      </div>
+
+      <!-- Waiting for Stripe Customer -->
+      <div v-if="waitingForStripeCustomer" class="waiting-state">
+        <LoadingSpinner size="32" />
+        <p class="waiting-text">Setting up your payment account...</p>
+      </div>
+
+      <!-- Payment Method Section (only show after registration) -->
+      <div v-if="isRegistered && hasStripeCustomer" class="form-section">
         <div v-if="!stripeLoaded" class="loading-overlay">
           <LoadingSpinner />
         </div>
@@ -95,6 +132,18 @@
         </div>
       </div>
     </form>
+
+    <!-- Stripe Verification Modal -->
+    <StripeVerificationModal
+      v-if="showVerificationModal"
+      :show="showVerificationModal"
+      :stripe="stripe"
+      :client-secret="verificationClientSecret || ''"
+      :mode="verificationType"
+      @verification-success="handleVerificationSuccess"
+      @verification-error="handleVerificationError"
+      @close="handleVerificationClose"
+    />
   </div>
 </template>
 
@@ -112,11 +161,17 @@ import LoadingSpinner from './LoadingSpinner.vue'
 import AddressSearch from './AddressSearch.vue'
 import EditableField from './EditableField.vue'
 import EditableToggle from './EditableToggle.vue'
+import PhoneNumberField from './PhoneNumberField.vue'
+import BaseButton from './BaseButton.vue'
+import StripeVerificationModal from './StripeVerificationModal.vue'
+import { publicApi } from '@/services/api'
+import { poll } from '@/utils/polling'
 
 interface GuestFormData {
   firstName: string
   lastName: string
   email: string
+  phoneNumber: string
   address: {
     line1: string
     line2: string
@@ -133,13 +188,11 @@ interface GuestFormData {
     postal_code: string
     country: string
   }
-  paymentMethodId?: PaymentMethod
 }
 
 interface Emits {
-  (e: 'form-completed', data: GuestFormData & { paymentMethod: PaymentMethod }): void
+  (e: 'form-completed', data: { userId: string; paymentMethodId: string }): void
   (e: 'form-updated', data: GuestFormData): void
-  (e: 'verification-required', data: { clientSecret: string; paymentMethod: PaymentMethod }): void
 }
 
 const emit = defineEmits<Emits>()
@@ -155,6 +208,7 @@ const formData = ref<GuestFormData>({
   firstName: '',
   lastName: '',
   email: '',
+  phoneNumber: '',
   address: {
     line1: '',
     line2: '',
@@ -166,45 +220,52 @@ const formData = ref<GuestFormData>({
 })
 
 const errors = ref<Record<string, string>>({})
+const error = ref<string | null>(null)
+const registeringUser = ref(false)
+const waitingForStripeCustomer = ref(false)
 const processing = ref(false)
 const stripeLoaded = ref(false)
-const error = ref<string | null>(null)
-const hasCustomer = ref(false)
 const shippingAddressSameAsAddress = ref(true)
 
-const isBillingDisabled = computed(() => {
-  return (
-    !formData.value.firstName ||
-    !formData.value.lastName ||
-    !formData.value.email ||
-    !!errors.value.firstName ||
-    !!errors.value.lastName ||
-    !!errors.value.email ||
-    !formData.value.address.line1 ||
-    !formData.value.address.city ||
-    !formData.value.address.state ||
-    !formData.value.address.postal_code
-  )
-})
+// Registration state
+const isRegistered = ref(false)
+const registeredUserId = ref<string | null>(null)
+const hasStripeCustomer = ref(false)
 
-watch(isBillingDisabled, (newValue) => {
-  if (!newValue && hasCustomer.value === false) {
-    hasCustomer.value = true
-    // refetch user
-  }
-})
-
-watch(hasCustomer, (newValue) => {
-  if (newValue) {
-    initializeStripe()
-  }
-})
+// Verification state
+const showVerificationModal = ref(false)
+const verificationClientSecret = ref<string | null>(null)
+const verificationType = ref<'setup' | 'payment'>('setup')
+const pendingPaymentMethodId = ref<string | null>(null)
 
 let stripe: Stripe | null = null
 let elements: StripeElements | null = null
 let cardElement: StripeCardElement | null = null
 
 const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
+
+const canRegister = computed(() => {
+  return (
+    formData.value.firstName &&
+    formData.value.lastName &&
+    formData.value.email &&
+    formData.value.phoneNumber &&
+    !errors.value.firstName &&
+    !errors.value.lastName &&
+    !errors.value.email &&
+    !errors.value.phoneNumber &&
+    formData.value.address.line1 &&
+    formData.value.address.city &&
+    formData.value.address.state &&
+    formData.value.address.postal_code
+  )
+})
+
+watch(hasStripeCustomer, (newValue) => {
+  if (newValue) {
+    initializeStripe()
+  }
+})
 
 const formatAddress = (address?: {
   line1?: string
@@ -226,18 +287,16 @@ const formatAddress = (address?: {
   return parts.join(', ')
 }
 
-// Handler for EditableField updates
 const handleFieldUpdate = (
   field: string,
   value: string | { [key: string]: string | undefined } | boolean | null | undefined,
 ) => {
-  // Clear validation error for this field when user updates it
   if (errors.value[field]) {
     delete errors.value[field]
   }
+
   switch (field) {
     case 'address':
-      // Clear address-related validation errors when user updates address
       delete errors.value.address
       delete errors.value.addressCity
       delete errors.value.addressState
@@ -297,10 +356,12 @@ const handleFieldUpdate = (
       formData.value.email = value as string
       validateEmail(value as string)
       break
+    case 'phoneNumber':
+      formData.value.phoneNumber = value as string
+      break
     case 'shippingAddressSameAsAddress':
       shippingAddressSameAsAddress.value = value as boolean
       if (!shippingAddressSameAsAddress.value) {
-        // Initialize empty shipping address when user wants different address
         formData.value.shippingAddress = {
           line1: '',
           line2: '',
@@ -310,13 +371,11 @@ const handleFieldUpdate = (
           country: '',
         }
       } else {
-        // Remove shipping address when using billing address
         delete formData.value.shippingAddress
       }
       break
   }
 
-  // Emit form update after any field change
   emitFormUpdate()
 }
 
@@ -327,7 +386,6 @@ const validateEmail = (email: string) => {
 }
 
 const emitFormUpdate = () => {
-  // Only emit if we have the basic required fields
   if (formData.value.firstName && formData.value.lastName && formData.value.email) {
     emit('form-updated', formData.value)
   }
@@ -350,6 +408,10 @@ const validateForm = (): boolean => {
     errors.value.email = 'Please enter a valid email address'
   }
 
+  if (!formData.value.phoneNumber) {
+    errors.value.phoneNumber = 'Phone number is required'
+  }
+
   if (!formData.value.address.line1) {
     errors.value.address = 'Address is required'
   }
@@ -366,7 +428,6 @@ const validateForm = (): boolean => {
     errors.value.addressPostal = 'Postal code is required'
   }
 
-  // Validate shipping address if required and different from billing
   if (props.requiresShipping && !shippingAddressSameAsAddress.value) {
     if (!formData.value.shippingAddress?.line1) {
       errors.value.shippingAddress = 'Shipping address is required'
@@ -386,6 +447,66 @@ const validateForm = (): boolean => {
   }
 
   return Object.keys(errors.value).length === 0
+}
+
+const handleRegistration = async () => {
+  if (!validateForm()) {
+    return
+  }
+
+  registeringUser.value = true
+  error.value = null
+
+  try {
+    // Step 1: Register guest user
+    const user = await publicApi.guestRegister({
+      email: formData.value.email,
+      given_name: formData.value.firstName,
+      family_name: formData.value.lastName,
+      phone_number: formData.value.phoneNumber,
+      address: {
+        line_1: formData.value.address.line1,
+        line_2: formData.value.address.line2,
+        city: formData.value.address.city,
+        state: formData.value.address.state,
+        postal_code: formData.value.address.postal_code,
+        country: formData.value.address.country,
+      },
+    })
+
+    isRegistered.value = true
+    registeredUserId.value = user.id
+
+    // Step 2: Poll for Stripe customer creation
+    waitingForStripeCustomer.value = true
+
+    const stripeCustomerResult = await poll({
+      checkFn: async () => {
+        const status = await publicApi.checkGuestStripeCustomerStatus(user.id)
+        return status.has_stripe_customer
+      },
+      conditionFn: (hasCustomer) => !hasCustomer, // Continue while false
+      maxAttempts: 30,
+      initialDelay: 1000,
+      maxDelay: 3000,
+      useExponentialBackoff: false,
+    })
+
+    if (!stripeCustomerResult.success || !stripeCustomerResult.data) {
+      throw new Error('Failed to create Stripe customer. Please try again.')
+    }
+
+    hasStripeCustomer.value = true
+    waitingForStripeCustomer.value = false
+  } catch (err) {
+    console.error('Registration failed:', err)
+    error.value = err instanceof Error ? err.message : 'Registration failed. Please try again.'
+    isRegistered.value = false
+    registeredUserId.value = null
+  } finally {
+    registeringUser.value = false
+    waitingForStripeCustomer.value = false
+  }
 }
 
 const initializeStripe = async () => {
@@ -463,7 +584,8 @@ const cleanupStripe = () => {
 }
 
 const handleSubmit = async () => {
-  if (!validateForm() || !stripe || !cardElement) {
+  if (!stripe || !cardElement || !registeredUserId.value) {
+    error.value = 'Payment system not ready'
     return
   }
 
@@ -471,6 +593,7 @@ const handleSubmit = async () => {
   error.value = null
 
   try {
+    // Step 3: Create payment method with Stripe
     const { error: stripeError, paymentMethod } = await stripe.createPaymentMethod({
       type: 'card',
       card: cardElement,
@@ -495,10 +618,29 @@ const handleSubmit = async () => {
       throw new Error('Failed to create payment method')
     }
 
-    // Emit form completion with all data
+    // Create payment method on backend
+    const response = await publicApi.publicCreatePaymentMethod({
+      user_id: registeredUserId.value,
+      id: paymentMethod.id,
+      last_four_digits: paymentMethod.card?.last4 || '',
+      brand: paymentMethod.card?.brand || '',
+      expiry_month: paymentMethod.card?.exp_month || 0,
+      expiry_year: paymentMethod.card?.exp_year || 0,
+    })
+
+    // Check if verification is required
+    if (response.requires_action && response.setup_intent_client_secret) {
+      pendingPaymentMethodId.value = paymentMethod.id
+      verificationClientSecret.value = response.setup_intent_client_secret
+      verificationType.value = 'setup'
+      showVerificationModal.value = true
+      return
+    }
+
+    // No verification needed - payment method is active
     emit('form-completed', {
-      ...formData.value,
-      paymentMethod,
+      userId: registeredUserId.value,
+      paymentMethodId: paymentMethod.id,
     })
   } catch (err: unknown) {
     console.error('Payment method creation failed:', err)
@@ -512,14 +654,69 @@ const handleSubmit = async () => {
   }
 }
 
-// Expose submitForm method to parent (must be after handleSubmit is defined)
-defineExpose({
-  submitForm: handleSubmit,
-})
+const handleVerificationSuccess = async () => {
+  showVerificationModal.value = false
+  verificationClientSecret.value = null
+
+  if (!registeredUserId.value || !pendingPaymentMethodId.value) {
+    error.value = 'Session expired. Please try again.'
+    return
+  }
+
+  processing.value = true
+
+  try {
+    // Step 3b: Poll for payment method to become active
+    const paymentMethodResult = await poll({
+      checkFn: async () => {
+        const status = await publicApi.checkPaymentMethodStatus(
+          registeredUserId.value!,
+          pendingPaymentMethodId.value!
+        )
+        return status.status
+      },
+      conditionFn: (status) => status !== 'active', // Continue while not active
+      maxAttempts: 20,
+      initialDelay: 1000,
+      maxDelay: 3000,
+      useExponentialBackoff: false,
+    })
+
+    if (!paymentMethodResult.success || paymentMethodResult.data !== 'active') {
+      throw new Error('Payment method verification timed out. Please try again.')
+    }
+
+    // Payment method is now active
+    emit('form-completed', {
+      userId: registeredUserId.value,
+      paymentMethodId: pendingPaymentMethodId.value,
+    })
+  } catch (err) {
+    console.error('Payment method verification failed:', err)
+    error.value = err instanceof Error ? err.message : 'Verification failed. Please try again.'
+  } finally {
+    processing.value = false
+    pendingPaymentMethodId.value = null
+  }
+}
+
+const handleVerificationError = (errorMessage: string) => {
+  showVerificationModal.value = false
+  verificationClientSecret.value = null
+  error.value = errorMessage
+  processing.value = false
+  pendingPaymentMethodId.value = null
+}
+
+const handleVerificationClose = () => {
+  showVerificationModal.value = false
+  verificationClientSecret.value = null
+  processing.value = false
+  pendingPaymentMethodId.value = null
+}
 
 onMounted(() => {
-  // Don't initialize Stripe immediately - wait for form to be filled
-  // initializeStripe will be called when billing is enabled
+  // Stripe initialization happens after registration
 })
 
 onUnmounted(() => {
@@ -544,32 +741,35 @@ onUnmounted(() => {
   gap: var(--space-4);
 }
 
-.section-title {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  margin: 0;
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--color-border);
-}
-
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-4);
 }
 
-.form-row:has(:nth-child(3)) {
-  grid-template-columns: 1fr 1fr 1fr;
+.registration-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
 }
 
-.form-section > .form-row,
-.form-section > :not(.form-row) {
-  margin-bottom: var(--space-4);
+.waiting-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
 }
 
-.form-section > :last-child {
-  margin-bottom: 0;
+.waiting-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
 }
 
 .payment-element-container {
@@ -593,12 +793,6 @@ onUnmounted(() => {
   z-index: 10;
 }
 
-.loading-text {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  margin: 0;
-}
-
 .form-disabled {
   opacity: 0.5;
   pointer-events: none;
@@ -620,22 +814,10 @@ onUnmounted(() => {
   box-shadow: 0 0 0 2px var(--color-primary-alpha);
 }
 
-.form-actions {
-  margin-top: var(--space-4);
-}
-
 /* Responsive design */
 @media (max-width: 640px) {
   .form-row {
     grid-template-columns: 1fr;
-  }
-
-  .form-row:has(:nth-child(3)) {
-    grid-template-columns: 1fr;
-  }
-
-  .section-title {
-    font-size: var(--font-size-base);
   }
 }
 </style>

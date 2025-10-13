@@ -38,6 +38,11 @@ export interface Cart {
     country: string
   }
   ip_address?: string
+  next_steps?: Array<{
+    type: 'payment_action_required'
+    payment_intent_client_secret: string
+    payment_intent_id: string
+  }>
 }
 
 export interface SerializedCartData {

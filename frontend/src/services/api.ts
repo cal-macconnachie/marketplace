@@ -528,57 +528,40 @@ export const publicApi = {
     return response.data
   },
 
-  async guestCheckout(data: {
-    user: {
-      given_name: string
-      family_name: string
-      email: string
-      address?: {
-        line_1: string
-        line_2?: string
-        state: string
-        city: string
-        country: string
-        postal_code: string
-      }
-      ip_address?: string
-    }
-    paymentMethodCreateParams: {
-      id: string
-      last_four_digits: string
-      brand: string
-      expiry_month: string
-      expiry_year: string
-    }
-    productKeys: Array<{
-      id: string
-      group_id: string
-    }>
-    promoCode?: string
-    couponId?: string
-    shippingAddress?: {
-      full_name: string
-      address_line1: string
-      address_line2?: string
+  async guestRegister(data: {
+    email: string
+    given_name: string
+    family_name: string
+    phone_number: string
+    address: {
+      line_1: string
+      line_2?: string
       city: string
       state: string
       postal_code: string
       country: string
     }
-  }): Promise<{
-    success?: boolean
-    user?: User
-    message?: string
-    requires_action?: boolean
-    next_action?: unknown
-    setup_intent_client_secret?: string
-    payment_method_id?: string
-  }> {
-    const response = await apiClient.post('/guest-checkout', data)
+  }): Promise<User> {
+    const response = await apiClient.post('/public/guest-register', data)
     return response.data
   },
 
-  async guestCheckoutComplete(data: {
+  async checkGuestStripeCustomerStatus(userId: string): Promise<{ has_stripe_customer: boolean }> {
+    const response = await apiClient.get(`/public/guest-stripe-customer-status/${userId}`)
+    return response.data
+  },
+
+  async publicCreatePaymentMethod(data: CreatePaymentMethodRequest): Promise<CreatePaymentMethodResponse> {
+    const response = await apiClient.post('/public/create-payment-method', data)
+    return response.data
+  },
+
+  async checkPaymentMethodStatus(userId: string, paymentMethodId: string): Promise<{ status: string }> {
+    const response = await apiClient.get(`/public/check-payment-method/${userId}/${paymentMethodId}`)
+    return response.data
+  },
+
+  async publicPurchaseProducts(data: {
     userId: string
     paymentMethodId: string
     productKeys: Array<{
@@ -596,15 +579,26 @@ export const publicApi = {
       postal_code: string
       country: string
     }
-  }): Promise<GuestCheckoutCompleteResponse | GuestCheckoutProcessingResponse> {
-    const response = await apiClient.post('/guest-checkout-complete', data)
+  }): Promise<{
+    success: boolean
+    cartId: string
+    meteredCartItems?: string[]
+  }> {
+    const response = await apiClient.post('/public/purchase-products', data)
     return response.data
   },
 
-  async getGuestCheckoutStatus(userId: string, cartId: string): Promise<GuestCheckoutStatusResponse> {
-    const response = await apiClient.get(`/guest-checkout-status/${userId}`, {
-      params: { cartId }
-    })
+  async publicGetCartStatus(cartId: string, userId: string): Promise<{
+    ready: boolean
+    requiresAction?: boolean
+    purchases?: Array<{
+      id: string
+      status: string
+      requiresAction?: boolean
+      clientSecret?: string
+    }>
+  }> {
+    const response = await apiClient.get(`/public/get-cart-status/${cartId}/${userId}`)
     return response.data
   },
 

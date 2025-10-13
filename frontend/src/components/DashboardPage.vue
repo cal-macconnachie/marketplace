@@ -48,7 +48,7 @@
                 :loading="fieldUpdating === 'family_name'"
               />
             </div>
-            <EditableField
+            <PhoneNumberField
               label="Phone"
               :value="app.user?.phone_number || ''"
               field="phone_number"
@@ -185,6 +185,7 @@ import NotificationManager from '@/components/ui/NotificationManager.vue'
 import PaymentActionRequired from '@/components/ui/PaymentActionRequired.vue'
 import PaymentMethodForm from '@/components/ui/PaymentMethodForm.vue'
 import PaymentMethodList from '@/components/ui/PaymentMethodList.vue'
+import PhoneNumberField from '@/components/ui/PhoneNumberField.vue'
 import ProductsList from '@/components/ui/ProductsList.vue'
 import SellerManager from '@/components/ui/SellerManager.vue'
 import ThemeToggle from '@/components/ui/ThemeToggle.vue'

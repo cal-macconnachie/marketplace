@@ -63,7 +63,7 @@ export const register = rateLimitedHandler(async (event: APIGatewayProxyEvent) =
 
   try {
     const existingUser = await getUserByEmail(email)
-    if (existingUser) {
+    if (existingUser && existingUser.cognito_id) {
       return {
         statusCode: 400,
         body: JSON.stringify({ message: 'User with this email already exists, please try logging in or resetting your password.' }),

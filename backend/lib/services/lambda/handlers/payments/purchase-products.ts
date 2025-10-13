@@ -1,4 +1,5 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
+import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
 import { purchaseProducts as purchaseProductsHelper } from '../../helpers/stripe/purchase-products'
 
 export const purchaseProducts = async (event: APIGatewayProxyEvent) => {
@@ -29,7 +30,7 @@ export const purchaseProducts = async (event: APIGatewayProxyEvent) => {
       couponId?: string
       taxCode?: string
     } = JSON.parse(body ?? '{}')
-    await purchaseProductsHelper({
+    const res = await purchaseProductsHelper({
       userId,
       paymentMethodId,
       productKeys,
@@ -39,7 +40,11 @@ export const purchaseProducts = async (event: APIGatewayProxyEvent) => {
     })
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true }),
+      body: JSON.stringify({
+        success: true,
+        cartId: res.cartId,
+        meteredCartItems: res.meteredCartIds,
+      }),
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,
@@ -59,3 +64,5 @@ export const purchaseProducts = async (event: APIGatewayProxyEvent) => {
     }
   }
 }
+
+export const publicPurchaseProducts = rateLimitedHandler(purchaseProducts)

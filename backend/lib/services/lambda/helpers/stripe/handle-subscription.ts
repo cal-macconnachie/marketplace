@@ -1,11 +1,12 @@
 import {
-  organizationsTableName, productsTableName
+  organizationsTableName, productsTableName, purchaseCartsTableName
 } from '@marketplace/constants'
 import {
   Organization,
   Product, Purchase, User
 } from '@marketplace/types'
 import Stripe from 'stripe'
+import { atomicUpdate } from '../dynamo-helpers/atomic-update'
 import { batchGet } from '../dynamo-helpers/batch-get'
 import { update } from '../dynamo-helpers/update'
 import { getOrganizationById } from '../organizations/get-organization-by-id'
@@ -176,6 +177,42 @@ export const handleSubscription = async ({
     }
     console.log(`Creating subscription for organization ${organization.id} with params:`, JSON.stringify(createParams))
     subscription = await stripe.subscriptions.create(createParams)
+
+    // If subscription requires payment action, add next step to cart
+    if (subscription && subscription.status === 'incomplete' && subscription.latest_invoice) {
+      const invoice = typeof subscription.latest_invoice === 'string'
+        ? await stripe.invoices.retrieve(subscription.latest_invoice)
+        : subscription.latest_invoice
+
+      if (invoice && invoice.payment_intent) {
+        const paymentIntent = typeof invoice.payment_intent === 'string'
+          ? await stripe.paymentIntents.retrieve(invoice.payment_intent)
+          : invoice.payment_intent
+
+        if (paymentIntent && paymentIntent.status === 'requires_action' && cartId) {
+          console.log(`Payment intent ${paymentIntent.id} requires action, updating cart ${cartId} with next step`)
+
+          const nextStepItem = {
+            type: 'payment_action_required',
+            payment_intent_client_secret: paymentIntent.client_secret!,
+            payment_intent_id: paymentIntent.id
+          }
+
+          await atomicUpdate({
+            tableName: purchaseCartsTableName,
+            key: {
+              user_id: user.id,
+              id: cartId
+            },
+            updateExpression: 'SET next_steps = if_not_exists(next_steps, :empty_list), next_steps = list_append(next_steps, :new_step)',
+            expressionAttributeValues: {
+              ':empty_list': [],
+              ':new_step': [nextStepItem]
+            }
+          })
+        }
+      }
+    }
   }
   // add subscription id to organization if it was created
   if (subscription && !subscriptionId) {

@@ -131,12 +131,12 @@
           </BaseButton>
         </div>
 
-        <div v-if="isLoadingNotifications" class="loading-state">
+        <div v-if="isLoadingNotifications && notifications.length === 0" class="loading-state">
           <LoadingSpinner :size="32" />
           <p class="loading-text">Loading notifications...</p>
         </div>
 
-        <div v-else-if="notifications.length === 0" class="empty-state">
+        <div v-else-if="!isLoadingNotifications && notifications.length === 0" class="empty-state">
           <div class="empty-icon">
             <svg
               width="48"

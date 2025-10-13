@@ -163,55 +163,6 @@ export const publicEndpoints: LambdaEndpointDefinition[] = [
       cors: true
     }
   },
-
-  // Public Payment Operations (4 lambdas)
-  {
-    name: 'guestCheckout',
-    handler: 'payments/guest-checkout.guestCheckout',
-    description: 'Guest Checkout with User Creation, Payment Method, and Product Purchase',
-    environment: ['STRIPE_SECRET_KEY'],
-    apiGw: {
-      path: 'guest-checkout',
-      method: 'POST',
-      auth: 'none',
-      cors: true
-    },
-    iamPolicies: [
-      {
-        actions: ['events:PutEvents'],
-        resources: ['*']
-      }
-    ]
-  },
-  {
-    name: 'guestCheckoutComplete',
-    handler: 'payments/guest-checkout-complete.guestCheckoutComplete',
-    description: 'Complete Guest Checkout after 3DS Verification',
-    environment: ['STRIPE_SECRET_KEY'],
-    apiGw: {
-      path: 'guest-checkout-complete',
-      method: 'POST',
-      auth: 'none',
-      cors: true
-    },
-    iamPolicies: [
-      {
-        actions: ['events:PutEvents'],
-        resources: ['*']
-      }
-    ]
-  },
-  {
-    name: 'guestCheckoutStatus',
-    handler: 'payments/guest-checkout-status.guestCheckoutStatus',
-    description: 'Get Guest Checkout Status for Polling',
-    apiGw: {
-      path: 'guest-checkout-status/{userId}',
-      method: 'GET',
-      auth: 'none',
-      cors: true
-    }
-  },
   {
     name: 'calculateTaxes',
     handler: 'payments/calculate-taxes.calculateTaxes',
@@ -220,6 +171,74 @@ export const publicEndpoints: LambdaEndpointDefinition[] = [
     apiGw: {
       path: 'calculate-taxes',
       method: 'POST',
+      auth: 'none',
+      cors: true
+    }
+  },
+  {
+    name: 'guestRegister',
+    handler: 'payments/guest-register.guestRegister',
+    description: 'Guest User Registration',
+    apiGw: {
+      path: 'public/guest-register',
+      method: 'POST',
+      auth: 'none',
+      cors: true
+    }
+  },
+  {
+    name: 'checkGuestStripeCustomerStatus',
+    handler: 'payments/guest-register.checkGuestStripeCustomerStatus',
+    description: 'Check Guest User Stripe Customer Status',
+    apiGw: {
+      path: 'public/guest-stripe-customer-status/{id}',
+      method: 'GET',
+      auth: 'none',
+      cors: true
+    }
+  },
+  {
+    name: 'publicCreatePaymentMethod',
+    handler: 'payments/create-payment-method.publicCreatePaymentMethod',
+    description: 'Create Payment Method (for guest users)',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'public/create-payment-method',
+      method: 'POST',
+      auth: 'none',
+      cors: true
+    }
+  },
+  {
+    name: 'publicCheckPaymentMethod',
+    handler: 'payments/check-payment-method.publicCheckPaymentMethod',
+    description: 'Check Payment Method (for guest users)',
+    apiGw: {
+      path: 'public/check-payment-method/{user_id}/{id}',
+      method: 'GET',
+      auth: 'none',
+      cors: true
+    }
+  },
+  {
+    name: 'publicPurchaseProducts',
+    handler: 'payments/purchase-products.publicPurchaseProducts',
+    description: 'Purchase Products (for guest users)',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'public/purchase-products',
+      method: 'POST',
+      auth: 'none',
+      cors: true
+    }
+  },
+  {
+    name: 'publicGetCartStatus',
+    handler: 'payments/get-cart-status.getCartStatus',
+    description: 'Check Cart Status (for guest users)',
+    apiGw: {
+      path: 'public/get-cart-status/{cart_id}/{user_id}',
+      method: 'GET',
       auth: 'none',
       cors: true
     }

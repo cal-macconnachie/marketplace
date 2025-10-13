@@ -1,4 +1,5 @@
 import {
+  purchaseCartsTableName,
   purchasesTableName, usersTableName
 } from '@marketplace/constants'
 import {
@@ -6,6 +7,7 @@ import {
 } from '@marketplace/types'
 import { EventBridgeEvent } from 'aws-lambda'
 import { updatePurchaseStatus } from '../../helpers/carts/update-purchase-status'
+import { atomicUpdate } from '../../helpers/dynamo-helpers/atomic-update'
 import { batchGet } from '../../helpers/dynamo-helpers/batch-get'
 import { get } from '../../helpers/dynamo-helpers/get'
 import { createDestinationCharge } from '../../helpers/stripe/create-destination-charge'
@@ -86,7 +88,7 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
         if (!destinationAccountId) {
           throw new Error(`Destination account ID not found`)
         }
-        await createDestinationCharge({
+        const paymentIntent = await createDestinationCharge({
           amount: group.reduce((sum, p) => sum + p.amount, 0),
           currency: group[0].currency,
           paymentMethodId: group[0].payment_method_id,
@@ -95,6 +97,34 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
           cartId: group[0].cart_id,
           purchaseIds: group.map(p => p.id)
         })
+        // if paymentIntent requires next step add next step to purchase cart
+        if (paymentIntent && paymentIntent.status === 'requires_action') {
+          console.log(`Payment intent ${paymentIntent.id} requires action, updating cart ${group[0].cart_id} with next step`)
+          // add next step to cart
+          // we only need to do this once per cart, so only do it for the first purchase in the group
+          if (group[0].cart_id) {
+            // update cart with next step
+            // we can assume all purchases in the group have the same cart_id
+            const nextStepItem = {
+              type: 'payment_action_required',
+              payment_intent_client_secret: paymentIntent.client_secret!,
+              payment_intent_id: paymentIntent.id
+            }
+
+            await atomicUpdate({
+              tableName: purchaseCartsTableName,
+              key: {
+                user_id: group[0].user_id,
+                id: group[0].cart_id
+              },
+              updateExpression: 'SET next_steps = if_not_exists(next_steps, :empty_list), next_steps = list_append(next_steps, :new_step)',
+              expressionAttributeValues: {
+                ':empty_list': [],
+                ':new_step': [nextStepItem]
+              }
+            })
+          }
+        }
         // Payment intent status will be updated via webhook (payment_intent.succeeded or payment_intent.payment_failed)
       } catch (e){
         console.error('Error creating destination charge:', e)

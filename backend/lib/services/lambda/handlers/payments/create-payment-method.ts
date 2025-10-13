@@ -9,6 +9,7 @@ import { APIGatewayProxyEvent } from 'aws-lambda'
 import { create } from '../../helpers/dynamo-helpers/create'
 import { get } from '../../helpers/dynamo-helpers/get'
 import { update } from '../../helpers/dynamo-helpers/update'
+import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
 import { getStripeClient } from '../../helpers/stripe/stripe-client'
 
 export const createPaymentMethod = async (event: APIGatewayProxyEvent) => {
@@ -166,3 +167,5 @@ export const createPaymentMethod = async (event: APIGatewayProxyEvent) => {
     }
   }
 }
+
+export const publicCreatePaymentMethod = rateLimitedHandler(createPaymentMethod)

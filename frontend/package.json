@@ -19,6 +19,7 @@
     "@googlemaps/js-api-loader": "^1.16.10",
     "@stripe/stripe-js": "^7.8.0",
     "@types/html2pdf.js": "^0.10.0",
+    "awesome-phonenumber": "^7.5.0",
     "axios": "^1.11.0",
     "html2pdf.js": "^0.12.1",
     "pinia": "^3.0.3",

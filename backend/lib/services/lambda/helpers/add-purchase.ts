@@ -1,9 +1,11 @@
 import { TransactWriteItem } from '@aws-sdk/client-dynamodb'
+import {
+  purchaseCartsTableName, purchasesTableName
+} from '@marketplace/constants'
 import type {
   Product,
   Purchase
 } from '@marketplace/types'
-import { purchaseCartsTableName, purchasesTableName } from '@marketplace/constants'
 import { atomicUpdate } from './dynamo-helpers/atomic-update'
 import {
   create, createTransaction

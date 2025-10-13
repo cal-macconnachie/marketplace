@@ -437,27 +437,18 @@
       <SignIn :initial-mode="authMode" :is-modal="true" @auth-success="handleAuthSuccess" />
     </BaseModal>
 
-    <!-- Guest Checkout SetupIntent Verification Modal -->
-    <PaymentVerificationModal
-      v-if="showGuestVerificationModal && guestVerificationClientSecret && stripe"
-      :show="showGuestVerificationModal"
-      :client-secret="guestVerificationClientSecret"
-      @verification-success="handleGuestVerificationSuccess"
-      @verification-error="handleGuestVerificationError"
-      @close="handleGuestVerificationClose"
+    <!-- PaymentIntent Verification Modal (for both guest and authenticated users) -->
+    <StripeVerificationModal
+      v-if="showPaymentVerificationModal && paymentVerificationClientSecret && stripe"
+      :show="showPaymentVerificationModal"
+      :client-secret="paymentVerificationClientSecret"
       :stripe="stripe"
-    />
-
-    <!-- PaymentIntent Verification Modal (for charge 3DS) -->
-    <PaymentVerificationModal
-      v-if="showPaymentIntentVerificationModal && paymentIntentClientSecret && stripe"
-      :show="showPaymentIntentVerificationModal"
-      :client-secret="paymentIntentClientSecret"
-      @verification-success="handlePaymentIntentVerificationSuccess"
-      @verification-error="handlePaymentIntentVerificationError"
-      @close="handlePaymentIntentVerificationClose"
-      :stripe="stripe"
-      payment-intent-mode
+      mode="payment"
+      title="Verify Your Payment"
+      description="Additional verification is required to complete your purchase."
+      @verification-success="handlePaymentVerificationSuccess"
+      @verification-error="handlePaymentVerificationError"
+      @close="handlePaymentVerificationClose"
     />
   </div>
 </template>
@@ -481,12 +472,13 @@ import GuestCheckoutForm from './ui/GuestCheckoutForm.vue'
 import LoadingSpinner from './ui/LoadingSpinner.vue'
 import PaymentMethodForm from './ui/PaymentMethodForm.vue'
 import PaymentMethodList from './ui/PaymentMethodList.vue'
-import PaymentVerificationModal from './ui/PaymentVerificationModal.vue'
+import StripeVerificationModal from './ui/StripeVerificationModal.vue'
 import PriceDisplay from './ui/PriceDisplay.vue'
 import ProductCard from './ui/ProductCard.vue'
 import PurchaseCompleteScreen from './ui/PurchaseCompleteScreen.vue'
 import QuantitySeletor from './ui/QuantitySeletor.vue'
 import { loadStripe } from '@stripe/stripe-js'
+import { poll } from '@/utils/polling'
 
 const route = useRoute()
 const appStore = useAppStore()
@@ -537,23 +529,11 @@ const purchaseOrderSummary = ref<{
   hasSubscriptions: boolean
 } | undefined>(undefined)
 
-// Guest checkout verification state
-const showGuestVerificationModal = ref(false)
-const guestVerificationClientSecret = ref<string | null>(null)
-const guestCheckoutContext = ref<{
-  userId: string
-  paymentMethodId: string
-  productKeys: Array<{ id: string; group_id: string }>
-  shippingAddress?: {
-    full_name: string
-    address_line1: string
-    address_line2?: string
-    city: string
-    state: string
-    postal_code: string
-    country: string
-  }
-} | null>(null)
+// Payment verification state (used for both guest and authenticated checkouts)
+const showPaymentVerificationModal = ref(false)
+const paymentVerificationClientSecret = ref<string | null>(null)
+const paymentVerificationCartId = ref<string | null>(null)
+const paymentVerificationUserId = ref<string | null>(null)
 const stripe = ref<Stripe | null>(null)
 
 // Computed properties
@@ -977,6 +957,7 @@ const handleGuestFormUpdated = async (formData: {
   firstName: string
   lastName: string
   email: string
+  phoneNumber: string
   address: {
     line1: string
     line2: string
@@ -997,50 +978,7 @@ const handleGuestFormUpdated = async (formData: {
   // Clear checkout error when user makes changes to form
   checkoutError.value = null
 
-  // Update guest form data but keep existing payment method if it exists
-  if (guestFormData.value) {
-    guestFormData.value = {
-      ...guestFormData.value,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      email: formData.email,
-      address: {
-        line1: formData.address.line1,
-        line2: formData.address.line2,
-        city: formData.address.city,
-        state: formData.address.state,
-        postalCode: formData.address.postal_code,
-        country: formData.address.country,
-      },
-    }
-  }
-
-  // Recalculate taxes with updated user information (non-blocking)
-  calculateTaxes()
-}
-
-const handleGuestFormCompleted = async (formData: {
-  firstName: string
-  lastName: string
-  email: string
-  address: {
-    line1: string
-    line2: string
-    city: string
-    state: string
-    postal_code: string
-    country: string
-  }
-  shippingAddress?: {
-    line1: string
-    line2: string
-    city: string
-    state: string
-    postal_code: string
-    country: string
-  }
-  paymentMethod: StripePaymentMethod
-}) => {
+  // Store form data for later use during checkout
   guestFormData.value = {
     firstName: formData.firstName,
     lastName: formData.lastName,
@@ -1053,14 +991,7 @@ const handleGuestFormCompleted = async (formData: {
       postalCode: formData.address.postal_code,
       country: formData.address.country,
     },
-    paymentMethod: {
-      id: formData.paymentMethod.id,
-      brand: formData.paymentMethod.card?.brand || '',
-      last_four_digits: formData.paymentMethod.card?.last4 || '',
-      expiry_month: formData.paymentMethod.card?.exp_month || 0,
-      expiry_year: formData.paymentMethod.card?.exp_year || 0,
-      user_id: 'TODO',
-    },
+    paymentMethod: guestFormData.value?.paymentMethod || ({} as PaymentMethod),
   }
 
   // Store shipping address if provided
@@ -1073,20 +1004,33 @@ const handleGuestFormCompleted = async (formData: {
       postalCode: formData.shippingAddress.postal_code,
       country: formData.shippingAddress.country,
     }
-  } else {
-    // If no separate shipping address, use billing address
-    shippingAddress.value = {
-      line1: formData.address.line1,
-      line2: formData.address.line2,
-      city: formData.address.city,
-      state: formData.address.state,
-      postalCode: formData.address.postal_code,
-      country: formData.address.country,
-    }
   }
 
-  // Recalculate taxes with user information instead of just IP (non-blocking)
+  // Recalculate taxes with updated user information (non-blocking)
   calculateTaxes()
+}
+
+const handleGuestFormCompleted = async (data: {
+  userId: string
+  paymentMethodId: string
+}) => {
+  // Store the userId and paymentMethodId for checkout
+  if (!guestFormData.value) {
+    checkoutError.value = 'Form data is missing'
+    return
+  }
+
+  guestFormData.value.paymentMethod = {
+    id: data.paymentMethodId,
+    user_id: data.userId,
+    brand: '', // These will be fetched if needed
+    last_four_digits: '',
+    expiry_month: 0,
+    expiry_year: 0,
+  }
+
+  // Now we can proceed to checkout automatically
+  await handleCheckout()
 }
 
 const handleCheckout = async () => {
@@ -1144,40 +1088,32 @@ const handleCheckout = async () => {
         } : {})
       }
 
-      await authAPI.purchaseProducts(purchaseData)
+      const response = await authAPI.purchaseProducts(purchaseData)
+
+      // Poll cart status to check for PaymentIntent 3DS requirements
+      const purchaseResult = await pollUntilCartReady(
+        appStore.user.id,
+        response.cartId
+      )
+
+      if (!purchaseResult.success) {
+        throw new Error(purchaseResult.error || 'Purchase processing failed. Please try again.')
+      }
 
       // Success - show confirmation
       showSuccessMessage(
         'Order processed successfully! You will receive a confirmation email shortly.',
       )
     } else {
-      // Guest checkout
-      if (!guestFormData.value) {
+      // Guest checkout - payment method is already created and verified
+      if (!guestFormData.value || !guestFormData.value.paymentMethod?.id) {
         throw new Error('Please complete the payment form')
       }
 
-      const guestCheckoutData = {
-        user: {
-          given_name: guestFormData.value.firstName,
-          family_name: guestFormData.value.lastName,
-          email: guestFormData.value.email,
-          address: {
-            line_1: guestFormData.value.address.line1,
-            line_2: guestFormData.value.address.line2,
-            state: guestFormData.value.address.state,
-            city: guestFormData.value.address.city,
-            country: guestFormData.value.address.country,
-            postal_code: guestFormData.value.address.postalCode,
-          },
-          ip_address: userIpAddress.value || undefined,
-        },
-        paymentMethodCreateParams: {
-          id: guestFormData.value.paymentMethod.id,
-          last_four_digits: guestFormData.value.paymentMethod.last_four_digits,
-          brand: guestFormData.value.paymentMethod.brand,
-          expiry_month: guestFormData.value.paymentMethod.expiry_month.toString(),
-          expiry_year: guestFormData.value.paymentMethod.expiry_year.toString(),
-        },
+      // Step 4: Purchase products using the new API
+      const response = await publicApi.publicPurchaseProducts({
+        userId: guestFormData.value.paymentMethod.user_id,
+        paymentMethodId: guestFormData.value.paymentMethod.id,
         productKeys,
         // promoCode and couponId can be added later when promo functionality is implemented
         ...(requiresShipping.value && shippingAddress.value ? {
@@ -1191,39 +1127,16 @@ const handleCheckout = async () => {
             country: shippingAddress.value.country,
           }
         } : {})
-      }
+      })
 
-      const response = await publicApi.guestCheckout(guestCheckoutData)
+      // Step 4b: Poll cart status to check for PaymentIntent 3DS requirements
+      const purchaseResult = await pollUntilCartReady(
+        guestFormData.value.paymentMethod.user_id,
+        response.cartId
+      )
 
-      // Check if verification is required
-      if (response.requires_action && response.setup_intent_client_secret && response.user?.id && response.payment_method_id) {
-        // Ensure Stripe is loaded
-        if (!stripe.value) {
-          throw new Error('Payment system not initialized. Please refresh the page and try again.')
-        }
-
-        // Store context for after verification
-        guestCheckoutContext.value = {
-          userId: response.user.id,
-          paymentMethodId: response.payment_method_id,
-          productKeys,
-          ...(requiresShipping.value && shippingAddress.value ? {
-            shippingAddress: {
-              full_name: `${guestFormData.value.firstName} ${guestFormData.value.lastName}`,
-              address_line1: shippingAddress.value.line1,
-              address_line2: shippingAddress.value.line2,
-              city: shippingAddress.value.city,
-              state: shippingAddress.value.state,
-              postal_code: shippingAddress.value.postalCode,
-              country: shippingAddress.value.country,
-            }
-          } : {})
-        }
-
-        guestVerificationClientSecret.value = response.setup_intent_client_secret
-        showGuestVerificationModal.value = true
-        processingCheckout.value = false
-        return
+      if (!purchaseResult.success) {
+        throw new Error(purchaseResult.error || 'Purchase processing failed. Please try again.')
       }
 
       // Success - show confirmation
@@ -1262,236 +1175,117 @@ const handleCheckout = async () => {
   }
 }
 
-const handleGuestVerificationSuccess = async () => {
-  if (!guestCheckoutContext.value) {
-    checkoutError.value = 'Verification context lost. Please try again.'
-    showGuestVerificationModal.value = false
-    return
-  }
+const pollUntilCartReady = async (
+  userId: string,
+  cartId: string
+): Promise<{ success: boolean; error?: string }> => {
+  const result = await poll({
+    checkFn: async () => {
+      const status = await publicApi.publicGetCartStatus(cartId, userId)
 
-  processingCheckout.value = true
-  checkoutError.value = null
-  showGuestVerificationModal.value = false
+      // Check if PaymentIntent verification required
+      if (status.requiresAction && status.purchases) {
+        const purchaseRequiringAction = status.purchases.find((p) => p.requiresAction)
 
-  try {
-    const response = await publicApi.guestCheckoutComplete(guestCheckoutContext.value)
+        if (purchaseRequiringAction?.clientSecret) {
+          paymentVerificationClientSecret.value = purchaseRequiringAction.clientSecret
+          paymentVerificationUserId.value = userId
+          paymentVerificationCartId.value = cartId
+          showPaymentVerificationModal.value = true
 
-    // Check if we got a 202 processing response (SetupIntent still verifying)
-    if ('status' in response && response.status === 'processing') {
-      // Payment verification is still being processed - poll for status
-      const pollResult = await pollCheckoutStatus()
-
-      if (!pollResult.success) {
-        checkoutError.value = pollResult.error || 'Checkout is taking longer than expected. Please check your email for confirmation.'
-        processingCheckout.value = false
-        return
-      }
-    }
-
-    // Response includes userId and cartId for polling purchase status
-    if ('success' in response && response.success && response.userId && response.cartId) {
-      // Poll for purchase completion and PaymentIntent 3DS requirements
-      const purchaseResult = await pollPurchaseStatus(response.userId, response.cartId)
-
-      if (!purchaseResult.success) {
-        checkoutError.value = purchaseResult.error || 'Purchase processing failed. Please check your email or contact support.'
-        processingCheckout.value = false
-        return
-      }
-    }
-
-    // Success - show confirmation
-    showSuccessMessage(
-      `Order processed successfully! A confirmation has been sent to ${guestFormData.value?.email}.`,
-    )
-
-    // Clear cart after successful checkout
-    cartItems.value = []
-    selectedPaymentMethod.value = null
-    guestFormData.value = null
-    guestCheckoutContext.value = null
-
-    // Clear cart from localStorage
-    clearCartFromLocalStorage()
-  } catch (err) {
-    console.error('Guest checkout completion failed:', err)
-
-    // Handle API error responses with structured error messages
-    if (err && typeof err === 'object' && 'response' in err && err.response) {
-      const response = err.response as { data?: { error?: string }; statusText?: string }
-      if (response.data && response.data.error) {
-        checkoutError.value = response.data.error
-      } else if (response.statusText) {
-        checkoutError.value = `Checkout failed: ${response.statusText}`
-      } else {
-        checkoutError.value = 'Checkout failed. Please try again.'
-      }
-    } else if (err instanceof Error) {
-      checkoutError.value = err.message
-    } else {
-      checkoutError.value = 'Checkout failed. Please try again.'
-    }
-  } finally {
-    processingCheckout.value = false
-  }
-}
-
-const pollCheckoutStatus = async (maxAttempts = 10): Promise<{ success: boolean; error?: string }> => {
-  // Poll by retrying the guestCheckoutComplete call
-  // The backend will keep checking if the payment method verification is complete
-
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise(resolve => setTimeout(resolve, 3000)) // Wait 3 seconds between polls
-
-    try {
-      if (!guestCheckoutContext.value) {
-        return { success: false, error: 'Checkout context lost' }
-      }
-
-      const retryResponse = await publicApi.guestCheckoutComplete(guestCheckoutContext.value)
-
-      // If we got a success response (not processing), we're done
-      if ('success' in retryResponse && retryResponse.success) {
-        return { success: true }
-      }
-
-      // Still processing, continue polling
-      if ('status' in retryResponse && retryResponse.status === 'processing') {
-        continue
-      }
-    } catch (error) {
-      console.error(`Poll attempt ${i + 1} failed:`, error)
-      // Continue polling even on error
-    }
-  }
-
-  return {
-    success: false,
-    error: 'Checkout is taking longer than expected. Please check your email for confirmation or contact support if you were charged.'
-  }
-}
-
-// State for PaymentIntent verification
-const showPaymentIntentVerificationModal = ref(false)
-const paymentIntentClientSecret = ref<string | null>(null)
-const paymentIntentPollContext = ref<{ userId: string; cartId: string } | null>(null)
-
-const pollPurchaseStatus = async (userId: string, cartId: string, maxAttempts = 20): Promise<{ success: boolean; error?: string }> => {
-  // Poll the guest-checkout-status endpoint to check purchase status
-  // This handles both purchase completion and PaymentIntent 3DS requirements
-
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds between polls
-
-    try {
-      const statusResponse = await publicApi.getGuestCheckoutStatus(userId, cartId)
-
-      // Check if any purchases require action (PaymentIntent 3DS)
-      if (statusResponse.requiresAction && statusResponse.purchases) {
-        const purchaseRequiringAction = statusResponse.purchases.find(p => p.requiresAction)
-
-        if (purchaseRequiringAction && purchaseRequiringAction.clientSecret) {
-          console.log('PaymentIntent requires 3DS verification')
-          paymentIntentClientSecret.value = purchaseRequiringAction.clientSecret
-          paymentIntentPollContext.value = { userId, cartId }
-          showPaymentIntentVerificationModal.value = true
-
-          // Wait for user to complete verification
-          // The modal will call handlePaymentIntentVerificationSuccess which will continue polling
-          // Returning false here will exit this poll loop, but verification success will start a new one
-          return { success: true } // Don't treat this as an error, verification modal will handle it
+          // Return special status to pause polling
+          return { ready: false, waitingForVerification: true }
         }
       }
 
-      // Check if all purchases are complete
-      if (statusResponse.ready) {
-        console.log('All purchases completed successfully')
-        return { success: true }
-      }
+      return status
+    },
+    conditionFn: (status) => {
+      // Continue polling if not ready and not waiting for verification
+      return !status.ready && !status.waitingForVerification
+    },
+    maxAttempts: 20,
+    initialDelay: 2000,
+    onAttempt: (attempt, data) => {
+      console.log(`Cart status poll attempt ${attempt}:`, data)
+    },
+  })
 
-      // Check for any failed purchases
-      const failedPurchases = statusResponse.purchases?.filter(p => p.status === 'failed')
-      if (failedPurchases && failedPurchases.length > 0) {
-        return {
-          success: false,
-          error: `${failedPurchases.length} purchase(s) failed. Please contact support.`
-        }
-      }
-
-      // Still processing, continue polling
-      console.log(`Purchase status poll attempt ${i + 1}: not ready yet`)
-    } catch (error) {
-      console.error(`Purchase status poll attempt ${i + 1} failed:`, error)
-      // Continue polling even on error
+  if (!result.success) {
+    return {
+      success: false,
+      error:
+        'Purchase processing timed out. Please check your email for confirmation or contact support.',
     }
   }
 
-  return {
-    success: false,
-    error: 'Purchase processing is taking longer than expected. Please check your email for confirmation or contact support.'
-  }
+  return { success: true }
 }
 
-const handlePaymentIntentVerificationSuccess = async () => {
-  showPaymentIntentVerificationModal.value = false
-  paymentIntentClientSecret.value = null
+const handlePaymentVerificationSuccess = async () => {
+  showPaymentVerificationModal.value = false
 
-  // Continue polling after successful PaymentIntent verification
-  if (paymentIntentPollContext.value) {
-    const { userId, cartId } = paymentIntentPollContext.value
+  // Resume polling after successful PaymentIntent verification
+  if (paymentVerificationUserId.value && paymentVerificationCartId.value) {
+    const { userId, cartId } = {
+      userId: paymentVerificationUserId.value,
+      cartId: paymentVerificationCartId.value,
+    }
     console.log('PaymentIntent verification successful, continuing to poll for completion')
 
+    // Clear verification state
+    paymentVerificationClientSecret.value = null
+    paymentVerificationUserId.value = null
+    paymentVerificationCartId.value = null
+
     // Continue polling for final purchase completion
-    const pollResult = await pollPurchaseStatus(userId, cartId)
+    const pollResult = await pollUntilCartReady(userId, cartId)
 
     if (pollResult.success) {
-      showSuccessMessage(
-        `Order processed successfully! A confirmation has been sent to ${guestFormData.value?.email}.`,
-      )
+      // Determine success message based on user type
+      const successMessage = appStore.isAuthenticated
+        ? 'Order processed successfully! You will receive a confirmation email shortly.'
+        : `Order processed successfully! A confirmation has been sent to ${guestFormData.value?.email}.`
+
+      showSuccessMessage(successMessage)
 
       // Clear cart after successful checkout
       cartItems.value = []
       selectedPaymentMethod.value = null
       guestFormData.value = null
-      guestCheckoutContext.value = null
-      paymentIntentPollContext.value = null
 
       // Clear cart from localStorage
       clearCartFromLocalStorage()
     } else {
       // Payment failed after verification - show error and keep cart
-      checkoutError.value = pollResult.error || 'Purchase processing failed after verification. Please contact support.'
+      checkoutError.value =
+        pollResult.error ||
+        'Purchase processing failed after verification. Please contact support.'
       processingCheckout.value = false
-      return // Exit early, don't reset processing state or clear context
+      return // Exit early, don't reset processing state
     }
   }
 
   processingCheckout.value = false
 }
 
-const handlePaymentIntentVerificationError = (error: string) => {
-  showPaymentIntentVerificationModal.value = false
-  paymentIntentClientSecret.value = null
+const handlePaymentVerificationError = (error: string) => {
+  showPaymentVerificationModal.value = false
+  paymentVerificationClientSecret.value = null
+  paymentVerificationUserId.value = null
+  paymentVerificationCartId.value = null
   checkoutError.value = `Payment verification failed: ${error}`
   processingCheckout.value = false
 }
 
-const handlePaymentIntentVerificationClose = () => {
-  showPaymentIntentVerificationModal.value = false
-  paymentIntentClientSecret.value = null
+const handlePaymentVerificationClose = () => {
+  showPaymentVerificationModal.value = false
+  paymentVerificationClientSecret.value = null
+  paymentVerificationUserId.value = null
+  paymentVerificationCartId.value = null
   processingCheckout.value = false
 }
 
-const handleGuestVerificationError = (error: string) => {
-  showGuestVerificationModal.value = false
-  checkoutError.value = `Payment verification failed: ${error}`
-  processingCheckout.value = false
-}
-
-const handleGuestVerificationClose = () => {
-  showGuestVerificationModal.value = false
-  processingCheckout.value = false
-}
 
 const showSuccessMessage = (message: string) => {
   // Show purchase complete screen instead of redirecting
