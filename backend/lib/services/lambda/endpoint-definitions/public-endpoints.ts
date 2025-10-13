@@ -211,7 +211,7 @@ export const publicEndpoints: LambdaEndpointDefinition[] = [
   },
   {
     name: 'publicCheckPaymentMethod',
-    handler: 'payments/check-payment-method.publicCheckPaymentMethod',
+    handler: 'payments/check-payment-method.checkPaymentMethod',
     description: 'Check Payment Method (for guest users)',
     apiGw: {
       path: 'public/check-payment-method/{user_id}/{id}',
