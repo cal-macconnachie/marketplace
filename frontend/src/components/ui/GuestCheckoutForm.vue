@@ -1,5 +1,8 @@
 <template>
   <div class="guest-checkout-form">
+    <!-- Progress Indicator -->
+    <CheckoutProgress :steps="progressSteps" :current-step="currentProgressStep" />
+
     <form @submit.prevent="handleSubmit" class="checkout-form">
       <!-- Personal Information -->
       <div class="form-section">
@@ -89,28 +92,8 @@
         />
       </div>
 
-      <!-- Registration Step -->
-      <div v-if="!isRegistered && !waitingForStripeCustomer" class="registration-step">
-        <BaseButton
-          @click="handleRegistration"
-          :loading="registeringUser"
-          :disabled="!canRegister || registeringUser"
-          variant="primary"
-          full-width
-          size="md"
-        >
-          {{ registeringUser ? 'Creating Account...' : 'Continue to Payment' }}
-        </BaseButton>
-      </div>
-
-      <!-- Waiting for Stripe Customer -->
-      <div v-if="waitingForStripeCustomer" class="waiting-state">
-        <LoadingSpinner size="32" />
-        <p class="waiting-text">Setting up your payment account...</p>
-      </div>
-
-      <!-- Payment Method Section (only show after registration) -->
-      <div v-if="isRegistered && hasStripeCustomer" class="form-section">
+      <!-- Payment Method Section (show after form is valid and Stripe customer exists) -->
+      <div v-if="hasStripeCustomer && !isPaymentMethodReady" class="form-section">
         <div v-if="!stripeLoaded" class="loading-overlay">
           <LoadingSpinner />
         </div>
@@ -131,17 +114,18 @@
           </div>
         </div>
 
-        <!-- Payment Method Creation Button -->
-        <BaseButton
-          @click="handleSubmit"
-          :loading="processing"
-          :disabled="!stripeLoaded || processing || !!error"
-          variant="primary"
-          full-width
-          size="md"
-        >
-          {{ processing ? 'Adding Payment Method...' : 'Add Payment Method' }}
-        </BaseButton>
+        <!-- Auto-submit when card is complete -->
+      </div>
+
+      <!-- Ready state message (shown when payment method is ready) -->
+      <div v-if="isPaymentMethodReady" class="ready-state">
+        <div class="ready-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="8 12 11 15 16 10"></polyline>
+          </svg>
+        </div>
+        <p class="ready-text">Payment method verified! You can now complete your purchase.</p>
       </div>
     </form>
 
@@ -171,7 +155,7 @@ import {
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import AddressSearch from './AddressSearch.vue'
 import BaseAlert from './BaseAlert.vue'
-import BaseButton from './BaseButton.vue'
+import CheckoutProgress from './CheckoutProgress.vue'
 import EditableField from './EditableField.vue'
 import EditableToggle from './EditableToggle.vue'
 import LoadingSpinner from './LoadingSpinner.vue'
@@ -205,6 +189,7 @@ interface Emits {
   (e: 'form-completed', data: { userId: string; paymentMethodId: string }): void
   (e: 'form-updated', data: GuestFormData): void
   (e: 'payment-method-added', data: { userId: string; paymentMethodId: string }): void
+  (e: 'ready-state-changed', isReady: boolean): void
 }
 
 const emit = defineEmits<Emits>()
@@ -250,6 +235,10 @@ const verificationClientSecret = ref<string | null>(null)
 const verificationType = ref<'setup' | 'payment'>('setup')
 const pendingPaymentMethodId = ref<string | null>(null)
 
+// Payment method ready state
+const isPaymentMethodReady = ref(false)
+const cardElementComplete = ref(false)
+
 let stripe: Stripe | null = null
 let elements: StripeElements | null = null
 let cardElement: StripeCardElement | null = null
@@ -273,10 +262,77 @@ const canRegister = computed(() => {
   )
 })
 
+// Progress steps for visual indicator
+const progressSteps = computed(() => {
+  const steps = [
+    {
+      id: 'info',
+      label: 'Your Information',
+      description: canRegister.value ? 'Information complete' : 'Fill out your details',
+      loading: false,
+    },
+    {
+      id: 'registration',
+      label: 'Account Setup',
+      description: registeringUser.value || waitingForStripeCustomer.value
+        ? 'Creating your account...'
+        : hasStripeCustomer.value
+          ? 'Account ready'
+          : 'Preparing account',
+      loading: registeringUser.value || waitingForStripeCustomer.value,
+    },
+    {
+      id: 'payment',
+      label: 'Payment Method',
+      description: processing.value
+        ? 'Verifying payment...'
+        : isPaymentMethodReady.value
+          ? 'Payment method verified'
+          : 'Add your payment details',
+      loading: processing.value,
+    },
+  ]
+  return steps
+})
+
+// Current progress step
+const currentProgressStep = computed(() => {
+  if (isPaymentMethodReady.value) {
+    return 'payment' // On payment step but completed
+  }
+  if (hasStripeCustomer.value) {
+    return 'payment'
+  }
+  if (canRegister.value) {
+    return 'registration'
+  }
+  return 'info'
+})
+
+// Auto-register when form becomes valid
+watch(canRegister, async (canNowRegister) => {
+  if (canNowRegister && !isRegistered.value && !registeringUser.value) {
+    await handleRegistration()
+  }
+})
+
+// Initialize Stripe when customer is ready
 watch(hasStripeCustomer, (newValue) => {
   if (newValue) {
     initializeStripe()
   }
+})
+
+// Auto-submit payment when card is complete
+watch([stripeLoaded, cardElementComplete], ([loaded, complete]) => {
+  if (loaded && complete && !processing.value && !isPaymentMethodReady.value) {
+    handleSubmit()
+  }
+})
+
+// Emit ready state changes to parent
+watch(isPaymentMethodReady, (ready) => {
+  emit('ready-state-changed', ready)
 })
 
 const formatAddress = (address?: {
@@ -564,8 +620,10 @@ const initializeStripe = async () => {
     cardElement.on('change', (event) => {
       if (event.error) {
         error.value = event.error.message
+        cardElementComplete.value = false
       } else {
         error.value = null
+        cardElementComplete.value = event.complete
       }
     })
 
@@ -644,8 +702,9 @@ const handleSubmit = async () => {
       return
     }
 
-    // No verification needed - payment method is active
+    // No verification needed - payment method is active and ready
     pendingPaymentMethodId.value = paymentMethod.id
+    isPaymentMethodReady.value = true
 
     // Emit payment method added event
     emit('payment-method-added', {
@@ -696,8 +755,8 @@ const handleVerificationSuccess = async () => {
       throw new Error('Payment method verification timed out. Please try again.')
     }
 
-    // Payment method is now active - store for later use
-    // Don't clear pendingPaymentMethodId as it will be used for checkout
+    // Payment method is now active and ready
+    isPaymentMethodReady.value = true
 
     // Emit payment method added event
     emit('payment-method-added', {
@@ -825,6 +884,45 @@ onUnmounted(() => {
 .stripe-card-element:focus-within {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px var(--color-primary-alpha);
+}
+
+/* Ready state */
+.ready-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8);
+  background: var(--color-success-bg, rgba(34, 197, 94, 0.1));
+  border: 1px solid var(--color-success-alpha, rgba(34, 197, 94, 0.2));
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.ready-icon {
+  color: var(--color-success, #22c55e);
+  animation: checkmark-pop 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes checkmark-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.ready-text {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  margin: 0;
+  font-weight: var(--font-weight-medium);
 }
 
 /* Responsive design */

@@ -239,6 +239,7 @@
                       :requires-shipping="requiresShipping"
                       @form-updated="handleGuestFormUpdated"
                       @payment-method-added="handleGuestPaymentMethodAdded"
+                      @ready-state-changed="handleGuestReadyStateChanged"
                     />
                   </div>
                 </div>
@@ -511,6 +512,7 @@ const guestFormData = ref<{
   }
   paymentMethod: PaymentMethod
 } | null>(null)
+const guestFormReady = ref(false)
 const shippingAddress = ref<{
   line1: string
   line2: string
@@ -568,7 +570,8 @@ const canProceedToCheckout = computed(() => {
     if (hasSubscriptionItems.value) {
       return false
     }
-    return guestFormData.value
+    // Guest must have completed form and payment method is ready
+    return guestFormData.value && guestFormReady.value
   }
 })
 
@@ -1027,8 +1030,10 @@ const handleGuestPaymentMethodAdded = (data: {
     expiry_month: 0,
     expiry_year: 0,
   }
+}
 
-  // Payment method is added, user can now click "Complete Purchase"
+const handleGuestReadyStateChanged = (isReady: boolean) => {
+  guestFormReady.value = isReady
 }
 
 const handleCheckout = async () => {
