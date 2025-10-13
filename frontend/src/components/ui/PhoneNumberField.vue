@@ -103,8 +103,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, computed, watch } from 'vue'
-import { parsePhoneNumber, getRegionCodeForCountryCode } from 'awesome-phonenumber'
+import { parsePhoneNumber } from 'awesome-phonenumber'
+import { computed, nextTick, ref, watch } from 'vue'
 
 interface Props {
   value: string
@@ -254,13 +254,16 @@ function handleBlur(event?: FocusEvent) {
   if (props.loading) return
 
   // If we're blurring to focus on the country select, don't handle the blur
-  if (event?.relatedTarget && event.relatedTarget === event.currentTarget?.parentElement?.querySelector('.country-select')) {
-    return
+  if (event?.relatedTarget && event.currentTarget instanceof HTMLElement) {
+    const countrySelect = event.currentTarget.parentElement?.querySelector('.country-select')
+    if (event.relatedTarget === countrySelect) {
+      return
+    }
   }
 
   // Also check if the related target is within our phone input wrapper
-  if (event?.relatedTarget instanceof HTMLElement) {
-    const phoneInputWrapper = (event.currentTarget as HTMLElement)?.closest('.phone-input-wrapper')
+  if (event?.relatedTarget instanceof HTMLElement && event.currentTarget instanceof HTMLElement) {
+    const phoneInputWrapper = event.currentTarget.closest('.phone-input-wrapper')
     if (phoneInputWrapper?.contains(event.relatedTarget)) {
       return
     }
