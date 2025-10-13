@@ -298,12 +298,12 @@ const progressSteps = computed(() => {
 // Current progress step
 const currentProgressStep = computed(() => {
   if (isPaymentMethodReady.value) {
-    return 'payment' // On payment step but completed
+    return 'complete' // All steps completed
   }
   if (hasStripeCustomer.value) {
     return 'payment'
   }
-  if (canRegister.value) {
+  if (isRegistered.value || registeringUser.value || waitingForStripeCustomer.value) {
     return 'registration'
   }
   return 'info'

@@ -1,41 +1,42 @@
 <template>
   <div class="checkout-progress">
     <div class="progress-steps">
-      <div
-        v-for="(step, index) in steps"
-        :key="step.id"
-        class="progress-step"
-        :class="{
-          'is-completed': index < currentStepIndex,
-          'is-current': index === currentStepIndex,
-          'is-pending': index > currentStepIndex,
-        }"
-      >
-        <div class="step-indicator">
-          <div class="step-circle">
-            <svg
-              v-if="index < currentStepIndex"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="3"
-            >
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            <LoadingSpinner v-else-if="index === currentStepIndex && step.loading" size="16" />
-            <span v-else class="step-number">{{ index + 1 }}</span>
+      <template v-for="(step, index) in steps" :key="step.id">
+        <div
+          class="progress-step"
+          :class="{
+            'is-completed': index < currentStepIndex || currentStep === 'complete',
+            'is-current': index === currentStepIndex && currentStep !== 'complete',
+            'is-pending': index > currentStepIndex,
+          }"
+        >
+          <div class="step-indicator">
+            <div class="step-circle">
+              <svg
+                v-if="index < currentStepIndex || currentStep === 'complete'"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <LoadingSpinner v-else-if="index === currentStepIndex && step.loading" size="16" />
+              <span v-else class="step-number">{{ index + 1 }}</span>
+            </div>
           </div>
-          <div v-if="index < steps.length - 1" class="step-line"></div>
-        </div>
-        <div class="step-content">
-          <div class="step-label">{{ step.label }}</div>
-          <div v-if="step.description && index === currentStepIndex" class="step-description">
-            {{ step.description }}
+          <div class="step-content">
+            <div class="step-label">{{ step.label }}</div>
+            <div v-if="step.description && index === currentStepIndex" class="step-description">
+              {{ step.description }}
+            </div>
           </div>
         </div>
-      </div>
+        <!-- Connector line between steps -->
+        <div v-if="index < steps.length - 1" class="step-connector" :class="{ 'is-completed': index < currentStepIndex || currentStep === 'complete' }"></div>
+      </template>
     </div>
   </div>
 </template>
@@ -71,14 +72,19 @@ const currentStepIndex = computed(() => {
 
 .progress-steps {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0;
 }
 
 .progress-step {
   display: flex;
-  gap: var(--space-3);
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
   position: relative;
+  flex: 0 0 auto;
 }
 
 .step-indicator {
@@ -89,8 +95,8 @@ const currentStepIndex = computed(() => {
 }
 
 .step-circle {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius-full);
   display: flex;
   align-items: center;
@@ -104,8 +110,8 @@ const currentStepIndex = computed(() => {
 }
 
 .progress-step.is-completed .step-circle {
-  background: var(--color-success);
-  border-color: var(--color-success);
+  background: var(--color-success, #22c55e);
+  border-color: var(--color-success, #22c55e);
   color: white;
 }
 
@@ -115,28 +121,30 @@ const currentStepIndex = computed(() => {
   color: white;
 }
 
-.step-line {
-  width: 2px;
+.step-connector {
   flex: 1;
+  height: 2px;
   background: var(--color-border);
-  margin: var(--space-1) 0;
+  align-self: center;
+  margin-top: -20px;
   transition: background-color 0.3s ease;
 }
 
-.progress-step.is-completed .step-line {
-  background: var(--color-success);
+.step-connector.is-completed {
+  background: var(--color-success, #22c55e);
 }
 
 .step-content {
-  flex: 1;
-  padding-top: var(--space-1);
+  text-align: center;
+  max-width: 120px;
 }
 
 .step-label {
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   transition: color 0.3s ease;
+  line-height: 1.3;
 }
 
 .progress-step.is-current .step-label {
@@ -144,7 +152,7 @@ const currentStepIndex = computed(() => {
 }
 
 .progress-step.is-completed .step-label {
-  color: var(--color-success);
+  color: var(--color-success, #22c55e);
 }
 
 .step-description {
@@ -160,13 +168,21 @@ const currentStepIndex = computed(() => {
 
 /* Responsive adjustments */
 @media (max-width: 640px) {
-  .progress-steps {
-    gap: var(--space-3);
+  .step-circle {
+    width: 32px;
+    height: 32px;
   }
 
-  .step-circle {
-    width: 28px;
-    height: 28px;
+  .step-content {
+    max-width: 80px;
+  }
+
+  .step-label {
+    font-size: 10px;
+  }
+
+  .step-connector {
+    margin-top: -16px;
   }
 }
 </style>
