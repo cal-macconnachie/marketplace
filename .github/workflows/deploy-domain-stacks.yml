@@ -110,6 +110,12 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Enable Yarn
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
       - name: Check which stacks changed
         id: check
         run: |

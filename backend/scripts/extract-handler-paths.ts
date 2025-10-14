@@ -122,7 +122,7 @@ function main() {
     ]
 
     // Add the endpoint definition file itself and helpers
-    const pattern = `^backend/lib/(marketplace-${stackName}-stack|services/lambda/(endpoint-definitions/${stackName}-endpoints|${generateRegexPattern(allPaths)}|helpers))`
+    const pattern = `^backend/lib/(marketplace-${stackName}-stack|services/lambda/(endpoint-definitions/${stackName}-endpoints\\.ts|${generateRegexPattern(allPaths)}|helpers))`
 
     console.log(pattern)
   } else if (arg === '--bash-vars') {
@@ -137,7 +137,7 @@ function main() {
       ]
 
       const stackKey = stackName.toUpperCase().replace(/-/g, '_')
-      const pattern = `^backend/lib/(marketplace-${stackName}-stack|services/lambda/(endpoint-definitions/${stackName}-endpoints|${generateRegexPattern(allPaths)}|helpers))`
+      const pattern = `^backend/lib/(marketplace-${stackName}-stack|services/lambda/(endpoint-definitions/${stackName}-endpoints\\.ts|${generateRegexPattern(allPaths)}|helpers))`
 
       console.log(`${stackKey}_PATTERN="${pattern}"`)
     }
