@@ -97,14 +97,8 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
           cartId: group[0].cart_id,
           purchaseIds: group.map(p => p.id)
         })
-        // if paymentIntent requires next step add next step to purchase cart
         if (paymentIntent && paymentIntent.status === 'requires_action') {
-          console.log(`Payment intent ${paymentIntent.id} requires action, updating cart ${group[0].cart_id} with next step`)
-          // add next step to cart
-          // we only need to do this once per cart, so only do it for the first purchase in the group
           if (group[0].cart_id) {
-            // update cart with next step
-            // we can assume all purchases in the group have the same cart_id
             const nextStepItem = {
               type: 'payment_action_required',
               payment_intent_client_secret: paymentIntent.client_secret!,

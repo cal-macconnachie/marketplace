@@ -76,11 +76,12 @@ function extractHandlerPaths(endpointFilePath: string): {
 }
 
 function generateRegexPattern(paths: string[]): string {
-  // Convert paths to regex pattern parts
-  // 'handlers/auth/login' -> 'handlers/auth/login'
+  // Convert paths to regex pattern parts, matching any file with this prefix
+  // 'handlers/auth/login' -> 'handlers/auth/login' (will match .ts, .js, etc.)
   // Escape special regex characters and group
   const escapedPaths = paths.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-  return `(${escapedPaths.join('|')})`
+  // Add optional file extension and any subdirectories
+  return `(${escapedPaths.map(p => `${p}(\\.[^/]+)?`).join('|')})`
 }
 
 function main() {
@@ -121,8 +122,9 @@ function main() {
       ...stack.templates,
     ]
 
-    // Add the endpoint definition file itself and helpers
-    const pattern = `^backend/lib/(marketplace-${stackName}-stack|services/lambda/(endpoint-definitions/${stackName}-endpoints\\.ts|${generateRegexPattern(allPaths)}|helpers))`
+    // Add the endpoint definition file itself, the stack file, and helpers
+    // Make pattern more inclusive - match any file in handler/template paths
+    const pattern = `^backend/lib/(marketplace-${stackName}-stack|services/lambda/(endpoint-definitions/${stackName}-endpoints|${generateRegexPattern(allPaths)}|helpers))`
 
     console.log(pattern)
   } else if (arg === '--bash-vars') {
@@ -137,7 +139,7 @@ function main() {
       ]
 
       const stackKey = stackName.toUpperCase().replace(/-/g, '_')
-      const pattern = `^backend/lib/(marketplace-${stackName}-stack|services/lambda/(endpoint-definitions/${stackName}-endpoints\\.ts|${generateRegexPattern(allPaths)}|helpers))`
+      const pattern = `^backend/lib/(marketplace-${stackName}-stack|services/lambda/(endpoint-definitions/${stackName}-endpoints|${generateRegexPattern(allPaths)}|helpers))`
 
       console.log(`${stackKey}_PATTERN="${pattern}"`)
     }
