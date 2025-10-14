@@ -124,7 +124,6 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
 
         let shouldMarkAsFailed = true
 
-        // 1. A genuine error that couldn't be handled
         // 2. An error we need to inspect for recoverability
 
         // For any error, purchases should remain 'pending' unless it's clearly a permanent failure
