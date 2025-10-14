@@ -124,7 +124,6 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
 
         let shouldMarkAsFailed = true
 
-        // it would have returned normally (not thrown). So if we're here, it's either:
         // 1. A genuine error that couldn't be handled
         // 2. An error we need to inspect for recoverability
 

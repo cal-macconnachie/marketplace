@@ -93,13 +93,18 @@ function main() {
     stackName,
     endpointFile
   ] of Object.entries(endpointFiles)) {
-    const {
-      handlers, templates 
-    } = extractHandlerPaths(endpointFile)
-    stackHandlers[stackName] = {
-      endpointFile: endpointFile.replace('../', ''),
-      handlers,
-      templates,
+    try {
+      const {
+        handlers, templates
+      } = extractHandlerPaths(endpointFile)
+      stackHandlers[stackName] = {
+        endpointFile: endpointFile.replace('../', ''),
+        handlers,
+        templates,
+      }
+    } catch (error) {
+      console.error(`Error processing ${stackName}:`, error)
+      throw error
     }
   }
 
@@ -114,6 +119,7 @@ function main() {
 
     if (!stack) {
       console.error(`Unknown stack: ${stackName}`)
+      console.error(`Available stacks: ${Object.keys(stackHandlers).join(', ')}`)
       process.exit(1)
     }
 
