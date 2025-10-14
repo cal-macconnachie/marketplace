@@ -156,8 +156,12 @@ jobs:
             SHARED_LAMBDA_CHANGED=true
           fi
 
-          # Build the TS extractor and generate patterns (pure TS, compiled by tsc)
-          yarn tsc -p backend/scripts/tsconfig.json
+          # Build the TS extractor and generate patterns (pure TS). Avoid relying on yarn scripts.
+          if [ -f backend/node_modules/typescript/bin/tsc ]; then
+            node backend/node_modules/typescript/bin/tsc -p backend/scripts/tsconfig.json
+          else
+            (cd backend && yarn node ./node_modules/typescript/bin/tsc -p scripts/tsconfig.json)
+          fi
           STACK_VARS=$(node backend/scripts/dist/extract-handler-paths.js --bash-vars 2>/dev/null || true)
 
           # Eval the generated variables into this shell

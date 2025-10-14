@@ -121,9 +121,7 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
         }
       } catch (e){
         console.error('Error creating destination charge:', e)
-
         let shouldMarkAsFailed = true
-
         if (e && typeof e === 'object' && 'message' in e) {
           const errorMessage = (e as Error).message
           console.log(`Error message: ${errorMessage}`)
