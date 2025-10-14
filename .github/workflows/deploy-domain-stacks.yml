@@ -67,6 +67,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Log API stage trigger
+        run: echo "API stage triggered due to: public=${{ needs.detect-stack-changes.outputs.public-changed }}, payments=${{ needs.detect-stack-changes.outputs.payments-changed }}, products=${{ needs.detect-stack-changes.outputs.products-changed }}, internal-api=${{ needs.detect-stack-changes.outputs.internal-api-changed }}"
         with:
           fetch-depth: 0
 
@@ -364,11 +367,17 @@ jobs:
   # API Gateway Resources stack (must run after Networking to create all API resources)
   deploy-api-resources:
     runs-on: ubuntu-latest
-    needs: [detect-changes, deploy-networking]
+    needs: [detect-changes, detect-stack-changes, deploy-networking]
     if: |
       always() &&
       needs.detect-changes.outputs.backend == 'true' &&
-      (needs.deploy-networking.result == 'success' || needs.deploy-networking.result == 'skipped')
+      (needs.deploy-networking.result == 'success' || needs.deploy-networking.result == 'skipped') &&
+      (
+        needs.detect-stack-changes.outputs.public-changed == 'true' ||
+        needs.detect-stack-changes.outputs.payments-changed == 'true' ||
+        needs.detect-stack-changes.outputs.products-changed == 'true' ||
+        needs.detect-stack-changes.outputs.internal-api-changed == 'true'
+      )
     env:
       ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
     steps:
@@ -643,13 +652,22 @@ jobs:
     needs:
       [
         detect-changes,
+        detect-stack-changes,
         deploy-api-resources,
         deploy-internal-api,
         deploy-public,
         deploy-payments,
         deploy-products
       ]
-    if: ${{ needs.detect-changes.outputs.backend == 'true' && always() }}
+    if: |
+      always() &&
+      needs.detect-changes.outputs.backend == 'true' &&
+      (
+        needs.detect-stack-changes.outputs.public-changed == 'true' ||
+        needs.detect-stack-changes.outputs.payments-changed == 'true' ||
+        needs.detect-stack-changes.outputs.products-changed == 'true' ||
+        needs.detect-stack-changes.outputs.internal-api-changed == 'true'
+      )
     steps:
       - name: Checkout
         uses: actions/checkout@v4
