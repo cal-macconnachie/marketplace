@@ -56,6 +56,7 @@ export const createDestinationCharge = async ({
 
   try {
     // Create and confirm payment intent in one call
+    // Treat all charges as on-session to allow 3DS authentication
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency,
@@ -74,7 +75,7 @@ export const createDestinationCharge = async ({
         allow_redirects: 'never' as const
       },
       confirm: true, // Auto-confirm
-      off_session: paymentMethod.verified_on_session ?? false, // Use off_session if verified
+      // Omit off_session to treat as on-session (customer present) - allows 3DS
       ...(Object.keys(metadata).length > 0 ? { metadata } : {})
     })
 
