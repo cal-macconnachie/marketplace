@@ -15,7 +15,8 @@ export type TableName =
   'one-time-codes' |
   'purchase-carts' |
   'purchased-products' |
-  'notifications'
+  'notifications' |
+  'disputes'
 
 export interface DdbTableDefinition {
   tableName: TableName

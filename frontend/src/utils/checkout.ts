@@ -10,7 +10,11 @@ export class CheckoutService {
     const encodedCart = urlParams.get('cart')
     if (encodedCart) {
       try {
-        const cartItems = cartService.deserializeCart(encodedCart)
+        const cartData = cartService.deserializeCart(encodedCart)
+
+        if (!cartData || !Array.isArray(cartData.items)) {
+          return []
+        }
 
         // Import the cart data into local storage
         cartService.importCartFromSerialized(encodedCart)
@@ -18,7 +22,7 @@ export class CheckoutService {
         // Clean up URL to remove cart data
         this.cleanUpUrl()
 
-        return cartItems
+        return cartData.items
       } catch (error) {
         console.error('Failed to import cart from URL:', error)
         return []
