@@ -148,7 +148,7 @@ jobs:
 
           # Check for shared Lambda infrastructure changes that affect ALL domain stacks
           SHARED_LAMBDA_CHANGED=false
-          if echo "$FILES" | grep -qE "^backend/lib/services/lambda/(domain-lambda-construct|bundling-configs|lambda-defaults)"; then
+          if echo "$FILES" | grep -qE "^backend/lib/services/lambda/(domain-lambda-construct|bundling-configs|lambda-defaults|helpers)"; then
             SHARED_LAMBDA_CHANGED=true
           fi
 
