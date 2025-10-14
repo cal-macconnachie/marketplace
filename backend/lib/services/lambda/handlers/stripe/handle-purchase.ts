@@ -117,7 +117,7 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
                 user_id: group[0].user_id,
                 id: group[0].cart_id
               },
-              updateExpression: 'SET next_steps = if_not_exists(next_steps, :empty_list), next_steps = list_append(next_steps, :new_step)',
+              updateExpression: 'SET next_steps = list_append(if_not_exists(next_steps, :empty_list), :new_step)',
               expressionAttributeValues: {
                 ':empty_list': [],
                 ':new_step': [nextStepItem]
