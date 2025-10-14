@@ -69,9 +69,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Log API stage trigger
-        run: echo "API stage triggered due to: public=${{ needs.detect-stack-changes.outputs.public-changed }}, payments=${{ needs.detect-stack-changes.outputs.payments-changed }}, products=${{ needs.detect-stack-changes.outputs.products-changed }}, internal-api=${{ needs.detect-stack-changes.outputs.internal-api-changed }}"
-        with:
-          fetch-depth: 0
+        run: |
+          echo "API stage triggered due to: public=${{ needs.detect-stack-changes.outputs.public-changed }}, payments=${{ needs.detect-stack-changes.outputs.payments-changed }}, products=${{ needs.detect-stack-changes.outputs.products-changed }}, internal-api=${{ needs.detect-stack-changes.outputs.internal-api-changed }}"
 
       - name: Check for changes
         uses: dorny/paths-filter@v3

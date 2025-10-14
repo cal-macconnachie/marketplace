@@ -454,6 +454,7 @@
   </div>
 </template>
 <script lang="ts" setup>
+import router from '@/router'
 import {
   authAPI,
   publicApi,
@@ -725,10 +726,10 @@ const goBack = () => {
       window.location.href = `https://${source.value}`
     }
   } else if (document.referrer && document.referrer !== window.location.href) {
-    window.history.back()
+    router.push('/marketplace')
   } else {
     // Fallback to going back in history
-    window.history.back()
+    router.push('/marketplace')
   }
 }
 
@@ -1100,7 +1101,13 @@ const handleCheckout = async () => {
       )
 
       if (!purchaseResult.success) {
-        throw new Error(purchaseResult.error || 'Purchase processing failed. Please try again.')
+        // If there's no error, it means we're waiting for payment verification modal
+        // Don't throw - the modal handlers will continue the flow
+        if (purchaseResult.error) {
+          throw new Error(purchaseResult.error)
+        }
+        // Modal is open, keep processingCheckout true, exit early
+        return
       }
 
       // Success - show confirmation
@@ -1139,7 +1146,13 @@ const handleCheckout = async () => {
       )
 
       if (!purchaseResult.success) {
-        throw new Error(purchaseResult.error || 'Purchase processing failed. Please try again.')
+        // If there's no error, it means we're waiting for payment verification modal
+        // Don't throw - the modal handlers will continue the flow
+        if (purchaseResult.error) {
+          throw new Error(purchaseResult.error)
+        }
+        // Modal is open, keep processingCheckout true, exit early
+        return
       }
 
       // Success - show confirmation
@@ -1220,8 +1233,8 @@ const pollUntilCartReady = async (
           showPaymentVerificationModal.value = true
           waitingForVerification = true
 
-          // Return status to pause polling
-          return { ready: false }
+          // Return status to pause polling - keep waiting
+          return { ready: false, waitingForVerification: true }
         }
       }
 
@@ -1236,8 +1249,8 @@ const pollUntilCartReady = async (
       if (status.success === false && status.cartStatus === 'failed') {
         return false
       }
-      // Continue polling if not ready and not waiting for verification
-      return !status.ready && !waitingForVerification
+      // Continue polling if not ready (including when waiting for verification)
+      return !status.ready
     },
     maxAttempts: 20,
     initialDelay: 2000,
@@ -1245,6 +1258,15 @@ const pollUntilCartReady = async (
       console.log(`Cart status poll attempt ${attempt}:`, data)
     },
   })
+
+  // If we're waiting for verification when polling ends, that's not a failure
+  // The modal is open and waiting for user action
+  if (waitingForVerification) {
+    return {
+      success: false,
+      error: undefined, // No error - modal is handling verification
+    }
+  }
 
   if (!result.success) {
     return {
