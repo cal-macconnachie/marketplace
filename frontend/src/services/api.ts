@@ -11,6 +11,12 @@ import type {
   CreatePaymentMethodResponse,
   CreatePresignedUploadUrlRequest,
   CreatePresignedUploadUrlResponse,
+  Dispute,
+  DisputeCreateRequest,
+  DisputePlatformResolveRequest,
+  DisputeQueryParams,
+  DisputeQueryResponse,
+  DisputeRespondRequest,
   LoginRequest,
   Notification,
   OAuthLoginRequest,
@@ -501,8 +507,29 @@ export const authAPI = {
     await apiClient.post('/notifications/update', { markAllRead: true })
   },
 
-  async getReceipt(cartId: string): Promise<ReceiptEmailContext> {
-    const response = await apiClient.get(`/receipts/${cartId}`)
+  async getReceipt(cartId: string, userId: string): Promise<ReceiptEmailContext> {
+    const response = await apiClient.get(`/receipts/${cartId}/${userId}`)
+    return response.data
+  },
+
+  // Dispute Management
+  async createDispute(data: DisputeCreateRequest): Promise<Dispute> {
+    const response = await apiClient.post('/disputes/create', data)
+    return response.data
+  },
+
+  async getDisputes(params: DisputeQueryParams): Promise<DisputeQueryResponse> {
+    const response = await apiClient.post('/disputes', params)
+    return response.data
+  },
+
+  async respondToDispute(data: DisputeRespondRequest): Promise<Dispute> {
+    const response = await apiClient.post('/disputes/respond', data)
+    return response.data
+  },
+
+  async platformResolveDispute(data: DisputePlatformResolveRequest): Promise<Dispute> {
+    const response = await apiClient.post('/disputes/platform-resolve', data)
     return response.data
   },
 }

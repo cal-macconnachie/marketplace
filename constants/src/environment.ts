@@ -37,6 +37,7 @@ export const oneTimeCodesTableName = getTableName('one-time-codes');
 export const purchaseCartsTableName = getTableName('purchase-carts');
 export const purchasedProductsTableName = getTableName('purchased-products');
 export const notificationsTableName = getTableName('notifications');
+export const disputesTableName = getTableName('disputes');
 
 // Export environment for direct access if needed
 export const environment = ENV;

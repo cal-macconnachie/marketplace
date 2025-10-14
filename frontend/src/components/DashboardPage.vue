@@ -132,6 +132,9 @@
           <InfinitePurchasesList :viewer-type="'seller'" :limit="10" />
         </BaseCard>
 
+        <!-- Dispute Management for Sellers -->
+        <DisputeManagementCard v-if="canCreateProducts" class="dispute-card" />
+
         <BaseCard
           v-if="app.hasSubscription"
           class="subscription-card"
@@ -179,6 +182,7 @@ import AddressSearch from '@/components/ui/AddressSearch.vue'
 import BaseAlert from '@/components/ui/BaseAlert.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseCard from '@/components/ui/BaseCard.vue'
+import DisputeManagementCard from '@/components/ui/DisputeManagementCard.vue'
 import EditableField from '@/components/ui/EditableField.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import NotificationManager from '@/components/ui/NotificationManager.vue'
@@ -607,6 +611,7 @@ onMounted(async () => {
 .dashboard-grid > .product-card,
 .dashboard-grid > .seller-management-card,
 .dashboard-grid > .purchases-card,
+.dashboard-grid > .dispute-card,
 .dashboard-grid > .payment-action-alert {
   display: block;
   break-inside: avoid;

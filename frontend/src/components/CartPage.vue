@@ -461,6 +461,7 @@ import {
 } from '@/services/api'
 import { useAppStore } from '@/stores/app'
 import { poll } from '@/utils/polling'
+import { cartService } from '@/utils/cart'
 import type { CartItem, CheckoutData, Organization, PaymentMethod, Product, TaxCalculationItem } from '@marketplace/types'
 import { loadStripe, type Stripe } from '@stripe/stripe-js'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -737,14 +738,14 @@ const removeItem = async (index: number) => {
   const removedItem = cartItems.value[index]
   cartItems.value.splice(index, 1)
 
-  // Update localStorage to reflect the removal
+  // Update cart service (handles both localStorage and URL)
   try {
-    const cart = JSON.parse(localStorage.getItem(getCartStorageKey()) || '{}')
-    const itemKey = `${removedItem.groupId}_${removedItem.productId}`
-    delete cart[itemKey]
-    localStorage.setItem(getCartStorageKey(), JSON.stringify(cart))
+    cartService.removeItem(removedItem.groupId, removedItem.productId, removedItem.quantity)
+
+    // Update URL with new cart state
+    cartService.updateCartInURL(source.value || undefined)
   } catch (error) {
-    console.error('Error updating localStorage after item removal:', error)
+    console.error('Error updating cart after item removal:', error)
   }
 
   // Recalculate taxes when items are removed (non-blocking)
@@ -1166,8 +1167,9 @@ const handleCheckout = async () => {
     selectedPaymentMethod.value = null
     guestFormData.value = null
 
-    // Clear cart from localStorage
-    clearCartFromLocalStorage()
+    // Clear cart from localStorage and URL
+    cartService.clearCart()
+    cartService.updateCartInURL(source.value || undefined)
   } catch (err) {
     console.error('Checkout failed:', err)
 
@@ -1319,8 +1321,9 @@ const handlePaymentVerificationSuccess = async () => {
       selectedPaymentMethod.value = null
       guestFormData.value = null
 
-      // Clear cart from localStorage
-      clearCartFromLocalStorage()
+      // Clear cart from localStorage and URL
+      cartService.clearCart()
+      cartService.updateCartInURL(source.value || undefined)
     } else {
       // Payment failed after verification - show error and keep cart
       checkoutError.value =
@@ -1401,65 +1404,6 @@ const calculateTaxes = async () => {
   await appStore.calculateTaxes(taxRequest)
 }
 
-const getCartStorageKey = () => {
-  return `cart_${window.location.hostname}`
-}
-
-const getCartFromLocalStorage = (): CartItem[] => {
-  try {
-    const cartData = localStorage.getItem(getCartStorageKey())
-    if (!cartData) return []
-
-    const cart = JSON.parse(cartData)
-    return Object.values(cart) as CartItem[]
-  } catch (error) {
-    console.error('Error reading cart from localStorage:', error)
-    return []
-  }
-}
-
-const clearCartFromLocalStorage = () => {
-  try {
-    localStorage.removeItem(getCartStorageKey())
-  } catch (error) {
-    console.error('Error clearing cart from localStorage:', error)
-  }
-}
-
-const unserializeCart = (cartString: string): CheckoutData | null => {
-  try {
-    const decodedCart = atob(cartString)
-    const parsedCart = JSON.parse(decodedCart)
-
-    if (!parsedCart.items || !Array.isArray(parsedCart.items)) {
-      throw new Error('Invalid cart format: missing or invalid items array')
-    }
-
-    if (typeof parsedCart.timestamp !== 'number') {
-      throw new Error('Invalid cart format: missing or invalid timestamp')
-    }
-
-    if (typeof parsedCart.domain !== 'string') {
-      throw new Error('Invalid cart format: missing or invalid domain')
-    }
-
-    parsedCart.items.forEach((item: unknown, index: number) => {
-      const cartItem = item as Record<string, unknown>
-      if (!cartItem.groupId || !cartItem.productId || !cartItem.organizationId) {
-        throw new Error(`Invalid cart item at index ${index}: missing required fields`)
-      }
-      if (typeof cartItem.quantity !== 'number' || cartItem.quantity <= 0) {
-        throw new Error(`Invalid cart item at index ${index}: invalid quantity`)
-      }
-    })
-
-    return parsedCart as CheckoutData
-  } catch (err) {
-    console.error('Error unserializing cart:', err)
-    return null
-  }
-}
-
 watch(
   () => appStore.paymentMethods,
   (newCards) => {
@@ -1485,31 +1429,24 @@ onMounted(async () => {
     // Initialize app store authentication
     await appStore.initializeAuth()
 
-    // Parse cart data from URL or localStorage
+    // Load cart data from URL or localStorage
     const cartString = Array.isArray(route.query.cart) ? route.query.cart[0] : route.query.cart
+    const cartData = cartService.loadCartFromURLOrStorage(cartString)
 
-    if (cartString) {
-      // Cart data provided via URL (from embedded iframe or direct link)
-      const unserializedCart = unserializeCart(cartString)
+    if (cartData.source) {
+      source.value = cartData.source
+    }
 
-      if (!unserializedCart) {
-        error.value = 'Failed to parse cart data'
-        return
-      }
-      cartItems.value = unserializedCart.items.sort((a, b) => {
-        const nameA = a.organizationId
-        const nameB = b.organizationId
-        return nameA.localeCompare(nameB)
-      })
-    } else {
-      // Try to load cart from localStorage (direct navigation to cart page)
-      const localCartItems = getCartFromLocalStorage() ?? []
+    // Sort cart items by organization
+    cartItems.value = cartData.items.sort((a, b) => {
+      const nameA = a.organizationId
+      const nameB = b.organizationId
+      return nameA.localeCompare(nameB)
+    })
 
-      cartItems.value = localCartItems.sort((a, b) => {
-        const nameA = a.organizationId
-        const nameB = b.organizationId
-        return nameA.localeCompare(nameB)
-      })
+    // Update URL with cart data for bookmarking/sharing
+    if (cartItems.value.length > 0) {
+      cartService.updateCartInURL(source.value || undefined)
     }
 
     // Fetch product and organization data
@@ -1548,14 +1485,13 @@ onMounted(async () => {
       return validProductKeys.has(itemKey)
     })
 
-    // Update localStorage if items were removed
+    // Update localStorage and URL if items were removed
     if (cartItems.value.length !== originalCartLength) {
-      const cart: Record<string, CartItem> = {}
+      // Sync with cart service
       cartItems.value.forEach((item) => {
-        const itemKey = `${item.groupId}_${item.productId}`
-        cart[itemKey] = item
+        cartService.updateQuantity(item.groupId, item.productId, item.quantity)
       })
-      localStorage.setItem(getCartStorageKey(), JSON.stringify(cart))
+      cartService.updateCartInURL(source.value || undefined)
     }
 
     orgHash.value = orgs.reduce(

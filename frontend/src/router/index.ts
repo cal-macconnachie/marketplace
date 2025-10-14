@@ -40,7 +40,7 @@ const routes = [
     component: () => import('@/components/CartPage.vue'),
   },
   {
-    path: '/receipts/:cartId',
+    path: '/receipts/:cartId/:userId',
     name: 'Receipt',
     component: () => import('@/components/ReceiptPage.vue'),
     meta: { requiresAuth: true },

@@ -10,6 +10,7 @@ export interface ReceiptLineItem {
   interval_text?: string
   seller_id?: string
   seller_name?: string
+  purchase_id?: string
 }
 
 export interface ReceiptSummary {

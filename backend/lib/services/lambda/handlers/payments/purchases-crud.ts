@@ -15,7 +15,7 @@ function determineQueryStrategy(purchase: Partial<Purchase>, sortBy: string): Qu
   }
 
   // Query by primary key (user_id + optional id sort key)
-  if (purchase.user_id && !purchase.organization_id && !purchase.payment_method_id && !purchase.seller_organization_id) {
+  if (purchase.user_id && !purchase.organization_id && !purchase.payment_method_id && !purchase.seller_organization_id && !purchase.cart_id) {
     return {
       type: 'query',
       keyConditionExpression: 'user_id = :user_id',
@@ -53,6 +53,17 @@ function determineQueryStrategy(purchase: Partial<Purchase>, sortBy: string): Qu
       keyConditionExpression: 'payment_method_id = :payment_method_id',
       expressionAttributeValues: { ':payment_method_id': purchase.payment_method_id },
       indexName: 'payment_method_id-index',
+      canSort: sortBy === 'purchased_at' // GSI sorts by purchased_at
+    }
+  }
+
+  // Query by cart_id GSI (sorted by purchased_at)
+  if (purchase.cart_id) {
+    return {
+      type: 'query',
+      keyConditionExpression: 'cart_id = :cart_id',
+      expressionAttributeValues: { ':cart_id': purchase.cart_id },
+      indexName: 'cart_id-index',
       canSort: sortBy === 'purchased_at' // GSI sorts by purchased_at
     }
   }

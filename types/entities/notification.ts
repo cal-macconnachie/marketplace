@@ -24,7 +24,7 @@ export interface Notification {
   message: string
   read: boolean
   created_at: number
-  type: 'receipt' | 'sale' | 'system'
+  type: 'receipt' | 'sale' | 'system' | 'refund_processed' | 'dispute_created' | 'refund_failed'
   // Composite attributes for GSI queries (auto-populated)
   read_created_at: string // Format: "true#1234567890" or "false#1234567890"
   type_created_at: string // Format: "receipt#1234567890" or "sale#1234567890"
@@ -40,7 +40,7 @@ export interface CreateNotificationRequest {
   user_id: string
   title: string
   message: string
-  type?: 'receipt' | 'sale' | 'system'
+  type?: Notification['type']
   metadata?: Notification['metadata']
 }
 

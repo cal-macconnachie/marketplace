@@ -6,7 +6,7 @@ export class CartService {
   }
 
   private getCartKey(): string {
-    return 'cart'
+    return `cart_${window.location.hostname}`
   }
 
   getCart(): BrowserCart {
@@ -92,7 +92,7 @@ export class CartService {
   }
 
   // Cross-domain cart sharing methods
-  serializeCart(): string {
+  serializeCart(source?: string): string {
     const cart = this.getCart()
     const cartArray = Object.values(cart)
 
@@ -101,12 +101,13 @@ export class CartService {
       items: cartArray,
       timestamp: Date.now(),
       domain: window.location.href,
+      ...(source && { source }),
     }
 
     return btoa(JSON.stringify(cartData))
   }
 
-  deserializeCart(encodedCart: string): CartItem[] {
+  deserializeCart(encodedCart: string): SerializedCartData | null {
     try {
       const decoded = atob(encodedCart)
       const cartData = JSON.parse(decoded)
@@ -116,25 +117,49 @@ export class CartService {
         throw new Error('Invalid cart data structure')
       }
 
+      if (typeof cartData.timestamp !== 'number') {
+        throw new Error('Invalid cart format: missing or invalid timestamp')
+      }
+
+      if (typeof cartData.domain !== 'string') {
+        throw new Error('Invalid cart format: missing or invalid domain')
+      }
+
+      // Validate each cart item
+      cartData.items.forEach((item: unknown, index: number) => {
+        const cartItem = item as Record<string, unknown>
+        if (!cartItem.groupId || !cartItem.productId || !cartItem.organizationId) {
+          throw new Error(`Invalid cart item at index ${index}: missing required fields`)
+        }
+        if (typeof cartItem.quantity !== 'number' || cartItem.quantity <= 0) {
+          throw new Error(`Invalid cart item at index ${index}: invalid quantity`)
+        }
+      })
+
       // Check if cart is not too old (24 hours)
       const maxAge = 24 * 60 * 60 * 1000 // 24 hours in ms
       if (Date.now() - cartData.timestamp > maxAge) {
         console.warn('BrowserCart data is older than 24 hours, may be stale')
       }
 
-      return cartData.items
+      return cartData as SerializedCartData
     } catch (error) {
       console.error('Error deserializing cart:', error)
-      return []
+      return null
     }
   }
 
   importCartFromSerialized(encodedCart: string): void {
-    const cartItems = this.deserializeCart(encodedCart)
+    const cartData = this.deserializeCart(encodedCart)
+    if (!cartData || !cartData.items) {
+      console.warn('Unable to import cart: invalid cart data')
+      return
+    }
+
     const cart = this.getCart()
 
     // Merge imported items with existing cart
-    cartItems.forEach((item) => {
+    cartData.items.forEach((item) => {
       const itemKey = `${item.groupId}_${item.productId}`
       if (cart[itemKey]) {
         // Add quantities if item already exists
@@ -163,6 +188,77 @@ export class CartService {
     }
 
     return url.toString()
+  }
+
+  /**
+   * Updates the current URL with the encoded cart data
+   * Removes the cart parameter if the cart is empty
+   */
+  updateCartInURL(source?: string): void {
+    try {
+      const cart = this.getCart()
+      const cartItems = Object.values(cart)
+
+      if (cartItems.length === 0) {
+        // Remove cart parameter if empty
+        const url = new URL(window.location.href)
+        url.searchParams.delete('cart')
+        window.history.replaceState({}, '', url.toString())
+        return
+      }
+
+      const encodedCart = this.serializeCart(source)
+      const url = new URL(window.location.href)
+      url.searchParams.set('cart', encodedCart)
+      window.history.replaceState({}, '', url.toString())
+    } catch (error) {
+      // Cart is empty or error occurred - remove cart parameter
+      if (error instanceof Error && error.message === 'BrowserCart is empty') {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('cart')
+        window.history.replaceState({}, '', url.toString())
+      } else {
+        console.error('Error updating cart in URL:', error)
+      }
+    }
+  }
+
+  /**
+   * Loads cart from URL query parameter or falls back to localStorage
+   * Returns the cart items and the source URL if available
+   */
+  loadCartFromURLOrStorage(urlCartParam?: string | null): {
+    items: CartItem[],
+    source?: string
+  } {
+    // Try URL first
+    if (urlCartParam) {
+      const cartData = this.deserializeCart(urlCartParam)
+      if (cartData && cartData.items && cartData.items.length > 0) {
+        // Save to localStorage as backup
+        const cart: BrowserCart = {}
+        cartData.items.forEach((item) => {
+          const itemKey = `${item.groupId}_${item.productId}`
+          cart[itemKey] = item
+        })
+        this.saveCart(cart)
+
+        return {
+          items: cartData.items,
+          source: cartData.source,
+        }
+      }
+    }
+
+    // Fallback to localStorage
+    try {
+      const cart = this.getCart()
+      const items = Object.values(cart)
+      return { items }
+    } catch (error) {
+      // If localStorage is empty, return empty cart
+      return { items: [] }
+    }
   }
 }
 

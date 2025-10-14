@@ -183,7 +183,8 @@ export const collectReceiptEmailData = async (
       is_subscription: isSub || undefined,
       interval_text: interval,
       seller_id: sellerId,
-      seller_name: sellerName
+      seller_name: sellerName,
+      purchase_id: relatedPurchases[0]?.id
     }
 
     line_items.push(item)

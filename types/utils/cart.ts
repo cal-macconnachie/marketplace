@@ -49,10 +49,12 @@ export interface SerializedCartData {
   items: CartItem[]
   timestamp: number
   domain: string
+  source?: string
 }
 
 export interface CheckoutData {
   items: CartItem[]
   timestamp: number
   domain: string
+  source?: string
 }

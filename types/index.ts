@@ -14,6 +14,7 @@ export * from './entities/payment'
 export * from './entities/promo'
 export * from './entities/meter'
 export * from './entities/notification'
+export * from './entities/dispute'
 
 // ============================================================================
 // API TYPES - Request/Response interfaces organized by domain

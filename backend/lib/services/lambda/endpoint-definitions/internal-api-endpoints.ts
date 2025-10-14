@@ -222,5 +222,54 @@ export const internalApiEndpoints: LambdaEndpointDefinition[] = [
       auth: 'cognito',
       cors: true
     }
+  },
+
+  // Dispute Management (4 lambdas)
+  {
+    name: 'createDispute',
+    handler: 'disputes/create-dispute.createDispute',
+    description: 'Create dispute for purchases',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'disputes/create',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'getDisputes',
+    handler: 'disputes/get-disputes.getDisputes',
+    description: 'Get disputes for user (buyer or seller view)',
+    apiGw: {
+      path: 'disputes',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'respondToDispute',
+    handler: 'disputes/respond-to-dispute.respondToDispute',
+    description: 'Seller responds to dispute (accept/reject)',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'disputes/respond',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'platformResolveDispute',
+    handler: 'disputes/platform-resolve.platformResolveDispute',
+    description: 'Platform manager resolves escalated dispute',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'disputes/platform-resolve',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
   }
 ]

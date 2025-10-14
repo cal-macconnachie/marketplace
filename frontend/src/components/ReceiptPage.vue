@@ -228,14 +228,14 @@
 </template>
 
 <script lang="ts" setup>
+import BaseAlert from '@/components/ui/BaseAlert.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import { authAPI } from '@/services/api'
 import type { ReceiptEmailContext } from '@marketplace/types'
 import html2pdf from 'html2pdf.js'
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import BaseAlert from '@/components/ui/BaseAlert.vue'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 
 const route = useRoute()
 const loading = ref(true)
@@ -245,15 +245,21 @@ const downloadingPDF = ref(false)
 
 onMounted(async () => {
   const cartId = route.params.cartId as string
+  const userId = route.params.userId as string
 
   if (!cartId) {
     error.value = 'No receipt ID provided'
     loading.value = false
     return
   }
+  if (!userId) {
+    error.value = 'No user ID provided'
+    loading.value = false
+    return
+  }
 
   try {
-    receipt.value = await authAPI.getReceipt(cartId)
+    receipt.value = await authAPI.getReceipt(cartId, userId)
   } catch (err) {
     console.error('Error fetching receipt:', err)
     error.value = (err as unknown as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to load receipt'

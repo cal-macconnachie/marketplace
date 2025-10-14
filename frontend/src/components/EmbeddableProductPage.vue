@@ -401,6 +401,17 @@ const openCart = () => {
 
   if (cartItems.length > 0) {
     const cartUrl = new URL(`${window.location.origin}/cart`)
+
+    // Encode cart data for URL
+    const checkoutData = {
+      items: cartItems,
+      timestamp: Date.now(),
+      domain: window.location.hostname,
+      source: window.location.href,
+    }
+    const encodedCart = btoa(JSON.stringify(checkoutData))
+
+    cartUrl.searchParams.set('cart', encodedCart)
     cartUrl.searchParams.set('source', encodeURIComponent(window.location.href))
 
     window.open(cartUrl.toString(), '_blank')
@@ -814,6 +825,8 @@ onMounted(async () => {
   }
 
   .add-to-cart-section {
+    flex-direction: column;
+    gap: var(--space-3);
   }
 
   .embeddable-product-page {

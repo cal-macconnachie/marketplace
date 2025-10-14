@@ -371,5 +371,68 @@ export const ddbTableDefinitions: Array<DdbTableDefinition> = [
     ],
     billingMode: 'PAY_PER_REQUEST',
     stream: 'NEW_AND_OLD_IMAGES'
+  },
+  {
+    tableName: 'disputes',
+    partitionKey: {
+      name: 'id',
+      type: 'S'
+    },
+    sortKey: {
+      name: 'created_at',
+      type: 'S'
+    },
+    globalSecondaryIndexes: [
+      {
+        indexName: 'seller_organization_id-index',
+        partitionKey: {
+          name: 'seller_organization_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'created_at',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      },
+      {
+        indexName: 'buyer_user_id-index',
+        partitionKey: {
+          name: 'buyer_user_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'created_at',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      },
+      {
+        indexName: 'cart_id-index',
+        partitionKey: {
+          name: 'cart_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'created_at',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      },
+      {
+        indexName: 'status-created-index',
+        partitionKey: {
+          name: 'status',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'created_at',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      }
+    ],
+    billingMode: 'PAY_PER_REQUEST',
+    stream: 'NEW_AND_OLD_IMAGES'
   }
 ]

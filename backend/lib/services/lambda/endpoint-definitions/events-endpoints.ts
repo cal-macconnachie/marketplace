@@ -169,5 +169,16 @@ export const eventsEndpoints: LambdaEndpointDefinition[] = [
         resources: ['*']
       }
     ]
+  },
+  {
+    name: 'disputesStream',
+    handler: 'disputes.disputes',
+    description: 'Handle dispute status changes and process refunds via DynamoDB stream',
+    environment: ['STRIPE_SECRET_KEY'],
+    dynamoStreamEvent: {
+      tableName: 'disputes',
+      enabled: true,
+      batchSize: 1
+    }
   }
 ]

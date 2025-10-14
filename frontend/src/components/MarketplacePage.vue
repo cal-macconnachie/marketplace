@@ -279,6 +279,7 @@
 <script setup lang="ts">
 import { publicApi } from '@/services/api'
 import { useAppStore } from '@/stores/app'
+import { cartService } from '@/utils/cart'
 import type { CartItem, Product } from '@marketplace/types'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -378,7 +379,22 @@ const updateCartItemQuantity = (item: CartItem) => {
 
 const goToCheckout = () => {
   showCartModal.value = false
-  router.push('/cart')
+
+  // Only serialize cart if there are items
+  if (cartItems.value.length === 0) {
+    router.push('/cart')
+    return
+  }
+
+  try {
+    // Generate cart URL with encoded cart data
+    const encodedCart = cartService.serializeCart()
+    router.push(`/cart?cart=${encodedCart}`)
+  } catch (error) {
+    console.error('Error serializing cart:', error)
+    // Fallback to basic cart page
+    router.push('/cart')
+  }
 }
 
 // Computed properties

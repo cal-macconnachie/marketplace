@@ -53,12 +53,19 @@ export interface Purchase {
       percent_off: number
     }
   }
-  status: 'completed' | 'pending' | 'failed'
+  status: 'completed' | 'pending' | 'failed' | 'in_dispute' | 'refunded' | 'partially_refunded'
   requires_action?: {
     payment_intent_id: string
     client_secret: string
     next_action?: unknown
   }
+
+  // Dispute tracking
+  disputed?: boolean // Flag to prevent re-disputing
+  dispute_id?: string // Reference to active dispute
+  refund_amount?: number // Track partial/full refunds
+  refund_id?: string // Stripe refund ID
+  refunded_at?: string // ISO timestamp of refund
 }
 
 /**

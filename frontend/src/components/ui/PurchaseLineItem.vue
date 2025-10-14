@@ -108,19 +108,29 @@
     <div v-if="hasBreakdown" class="breakdown" :class="{ visible: showBreakdown }">
       <div class="breakdown-header">
         <BaseButton
+          v-if="purchase.cart_id"
           variant="ghost"
           size="xs"
-          class="info-button"
-          @click.stop="showDetailsDrawer = true"
-          aria-label="View purchase details"
-          title="View details"
+          class="cart-button"
+          @click.stop="showCartDrawer = true"
+          aria-label="View receipt"
+          title="View receipt"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+        </BaseButton>
+        <BaseButton
+          v-if="purchase.cart_id && viewerType === 'purchaser'"
+          variant="ghost"
+          size="xs"
+          class="dispute-button"
+          @click.stop="showDisputeDrawer = true"
+          aria-label="Dispute purchase"
+          title="Dispute purchase"
         >
           <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              fill-rule="evenodd"
-              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-              clip-rule="evenodd"
-            />
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
           </svg>
         </BaseButton>
       </div>
@@ -189,12 +199,23 @@
       </div>
     </div>
 
-    <!-- Purchase Details Drawer -->
-    <PurchaseDetailsDrawer
-      :show="showDetailsDrawer"
-      :purchase="purchase"
-      :viewer-type="viewerType"
-      @close="showDetailsDrawer = false"
+    <!-- Cart/Receipt Drawer -->
+    <CartDrawer
+      v-if="purchase.cart_id"
+      :show="showCartDrawer"
+      :cart-id="purchase.cart_id"
+      :user-id="purchase.user_id"
+      @close="showCartDrawer = false"
+    />
+
+    <!-- Dispute Drawer -->
+    <DisputeDrawer
+      v-if="purchase.cart_id"
+      :show="showDisputeDrawer"
+      :cart-id="purchase.cart_id"
+      :user-id="purchase.user_id"
+      :initial-purchase-id="purchase.id"
+      @close="showDisputeDrawer = false"
     />
   </div>
 </template>
@@ -205,8 +226,9 @@ import { useAppStore } from '@/stores/app'
 import type { Purchase } from '@marketplace/types'
 import { computed, defineProps, onMounted, onUnmounted, ref } from 'vue'
 import BaseButton from './BaseButton.vue'
+import CartDrawer from './CartDrawer.vue'
+import DisputeDrawer from './DisputeDrawer.vue'
 import LoadingSpinner from './LoadingSpinner.vue'
-import PurchaseDetailsDrawer from './PurchaseDetailsDrawer.vue'
 import QuantitySelector from './QuantitySeletor.vue'
 
 const { purchase, viewerType = 'purchaser' } = defineProps<{
@@ -215,7 +237,8 @@ const { purchase, viewerType = 'purchaser' } = defineProps<{
 }>()
 
 const showBreakdown = ref(false)
-const showDetailsDrawer = ref(false)
+const showCartDrawer = ref(false)
+const showDisputeDrawer = ref(false)
 let pollInterval: ReturnType<typeof setInterval> | null = null
 const app = useAppStore()
 const meterValue = ref<number>(1)
@@ -620,18 +643,26 @@ onUnmounted(() => {
 .breakdown-header {
   display: flex;
   justify-content: flex-start;
+  gap: var(--space-2);
   margin-bottom: var(--space-2);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--color-border);
 }
 
-.breakdown .info-button {
+.breakdown .cart-button,
+.breakdown .dispute-button {
   border: 1px solid var(--color-border);
 }
 
-.breakdown .info-button:hover {
+.breakdown .cart-button:hover {
   color: var(--color-primary);
   border-color: var(--color-primary);
+  background: var(--color-bg-primary);
+}
+
+.breakdown .dispute-button:hover {
+  color: rgb(239, 68, 68);
+  border-color: rgb(239, 68, 68);
   background: var(--color-bg-primary);
 }
 

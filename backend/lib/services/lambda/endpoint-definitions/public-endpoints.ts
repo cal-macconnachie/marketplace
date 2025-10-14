@@ -244,7 +244,6 @@ export const publicEndpoints: LambdaEndpointDefinition[] = [
     }
   },
 
-  // Receipts (1 lambda)
   {
     name: 'getReceipt',
     handler: 'receipts/get-receipt.getReceipt',

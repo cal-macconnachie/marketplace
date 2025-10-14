@@ -5,11 +5,25 @@
         <template v-if="status === 'loading'">
           <LoadingSpinner :size="48" />
           <h2>Completing sign in...</h2>
-          <p>Please wait while we authenticate your account.</p>
         </template>
 
         <template v-else-if="status === 'error'">
-          <div class="error-icon">⚠️</div>
+          <div class="error-icon">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="icon icon-tabler icon-tabler-alert-circle"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12" y2="8" />
+            </svg>
+          </div>
           <h2>Authentication Failed</h2>
           <p class="error-message">{{ errorMessage }}</p>
           <BaseButton @click="redirectToSignIn" full-width size="lg">
