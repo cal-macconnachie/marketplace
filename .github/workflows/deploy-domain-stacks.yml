@@ -156,10 +156,9 @@ jobs:
             SHARED_LAMBDA_CHANGED=true
           fi
 
-          # Dynamically generate patterns from endpoint definitions (TypeScript)
-          cd backend/scripts
-          STACK_VARS=$(npx ts-node --project tsconfig.json extract-handler-paths.ts --bash-vars 2>/dev/null || true)
-          cd ../..
+          # Build the TS extractor and generate patterns (pure TS, compiled by tsc)
+          yarn tsc -p backend/scripts/tsconfig.json
+          STACK_VARS=$(node backend/scripts/dist/extract-handler-paths.js --bash-vars 2>/dev/null || true)
 
           # Eval the generated variables into this shell
           eval "$STACK_VARS"

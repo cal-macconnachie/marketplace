@@ -12,8 +12,21 @@ type StackInfo = {
   templates: string[]
 }
 
+function resolveEndpointsDir(): string {
+  // Support running from ts-node (__dirname = backend/scripts)
+  // and from compiled JS (__dirname = backend/scripts/dist)
+  const candidates = [
+    path.resolve(__dirname, '../lib/services/lambda/endpoint-definitions'),
+    path.resolve(__dirname, '../../lib/services/lambda/endpoint-definitions'),
+  ]
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p
+  }
+  return candidates[0]
+}
+
 function getEndpointFiles(): Record<string, string> {
-  const dir = path.resolve(__dirname, '../lib/services/lambda/endpoint-definitions')
+  const dir = resolveEndpointsDir()
   const out: Record<string, string> = {}
   const files = fs.readdirSync(dir)
   for (const f of files) {
@@ -109,4 +122,3 @@ function main() {
 }
 
 main()
-
