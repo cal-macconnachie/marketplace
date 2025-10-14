@@ -164,6 +164,15 @@ jobs:
 
           cd ../..
 
+          # Debug: Print generated patterns
+          echo "Generated patterns:"
+          echo "  PUBLIC_PATTERN: ${PUBLIC_PATTERN:0:100}..."
+          echo "  PAYMENTS_PATTERN: ${PAYMENTS_PATTERN:0:100}..."
+          echo "  PRODUCTS_PATTERN: ${PRODUCTS_PATTERN:0:100}..."
+          echo "  INTERNAL_API_PATTERN: ${INTERNAL_API_PATTERN:0:100}..."
+          echo "  EVENTS_PATTERN: ${EVENTS_PATTERN:0:100}..."
+          echo ""
+
           # Check for domain stack changes using dynamic patterns
           PUBLIC_CHANGED=false
           if [ -n "$PUBLIC_PATTERN" ] && echo "$FILES" | grep -qE "$PUBLIC_PATTERN"; then
@@ -190,8 +199,16 @@ jobs:
           if [ "$SHARED_LAMBDA_CHANGED" = "true" ]; then INTERNAL_API_CHANGED=true; fi
 
           EVENTS_CHANGED=false
-          if [ -n "$EVENTS_PATTERN" ] && echo "$FILES" | grep -qE "$EVENTS_PATTERN"; then
-            EVENTS_CHANGED=true
+          if [ -n "$EVENTS_PATTERN" ]; then
+            echo "DEBUG: Testing EVENTS_PATTERN against files..."
+            if echo "$FILES" | grep -E "$EVENTS_PATTERN"; then
+              echo "DEBUG: EVENTS_PATTERN matched!"
+              EVENTS_CHANGED=true
+            else
+              echo "DEBUG: EVENTS_PATTERN did NOT match"
+            fi
+          else
+            echo "DEBUG: EVENTS_PATTERN is empty!"
           fi
           if [ "$SHARED_LAMBDA_CHANGED" = "true" ]; then EVENTS_CHANGED=true; fi
 

@@ -76,10 +76,12 @@ function extractHandlerPaths(endpointFilePath: string): {
 }
 
 function generateRegexPattern(paths: string[]): string {
-  // Simplified: match if path contains any of these strings
-  // Much more robust - any file containing these paths will trigger
-  // 'handlers/auth/login' will match 'backend/lib/services/lambda/handlers/auth/login.ts'
+  // Generate a pattern that matches if ANY of the paths appear ANYWHERE in the line
+  // For grep -E to work, we don't anchor (no ^/$) and escape special chars
+  // 'handlers/stripe/handle-purchase' will match 'backend/lib/services/lambda/handlers/stripe/handle-purchase.ts'
   const escapedPaths = paths.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+
+  // Join with | for alternation - grep will match if any substring is found
   return escapedPaths.join('|')
 }
 

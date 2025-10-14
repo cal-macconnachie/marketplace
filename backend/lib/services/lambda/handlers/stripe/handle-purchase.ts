@@ -122,7 +122,6 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
       } catch (e){
         console.error('Error creating destination charge:', e)
 
-        // Check if this is a recoverable error (authentication required) or a permanent failure
         let shouldMarkAsFailed = true
 
         // If createDestinationCharge caught an authentication error and returned a PaymentIntent,
