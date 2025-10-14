@@ -106,6 +106,24 @@
       <span>{{ discountText }}</span>
     </div>
     <div v-if="hasBreakdown" class="breakdown" :class="{ visible: showBreakdown }">
+      <div class="breakdown-header">
+        <BaseButton
+          variant="ghost"
+          size="xs"
+          class="info-button"
+          @click.stop="showDetailsDrawer = true"
+          aria-label="View purchase details"
+          title="View details"
+        >
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+            <path
+              fill-rule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </BaseButton>
+      </div>
       <div class="breakdown-row">
         <span>{{ purchase.applied_discount ? 'Original Price' : 'Subtotal' }}</span>
         <span>{{ formatMoneyInt(originalAmount, purchase.currency) }}</span>
@@ -170,17 +188,26 @@
         <p v-if="meterSuccess" class="meter-success">{{ meterSuccess }}</p>
       </div>
     </div>
+
+    <!-- Purchase Details Drawer -->
+    <PurchaseDetailsDrawer
+      :show="showDetailsDrawer"
+      :purchase="purchase"
+      :viewer-type="viewerType"
+      @close="showDetailsDrawer = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { defineProps, computed, ref, onMounted, onUnmounted } from 'vue'
 import { authAPI } from '@/services/api'
 import { useAppStore } from '@/stores/app'
-import LoadingSpinner from './LoadingSpinner.vue'
-import QuantitySelector from './QuantitySeletor.vue'
-import BaseButton from './BaseButton.vue'
 import type { Purchase } from '@marketplace/types'
+import { computed, defineProps, onMounted, onUnmounted, ref } from 'vue'
+import BaseButton from './BaseButton.vue'
+import LoadingSpinner from './LoadingSpinner.vue'
+import PurchaseDetailsDrawer from './PurchaseDetailsDrawer.vue'
+import QuantitySelector from './QuantitySeletor.vue'
 
 const { purchase, viewerType = 'purchaser' } = defineProps<{
   purchase: Purchase
@@ -188,6 +215,7 @@ const { purchase, viewerType = 'purchaser' } = defineProps<{
 }>()
 
 const showBreakdown = ref(false)
+const showDetailsDrawer = ref(false)
 let pollInterval: ReturnType<typeof setInterval> | null = null
 const app = useAppStore()
 const meterValue = ref<number>(1)
@@ -448,14 +476,15 @@ onUnmounted(() => {
 .item-main {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-4);
   font-weight: var(--font-weight-medium);
 }
+
 .amount {
   color: var(--color-primary);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
-  margin-left: auto;
 }
 .product {
   color: var(--color-text-primary);
@@ -586,6 +615,24 @@ onUnmounted(() => {
   opacity: 1;
   padding-top: var(--space-3);
   padding-bottom: var(--space-3);
+}
+
+.breakdown-header {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.breakdown .info-button {
+  border: 1px solid var(--color-border);
+}
+
+.breakdown .info-button:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: var(--color-bg-primary);
 }
 
 .breakdown-row {

@@ -203,6 +203,11 @@ defineEmits<{
   tap-highlight-color: transparent;
 }
 
+.product-card :deep(.card-body) {
+  display: flex;
+  flex-direction: column;
+}
+
 .product-card:hover {
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
 }
@@ -236,9 +241,10 @@ defineEmits<{
 }
 
 .product-content {
-  height: 100%;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .product-type-badge {
@@ -277,6 +283,7 @@ defineEmits<{
   flex: 1;
   display: flex;
   flex-direction: column;
+  margin-bottom: var(--space-4);
 }
 
 .product-header {

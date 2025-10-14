@@ -31,7 +31,8 @@ export const publicGetOrganization = async (event: APIGatewayProxyEvent) => {
   }
   const publicOrgAttributes: (keyof typeof org)[] = [
     'id',
-    'name'
+    'name',
+    'business_profile'
   ]
   return {
     statusCode: 200,
