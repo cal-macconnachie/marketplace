@@ -1,172 +1,112 @@
 #!/usr/bin/env ts-node
 /**
- * Extract handler file paths from endpoint definitions
- * Used by CI/CD to dynamically determine which stack changed
+ * Extract handler file paths from endpoint definitions (TypeScript, typed, no fallbacks)
+ * Emits grep-compatible patterns per stack.
  */
 
 import * as fs from 'fs'
 import * as path from 'path'
 
-interface StackHandlers {
-  [stackName: string]: {
-    endpointFile: string
-    handlers: string[]
-    templates: string[]
-  }
+type StackInfo = {
+  handlers: string[]
+  templates: string[]
 }
 
 function getEndpointFiles(): Record<string, string> {
-  const endpointDefinitionsDir = path.resolve(__dirname, '../lib/services/lambda/endpoint-definitions')
-  const files = fs.readdirSync(endpointDefinitionsDir)
-
-  const endpointFiles: Record<string, string> = {}
-
-  for (const file of files) {
-    if (file.endsWith('-endpoints.ts')) {
-      // Extract stack name from filename: 'public-endpoints.ts' -> 'public'
-      const stackName = file.replace('-endpoints.ts', '')
-      endpointFiles[stackName] = `../lib/services/lambda/endpoint-definitions/${file}`
+  const dir = path.resolve(__dirname, '../lib/services/lambda/endpoint-definitions')
+  const out: Record<string, string> = {}
+  const files = fs.readdirSync(dir)
+  for (const f of files) {
+    if (f.endsWith('-endpoints.ts')) {
+      const stack = f.replace('-endpoints.ts', '')
+      out[stack] = path.join(dir, f)
     }
   }
-
-  return endpointFiles
+  return out
 }
 
-function extractHandlerPaths(endpointFilePath: string): {
-  handlers: string[]
-  templates: string[]
-} {
-  const fullPath = path.resolve(__dirname, endpointFilePath)
-
-  // Dynamic import would be better but requires async, so we'll parse the file
+function extractFromFile(fullPath: string): StackInfo {
   const content = fs.readFileSync(fullPath, 'utf-8')
-
   const handlers: string[] = []
   const templates: string[] = []
 
-  // Extract handler strings using regex
-  // Matches: handler: 'some/path.functionName'
-  const handlerRegex = /handler:\s*['"]([^'"]+)['"]/g
-  let match
-
-  while ((match = handlerRegex.exec(content)) !== null) {
-    // Convert handler path to file path
-    // 'auth/login.login' -> 'auth/login'
-    const handlerPath = match[1].split('.')[0]
+  // handler: 'foo/bar.baz' -> handlers/foo/bar
+  const handlerRegex = /handler:\s*['"]([^'\"]+)['"]/g
+  let m: RegExpExecArray | null
+  while ((m = handlerRegex.exec(content)) !== null) {
+    const handlerPath = m[1].split('.')[0]
     handlers.push(`handlers/${handlerPath}`)
   }
 
-  // Extract bundleTemplate strings
-  // Matches: bundleTemplate: ['template.hbs']
-  const templateRegex = /bundleTemplate:\s*\[([^\]]+)\]/g
-  while ((match = templateRegex.exec(content)) !== null) {
-    const templateMatches = match[1].match(/['"]([^'"]+)['"]/g)
-    if (templateMatches) {
-      templateMatches.forEach((t) => {
-        const templateName = t.replace(/['"]/g, '')
-        templates.push(`templates/${templateName}`)
-      })
+  // bundleTemplate: ['a.hbs', 'b.hbs'] -> templates/a.hbs, templates/b.hbs
+  const templateBlock = /bundleTemplate:\s*\[([^\]]*)\]/g
+  while ((m = templateBlock.exec(content)) !== null) {
+    const inner = m[1]
+    const items = inner.match(/['"][^'"]+['"]/g) || []
+    for (const s of items) {
+      const name = s.replace(/['"]/g, '')
+      templates.push(`templates/${name}`)
     }
   }
 
   return {
-    handlers,
-    templates,
+    handlers, templates 
   }
 }
 
-function generateRegexPattern(paths: string[]): string {
-  // Generate a pattern that matches if ANY of the paths appear ANYWHERE in the line
-  // For grep -E to work, we don't anchor (no ^/$) and escape special chars
-  // 'handlers/stripe/handle-purchase' will match 'backend/lib/services/lambda/handlers/stripe/handle-purchase.ts'
-  const escapedPaths = paths.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 
-  // Join with | for alternation - grep will match if any substring is found
-  return escapedPaths.join('|')
+function patternForStack(stack: string, info: StackInfo): string {
+  const all = [
+    `marketplace-${stack}-stack`,
+    `${stack}-endpoints`,
+    ...info.handlers,
+    ...info.templates,
+    'services/lambda/helpers',
+    'services/lambda/domain-lambda-construct',
+    'services/lambda/bundling-configs',
+    'services/lambda/lambda-defaults',
+  ]
+  return all.map(escapeRegex).join('|')
 }
 
 function main() {
-  const stackHandlers: StackHandlers = {}
-  const endpointFiles = getEndpointFiles()
-
+  const files = getEndpointFiles()
+  const mapping: Record<string, StackInfo> = {}
   for (const [
-    stackName,
-    endpointFile
-  ] of Object.entries(endpointFiles)) {
-    try {
-      const {
-        handlers, templates
-      } = extractHandlerPaths(endpointFile)
-      stackHandlers[stackName] = {
-        endpointFile: endpointFile.replace('../', ''),
-        handlers,
-        templates,
-      }
-    } catch (error) {
-      console.error(`Error processing ${stackName}:`, error)
-      throw error
-    }
+    stack,
+    file
+  ] of Object.entries(files)) {
+    mapping[stack] = extractFromFile(file)
   }
 
-  // Output format based on command line argument
-  const arg = process.argv[2]
-
+  const arg = process.argv[2] || ''
   if (arg === '--json') {
-    console.log(JSON.stringify(stackHandlers, null, 2))
-  } else if (arg && arg.startsWith('--stack=')) {
-    const stackName = arg.replace('--stack=', '')
-    const stack = stackHandlers[stackName]
-
-    if (!stack) {
-      console.error(`Unknown stack: ${stackName}`)
-      console.error(`Available stacks: ${Object.keys(stackHandlers).join(', ')}`)
-      process.exit(1)
+    console.log(JSON.stringify(mapping, null, 2))
+    return
+  }
+  if (arg.startsWith('--stack=')) {
+    const name = arg.replace('--stack=', '')
+    const info = mapping[name]
+    if (!info) {
+      console.log('')
+      return
     }
-
-    // Output grep-compatible regex pattern for the stack
-    // Simplified approach: match if file path contains ANY relevant substring
-    const allPaths = [
-      `marketplace-${stackName}-stack`,           // Stack definition file
-      `${stackName}-endpoints`,                    // Endpoint definition file
-      ...stack.handlers,                          // Handler files
-      ...stack.templates,                         // Template files
-      'services/lambda/helpers',                  // Shared helpers
-      'services/lambda/domain-lambda-construct',  // Shared construct
-      'services/lambda/bundling-configs',         // Shared bundling
-      'services/lambda/lambda-defaults',          // Shared defaults
-    ]
-
-    const pattern = generateRegexPattern(allPaths)
-    console.log(pattern)
-  } else if (arg === '--bash-vars') {
-    // Output bash variable assignments for all stacks
-    for (const [
-      stackName,
-      stack
-    ] of Object.entries(stackHandlers)) {
-      // Simplified: match if file contains any relevant substring
-      const allPaths = [
-        `marketplace-${stackName}-stack`,
-        `${stackName}-endpoints`,
-        ...stack.handlers,
-        ...stack.templates,
-        'services/lambda/helpers',
-        'services/lambda/domain-lambda-construct',
-        'services/lambda/bundling-configs',
-        'services/lambda/lambda-defaults',
-      ]
-
-      const stackKey = stackName.toUpperCase().replace(/-/g, '_')
-      const pattern = generateRegexPattern(allPaths)
-      console.log(`${stackKey}_PATTERN="${pattern}"`)
-    }
-  } else {
-    console.error('Usage:')
-    console.error('  extract-handler-paths.ts --json                 # Output full JSON')
-    console.error('  extract-handler-paths.ts --stack=<name>         # Output grep pattern for stack')
-    console.error('  extract-handler-paths.ts --bash-vars            # Output bash variables for all stacks')
-    process.exit(1)
+    console.log(patternForStack(name, info))
+    return
+  }
+  // default: bash vars for all
+  for (const [
+    stack,
+    info
+  ] of Object.entries(mapping)) {
+    const key = stack.toUpperCase().replace(/-/g, '_')
+    const pattern = patternForStack(stack, info)
+    console.log(`${key}_PATTERN="${pattern}"`)
   }
 }
 
 main()
+

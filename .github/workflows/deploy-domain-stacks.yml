@@ -151,21 +151,23 @@ jobs:
           if echo "$FILES" | grep -qE "^backend/lib/services/lambda/(domain-lambda-construct|bundling-configs|lambda-defaults|helpers)"; then
             SHARED_LAMBDA_CHANGED=true
           fi
+          # Also treat shared workspace packages as impacting all lambdas
+          if echo "$FILES" | grep -qE "^(constants/|types/)"; then
+            SHARED_LAMBDA_CHANGED=true
+          fi
 
-          # Dynamically generate patterns from endpoint definitions
+          # Dynamically generate patterns from endpoint definitions (TypeScript)
           cd backend/scripts
-
-          # Generate patterns for each domain stack (show errors for debugging)
-          # Use --skip-project to avoid parent tsconfig conflicts
-          PUBLIC_PATTERN=$(npx ts-node --skip-project --transpile-only extract-handler-paths.ts --stack=public 2>&1 || echo "")
-          PAYMENTS_PATTERN=$(npx ts-node --skip-project --transpile-only extract-handler-paths.ts --stack=payments 2>&1 || echo "")
-          PRODUCTS_PATTERN=$(npx ts-node --skip-project --transpile-only extract-handler-paths.ts --stack=products 2>&1 || echo "")
-          INTERNAL_API_PATTERN=$(npx ts-node --skip-project --transpile-only extract-handler-paths.ts --stack=internal-api 2>&1 || echo "")
-          echo "DEBUG: Running events pattern extraction..."
-          EVENTS_PATTERN=$(npx ts-node --skip-project --transpile-only extract-handler-paths.ts --stack=events 2>&1)
-          echo "DEBUG: EVENTS_PATTERN result: '$EVENTS_PATTERN'"
-
+          STACK_VARS=$(npx ts-node --project tsconfig.json extract-handler-paths.ts --bash-vars 2>/dev/null || true)
           cd ../..
+
+          # Eval the generated variables into this shell
+          eval "$STACK_VARS"
+          PUBLIC_PATTERN=${PUBLIC_PATTERN:-""}
+          PAYMENTS_PATTERN=${PAYMENTS_PATTERN:-""}
+          PRODUCTS_PATTERN=${PRODUCTS_PATTERN:-""}
+          INTERNAL_API_PATTERN=${INTERNAL_API_PATTERN:-""}
+          EVENTS_PATTERN=${EVENTS_PATTERN:-""}
 
           # Debug: Print generated patterns
           echo "Generated patterns:"
@@ -202,16 +204,8 @@ jobs:
           if [ "$SHARED_LAMBDA_CHANGED" = "true" ]; then INTERNAL_API_CHANGED=true; fi
 
           EVENTS_CHANGED=false
-          if [ -n "$EVENTS_PATTERN" ]; then
-            echo "DEBUG: Testing EVENTS_PATTERN against files..."
-            if echo "$FILES" | grep -E "$EVENTS_PATTERN"; then
-              echo "DEBUG: EVENTS_PATTERN matched!"
-              EVENTS_CHANGED=true
-            else
-              echo "DEBUG: EVENTS_PATTERN did NOT match"
-            fi
-          else
-            echo "DEBUG: EVENTS_PATTERN is empty!"
+          if [ -n "$EVENTS_PATTERN" ] && echo "$FILES" | grep -qE "$EVENTS_PATTERN"; then
+            EVENTS_CHANGED=true
           fi
           if [ "$SHARED_LAMBDA_CHANGED" = "true" ]; then EVENTS_CHANGED=true; fi
 
