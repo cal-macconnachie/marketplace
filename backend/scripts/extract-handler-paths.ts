@@ -76,12 +76,11 @@ function extractHandlerPaths(endpointFilePath: string): {
 }
 
 function generateRegexPattern(paths: string[]): string {
-  // Convert paths to regex pattern parts, matching any file with this prefix
-  // 'handlers/auth/login' -> 'handlers/auth/login' (will match .ts, .js, etc.)
-  // Escape special regex characters and group
+  // Simplified: match if path contains any of these strings
+  // Much more robust - any file containing these paths will trigger
+  // 'handlers/auth/login' will match 'backend/lib/services/lambda/handlers/auth/login.ts'
   const escapedPaths = paths.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-  // Add optional file extension and any subdirectories
-  return `(${escapedPaths.map(p => `${p}(\\.[^/]+)?`).join('|')})`
+  return escapedPaths.join('|')
 }
 
 function main() {
@@ -117,15 +116,19 @@ function main() {
     }
 
     // Output grep-compatible regex pattern for the stack
+    // Simplified approach: match if file path contains ANY relevant substring
     const allPaths = [
-      ...stack.handlers,
-      ...stack.templates,
+      `marketplace-${stackName}-stack`,           // Stack definition file
+      `${stackName}-endpoints`,                    // Endpoint definition file
+      ...stack.handlers,                          // Handler files
+      ...stack.templates,                         // Template files
+      'services/lambda/helpers',                  // Shared helpers
+      'services/lambda/domain-lambda-construct',  // Shared construct
+      'services/lambda/bundling-configs',         // Shared bundling
+      'services/lambda/lambda-defaults',          // Shared defaults
     ]
 
-    // Add the endpoint definition file itself, the stack file, and helpers
-    // Make pattern more inclusive - match any file in handler/template paths
-    const pattern = `^backend/lib/(marketplace-${stackName}-stack|services/lambda/(endpoint-definitions/${stackName}-endpoints|${generateRegexPattern(allPaths)}|helpers))`
-
+    const pattern = generateRegexPattern(allPaths)
     console.log(pattern)
   } else if (arg === '--bash-vars') {
     // Output bash variable assignments for all stacks
@@ -133,14 +136,20 @@ function main() {
       stackName,
       stack
     ] of Object.entries(stackHandlers)) {
+      // Simplified: match if file contains any relevant substring
       const allPaths = [
+        `marketplace-${stackName}-stack`,
+        `${stackName}-endpoints`,
         ...stack.handlers,
         ...stack.templates,
+        'services/lambda/helpers',
+        'services/lambda/domain-lambda-construct',
+        'services/lambda/bundling-configs',
+        'services/lambda/lambda-defaults',
       ]
 
       const stackKey = stackName.toUpperCase().replace(/-/g, '_')
-      const pattern = `^backend/lib/(marketplace-${stackName}-stack|services/lambda/(endpoint-definitions/${stackName}-endpoints|${generateRegexPattern(allPaths)}|helpers))`
-
+      const pattern = generateRegexPattern(allPaths)
       console.log(`${stackKey}_PATTERN="${pattern}"`)
     }
   } else {

@@ -119,7 +119,6 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
             })
           }
         }
-        // Payment intent status will be updated via webhook (payment_intent.succeeded or payment_intent.payment_failed)
       } catch (e){
         console.error('Error creating destination charge:', e)
 
