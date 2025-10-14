@@ -1,9 +1,20 @@
 <template>
   <div class="guest-checkout-form">
     <!-- Progress Indicator -->
-    <CheckoutProgress :steps="progressSteps" :current-step="currentProgressStep" />
+    <CheckoutProgress :steps="progressSteps" :current-step="currentProgressStep" class="checkout-progress" />
 
-    <form @submit.prevent="handleSubmit" class="checkout-form">
+    <form @submit.prevent="handleSubmit" class="checkout-form" novalidate>
+      <!-- Registration Error Alert -->
+      <BaseAlert
+        v-if="error && !hasStripeCustomer"
+        variant="error"
+        title="Registration Error"
+        :message="error"
+        :show="true"
+        dismissible
+        @dismiss="error = null"
+      />
+
       <!-- Personal Information -->
       <div class="form-section">
         <div class="form-row">
@@ -16,6 +27,7 @@
             :error="errors.firstName"
             @update="handleFieldUpdate"
             :disabled="isRegistered"
+            tabindex="1"
           />
           <EditableField
             :value="formData.lastName"
@@ -26,6 +38,7 @@
             :error="errors.lastName"
             @update="handleFieldUpdate"
             :disabled="isRegistered"
+            tabindex="2"
           />
         </div>
         <EditableField
@@ -37,6 +50,7 @@
           :error="errors.email"
           @update="handleFieldUpdate"
           :disabled="isRegistered"
+          tabindex="3"
         />
 
         <PhoneNumberField
@@ -48,6 +62,7 @@
           :error="errors.phoneNumber"
           @update="handleFieldUpdate"
           :disabled="isRegistered"
+          tabindex="4"
         />
 
         <AddressSearch
@@ -61,6 +76,7 @@
           "
           @update="handleFieldUpdate"
           :disabled="isRegistered"
+          tabindex="5"
         />
 
         <EditableToggle
@@ -72,6 +88,7 @@
           :required="false"
           @update="handleFieldUpdate"
           :disabled="isRegistered"
+          tabindex="6"
         />
 
         <AddressSearch
@@ -89,11 +106,12 @@
           "
           @update="handleFieldUpdate"
           :disabled="isRegistered"
+          tabindex="7"
         />
       </div>
 
       <!-- Payment Method Section (show after form is valid and Stripe customer exists) -->
-      <div v-if="hasStripeCustomer && !isPaymentMethodReady" class="form-section">
+      <div v-show="hasStripeCustomer && !isPaymentMethodReady" class="form-section">
         <div v-if="!stripeLoaded" class="loading-overlay">
           <LoadingSpinner />
         </div>
@@ -122,6 +140,7 @@
             full-width
             @click="handleSubmit"
             class="submit-payment-button"
+            tabindex="8"
           >
             Verify Payment Method
           </BaseButton>
@@ -323,15 +342,27 @@ const currentProgressStep = computed(() => {
 
 // Auto-register when form becomes valid
 watch(canRegister, async (canNowRegister) => {
-  if (canNowRegister && !isRegistered.value && !registeringUser.value) {
+  // Retry registration if:
+  // 1. Form is now valid
+  // 2. User is not already registered successfully
+  // 3. Not currently processing
+  // 4. Either this is first attempt OR there was a previous error (allowing retry)
+  if (canNowRegister && !isRegistered.value && !registeringUser.value && !hasStripeCustomer.value) {
+    // Clear previous errors before attempting registration
+    error.value = null
     await handleRegistration()
   }
 })
 
 // Initialize Stripe when customer is ready
-watch(hasStripeCustomer, (newValue) => {
-  if (newValue) {
-    initializeStripe()
+watch(hasStripeCustomer, async (newValue, oldValue) => {
+  if (newValue && !stripeLoaded.value) {
+    // Reset state before initializing
+    resetState()
+    await initializeStripe()
+  } else if (!newValue && oldValue) {
+    // Clean up when no longer eligible
+    cleanupStripe()
   }
 })
 
@@ -366,8 +397,17 @@ const handleFieldUpdate = (
   field: string,
   value: string | { [key: string]: string | undefined } | boolean | null | undefined,
 ) => {
+  // Track if there was a registration error before clearing
+  const hadRegistrationError = !!error.value && !hasStripeCustomer.value
+
+  // Clear field-specific errors
   if (errors.value[field]) {
     delete errors.value[field]
+  }
+
+  // Clear general error message when user makes changes
+  if (error.value && !hasStripeCustomer.value) {
+    error.value = null
   }
 
   switch (field) {
@@ -452,6 +492,13 @@ const handleFieldUpdate = (
   }
 
   emitFormUpdate()
+
+  // After updating field, check if we should retry registration
+  nextTick(() => {
+    if (hadRegistrationError && canRegister.value && !isRegistered.value && !registeringUser.value && !hasStripeCustomer.value) {
+      handleRegistration()
+    }
+  })
 }
 
 const validateEmail = (email: string) => {
@@ -464,6 +511,13 @@ const emitFormUpdate = () => {
   if (formData.value.firstName && formData.value.lastName && formData.value.email) {
     emit('form-updated', formData.value)
   }
+}
+
+const resetState = () => {
+  stripeLoaded.value = false
+  processing.value = false
+  error.value = null
+  cardElementComplete.value = false
 }
 
 const validateForm = (): boolean => {
@@ -573,11 +627,26 @@ const handleRegistration = async () => {
 
     hasStripeCustomer.value = true
     waitingForStripeCustomer.value = false
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Registration failed:', err)
-    error.value = err instanceof Error ? err.message : 'Registration failed. Please try again.'
+
+    // Extract error message from API response
+    let errorMessage = 'Registration failed. Please try again.'
+
+    // Check if error is an Axios error with response data
+    if (typeof err === 'object' && err !== null && 'response' in err) {
+      const axiosError = err as { response?: { data?: { message?: string } } }
+      if (axiosError.response?.data?.message) {
+        errorMessage = axiosError.response.data.message
+      }
+    } else if (err instanceof Error) {
+      errorMessage = err.message
+    }
+
+    error.value = errorMessage
     isRegistered.value = false
     registeredUserId.value = null
+    hasStripeCustomer.value = false
   } finally {
     registeringUser.value = false
     waitingForStripeCustomer.value = false
@@ -590,8 +659,17 @@ const initializeStripe = async () => {
     return
   }
 
+  // Add timeout to prevent infinite loading
+  const timeoutId = setTimeout(() => {
+    if (!stripeLoaded.value) {
+      error.value = 'Stripe is taking too long to load. Please check your internet connection.'
+      console.error('Stripe loading timeout')
+    }
+  }, 10000) // 10 second timeout
+
   try {
     stripe = await loadStripe(stripePublishableKey)
+    clearTimeout(timeoutId)
 
     if (!stripe) {
       throw new Error('Failed to load payment system')
@@ -637,7 +715,13 @@ const initializeStripe = async () => {
     stripeLoaded.value = true
   } catch (err) {
     console.error('Failed to initialize Stripe:', err)
-    error.value = 'Failed to load payment system. Please refresh the page and try again.'
+    clearTimeout(timeoutId)
+
+    if (err instanceof Error) {
+      error.value = `Failed to initialize Stripe: ${err.message}`
+    } else {
+      error.value = 'Failed to load payment system. Please refresh the page and try again.'
+    }
   }
 }
 
@@ -652,7 +736,7 @@ const cleanupStripe = () => {
   }
   elements = null
   stripe = null
-  stripeLoaded.value = false
+  resetState()
 }
 
 const handleSubmit = async () => {
@@ -806,6 +890,13 @@ onUnmounted(() => {
 <style scoped>
 .guest-checkout-form {
   width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.checkout-progress {
+  margin-bottom: var(--space-4);
 }
 
 .checkout-form {
@@ -818,12 +909,29 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  padding: 0;
+  overflow: visible;
 }
 
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-4);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .checkout-progress {
+    margin-bottom: var(--space-3);
+  }
+
+  .checkout-form {
+    gap: var(--space-4);
+  }
+
+  .form-section {
+    gap: var(--space-3);
+  }
 }
 
 .registration-step {
@@ -886,6 +994,7 @@ onUnmounted(() => {
     border-color 0.2s ease,
     box-shadow 0.2s ease;
   min-height: 44px;
+  width: 100%;
 }
 
 .stripe-card-element:focus-within {
@@ -895,6 +1004,20 @@ onUnmounted(() => {
 
 .submit-payment-button {
   margin-top: var(--space-4);
+  min-height: 44px;
+  font-size: var(--font-size-base);
+}
+
+@media (max-width: 768px) {
+  .stripe-card-element {
+    min-height: 52px;
+    padding: var(--space-4);
+  }
+
+  .submit-payment-button {
+    min-height: 48px;
+    font-size: var(--font-size-md);
+  }
 }
 
 /* Ready state */
@@ -936,10 +1059,26 @@ onUnmounted(() => {
   font-weight: var(--font-weight-medium);
 }
 
-/* Responsive design */
+/* Responsive design for smaller mobile devices */
 @media (max-width: 640px) {
   .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .guest-checkout-form {
+    padding: 0;
+  }
+
+  .checkout-form {
+    gap: var(--space-3);
+  }
+
+  .ready-state {
+    padding: var(--space-6);
+  }
+
+  .payment-element-container {
+    padding: 0;
   }
 }
 </style>

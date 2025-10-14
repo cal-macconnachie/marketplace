@@ -1946,6 +1946,11 @@ onMounted(async () => {
 /* Checkout Section */
 .checkout-section {
   position: sticky;
+  overflow: visible;
+}
+
+.checkout-card {
+  overflow: visible;
 }
 
 .auth-status {
@@ -2006,6 +2011,7 @@ onMounted(async () => {
 /* Payment Section */
 .payment-section {
   margin-bottom: var(--space-6);
+  overflow: visible;
 }
 
 .payment-loading {
@@ -2034,6 +2040,7 @@ onMounted(async () => {
 .add-payment-method,
 .guest-payment-form {
   border-radius: var(--radius-md);
+  overflow: visible;
 }
 
 /* Cart Summary */
