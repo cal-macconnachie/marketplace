@@ -40,12 +40,39 @@ export const getCartStatus = rateLimitedHandler(async (event: APIGatewayProxyEve
     }
     const next = cart.next_steps?.length ? cart.next_steps : undefined
     const hasPendingPurchases = Object.values(cart.purchases || {}).some(status => status === 'pending')
+
+    // Check if any next_steps require action (3DS authentication)
+    const requiresAction = (cart.next_steps?.length ?? 0) > 0
+
+    // Build purchases array with requiresAction and clientSecret for frontend
+    const purchases = Object.entries(cart.purchases || {}).map(([id, status]) => {
+      const purchase: {
+        id: string
+        status: string
+        requiresAction?: boolean
+        clientSecret?: string
+      } = { id, status }
+
+      // If this purchase is pending and we have a next_step for payment action
+      if (status === 'pending' && cart.next_steps && cart.next_steps.length > 0) {
+        const paymentActionStep = cart.next_steps.find(step => step.type === 'payment_action_required')
+        if (paymentActionStep) {
+          purchase.requiresAction = true
+          purchase.clientSecret = paymentActionStep.payment_intent_client_secret
+        }
+      }
+
+      return purchase
+    })
+
     if (hasPendingPurchases) {
       return {
         statusCode: 200,
         body: JSON.stringify({
           success: true,
           cartStatus: 'pending',
+          requiresAction,
+          purchases,
           next
         }),
         headers: {

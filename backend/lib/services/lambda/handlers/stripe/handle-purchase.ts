@@ -128,19 +128,49 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
         // Payment intent status will be updated via webhook (payment_intent.succeeded or payment_intent.payment_failed)
       } catch (e){
         console.error('Error creating destination charge:', e)
-        // Mark purchases as failed if we couldn't even create the payment intent
-        for (const purchase of group) {
-          try {
-            await updatePurchaseStatus({
-              cartId: purchase.cart_id,
-              userId: purchase.user_id,
-              purchaseId: purchase.id,
-              status: 'failed'
-            })
-          } catch (error) {
-            console.error(`Failed to update purchase status for purchase ${purchase.id}:`, error)
-          // fallthrough
+
+        // Check if this is a recoverable error (authentication required) or a permanent failure
+        let shouldMarkAsFailed = true
+
+        // If createDestinationCharge caught an authentication error and returned a PaymentIntent,
+        // it would have returned normally (not thrown). So if we're here, it's either:
+        // 1. A genuine error that couldn't be handled
+        // 2. An error we need to inspect for recoverability
+
+        // For any error, purchases should remain 'pending' unless it's clearly a permanent failure
+        // The webhook handlers will update purchase status based on payment_intent events
+
+        if (e && typeof e === 'object' && 'message' in e) {
+          const errorMessage = (e as Error).message
+          console.log(`Error message: ${errorMessage}`)
+
+          // Don't mark as failed for errors that might be transient or require user action
+          if (errorMessage.includes('authentication') ||
+              errorMessage.includes('requires_action') ||
+              errorMessage.includes('3D Secure')) {
+            shouldMarkAsFailed = false
+            console.log('Error appears to be authentication-related, keeping purchases as pending')
           }
+        }
+
+        // Only mark purchases as failed for permanent failures
+        if (shouldMarkAsFailed) {
+          console.log('Marking purchases as failed due to permanent error')
+          for (const purchase of group) {
+            try {
+              await updatePurchaseStatus({
+                cartId: purchase.cart_id,
+                userId: purchase.user_id,
+                purchaseId: purchase.id,
+                status: 'failed'
+              })
+            } catch (error) {
+              console.error(`Failed to update purchase status for purchase ${purchase.id}:`, error)
+            // fallthrough
+            }
+          }
+        } else {
+          console.log('Purchases remain pending - waiting for webhook or user action')
         }
       }
     }

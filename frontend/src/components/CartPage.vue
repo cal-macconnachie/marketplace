@@ -1204,6 +1204,11 @@ const pollUntilCartReady = async (
         return { ready: true, success: true, cartStatus: 'succeeded' }
       }
 
+      // Check if cart has definitively failed (all purchases failed)
+      if (status.success === false && status.cartStatus === 'failed') {
+        return { ready: true, success: false, cartStatus: 'failed' }
+      }
+
       // Check if PaymentIntent verification required
       if (status.requiresAction && status.purchases) {
         const purchaseRequiringAction = status.purchases.find((p) => p.requiresAction)
@@ -1227,6 +1232,10 @@ const pollUntilCartReady = async (
       if (status.success && status.cartStatus === 'succeeded') {
         return false
       }
+      // Stop polling if cart definitively failed
+      if (status.success === false && status.cartStatus === 'failed') {
+        return false
+      }
       // Continue polling if not ready and not waiting for verification
       return !status.ready && !waitingForVerification
     },
@@ -1242,6 +1251,14 @@ const pollUntilCartReady = async (
       success: false,
       error:
         'Purchase processing timed out. Please check your email for confirmation or contact support.',
+    }
+  }
+
+  // Check if polling stopped due to failure
+  if (result.data && result.data.success === false && result.data.cartStatus === 'failed') {
+    return {
+      success: false,
+      error: 'All purchases failed. Please check your payment method and try again.',
     }
   }
 

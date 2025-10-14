@@ -29,8 +29,11 @@
           </div>
           <div class="step-content">
             <div class="step-label">{{ step.label }}</div>
-            <div v-if="step.description && index === currentStepIndex" class="step-description">
-              {{ step.description }}
+            <div
+              class="step-description"
+              :class="{ 'is-visible': step.description && index === currentStepIndex }"
+            >
+              {{ step.description || '\u00A0' }}
             </div>
           </div>
         </div>
@@ -160,6 +163,17 @@ const currentStepIndex = computed(() => {
   color: var(--color-text-secondary);
   margin-top: var(--space-1);
   line-height: var(--line-height-relaxed);
+  min-height: 2.4em; /* Reserve space for 2 lines of text */
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.step-description.is-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .step-number {

@@ -108,13 +108,24 @@
           @dismiss="error = null"
         />
 
-        <div class="payment-element-container" :class="{ 'form-disabled': !stripeLoaded || error }">
+        <div class="payment-element-container" :class="{ 'form-disabled': !stripeLoaded || error || processing }">
           <div id="guest-card-element" class="stripe-card-element">
             <!-- Stripe Card Element will mount here -->
           </div>
-        </div>
 
-        <!-- Auto-submit when card is complete -->
+          <BaseButton
+            type="button"
+            variant="primary"
+            size="md"
+            :disabled="!cardElementComplete"
+            :loading="processing"
+            full-width
+            @click="handleSubmit"
+            class="submit-payment-button"
+          >
+            Verify Payment Method
+          </BaseButton>
+        </div>
       </div>
 
       <!-- Ready state message (shown when payment method is ready) -->
@@ -125,7 +136,7 @@
             <polyline points="8 12 11 15 16 10"></polyline>
           </svg>
         </div>
-        <p class="ready-text">Payment method verified! You can now complete your purchase.</p>
+        <p class="ready-text">Payment verified</p>
       </div>
     </form>
 
@@ -155,6 +166,7 @@ import {
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import AddressSearch from './AddressSearch.vue'
 import BaseAlert from './BaseAlert.vue'
+import BaseButton from './BaseButton.vue'
 import CheckoutProgress from './CheckoutProgress.vue'
 import EditableField from './EditableField.vue'
 import EditableToggle from './EditableToggle.vue'
@@ -323,12 +335,7 @@ watch(hasStripeCustomer, (newValue) => {
   }
 })
 
-// Auto-submit payment when card is complete
-watch([stripeLoaded, cardElementComplete], ([loaded, complete]) => {
-  if (loaded && complete && !processing.value && !isPaymentMethodReady.value) {
-    handleSubmit()
-  }
-})
+// Removed auto-submit - user must click the button to verify payment method
 
 // Emit ready state changes to parent
 watch(isPaymentMethodReady, (ready) => {
@@ -884,6 +891,10 @@ onUnmounted(() => {
 .stripe-card-element:focus-within {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px var(--color-primary-alpha);
+}
+
+.submit-payment-button {
+  margin-top: var(--space-4);
 }
 
 /* Ready state */
