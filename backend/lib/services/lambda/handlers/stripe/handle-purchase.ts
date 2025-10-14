@@ -123,9 +123,6 @@ export const handlePurchase = async (event: EventBridgeEvent<'PurchaseKeyEvent',
         console.error('Error creating destination charge:', e)
 
         let shouldMarkAsFailed = true
-
-        // 2. An error we need to inspect for recoverability
-
         // For any error, purchases should remain 'pending' unless it's clearly a permanent failure
         // The webhook handlers will update purchase status based on payment_intent events
 

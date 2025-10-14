@@ -156,12 +156,13 @@ jobs:
           cd backend/scripts
 
           # Generate patterns for each domain stack (show errors for debugging)
-          PUBLIC_PATTERN=$(npx ts-node extract-handler-paths.ts --stack=public 2>&1 || echo "")
-          PAYMENTS_PATTERN=$(npx ts-node extract-handler-paths.ts --stack=payments 2>&1 || echo "")
-          PRODUCTS_PATTERN=$(npx ts-node extract-handler-paths.ts --stack=products 2>&1 || echo "")
-          INTERNAL_API_PATTERN=$(npx ts-node extract-handler-paths.ts --stack=internal-api 2>&1 || echo "")
+          # Use --skip-project to avoid parent tsconfig conflicts
+          PUBLIC_PATTERN=$(npx ts-node --skip-project --transpile-only extract-handler-paths.ts --stack=public 2>&1 || echo "")
+          PAYMENTS_PATTERN=$(npx ts-node --skip-project --transpile-only extract-handler-paths.ts --stack=payments 2>&1 || echo "")
+          PRODUCTS_PATTERN=$(npx ts-node --skip-project --transpile-only extract-handler-paths.ts --stack=products 2>&1 || echo "")
+          INTERNAL_API_PATTERN=$(npx ts-node --skip-project --transpile-only extract-handler-paths.ts --stack=internal-api 2>&1 || echo "")
           echo "DEBUG: Running events pattern extraction..."
-          EVENTS_PATTERN=$(npx ts-node extract-handler-paths.ts --stack=events 2>&1)
+          EVENTS_PATTERN=$(npx ts-node --skip-project --transpile-only extract-handler-paths.ts --stack=events 2>&1)
           echo "DEBUG: EVENTS_PATTERN result: '$EVENTS_PATTERN'"
 
           cd ../..
