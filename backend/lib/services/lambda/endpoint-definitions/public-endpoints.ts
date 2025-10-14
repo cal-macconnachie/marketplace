@@ -242,5 +242,18 @@ export const publicEndpoints: LambdaEndpointDefinition[] = [
       auth: 'none',
       cors: true
     }
-  }
+  },
+
+  // Receipts (1 lambda)
+  // {
+  //   name: 'getReceipt',
+  //   handler: 'receipts/get-receipt.getReceipt',
+  //   description: 'Get receipt data for a specific cart',
+  //   apiGw: {
+  //     path: 'receipts/{cartId}/{userId}',
+  //     method: 'GET',
+  //     auth: 'none',
+  //     cors: true
+  //   }
+  // }
 ]

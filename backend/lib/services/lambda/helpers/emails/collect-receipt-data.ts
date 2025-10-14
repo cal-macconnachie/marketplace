@@ -64,15 +64,19 @@ export const collectReceiptEmailData = async (
     cart
   } = detail
 
-  // Load core records
-  const purchases = await getAllPurchasesForCart(cart.id)
-
-  const paymentMethod = await get<PaymentMethod>({
-    tableName: paymentMethodsTableName!,
-    key: {
-      user_id: user.id, id: cart.payment_method_id
-    }
-  })
+  // Load core records - fetch purchases and payment method in parallel
+  const [
+    purchases,
+    paymentMethod
+  ] = await Promise.all([
+    getAllPurchasesForCart(cart.id),
+    get<PaymentMethod>({
+      tableName: paymentMethodsTableName!,
+      key: {
+        user_id: user.id, id: cart.payment_method_id
+      }
+    })
+  ])
 
   if (purchases.length === 0) {
     throw new Error("No purchases found for receipt generation")
@@ -91,8 +95,8 @@ export const collectReceiptEmailData = async (
     Object.values(productKeyById).map((pp) =>
       get<Product>({
         tableName: productsTableName!, key: {
-          group_id: pp.group_id, id: pp.id 
-        } 
+          group_id: pp.group_id, id: pp.id
+        }
       })
     )
   )).filter(Boolean) as Product[]
@@ -274,7 +278,7 @@ export const collectReceiptEmailData = async (
 
   const envName = process.env.NODE_ENV || 'dev'
   const domainPrefix = envName === 'prod' ? '' : `${envName}.`
-  const receiptUrl = `https://${domainPrefix}${domain}/receipts/${cart.id}`
+  const receiptUrl = `https://${domainPrefix}${domain}/receipts/${cart.id}/${user.id}`
   const context: ReceiptEmailContext = {
     preheader: `Your receipt for ${line_items.length} item(s) – ${summary.total_formatted}`,
     receipt_number: cart.id,

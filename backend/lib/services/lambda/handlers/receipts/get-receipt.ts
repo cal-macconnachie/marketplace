@@ -1,21 +1,25 @@
-import { purchaseCartsTableName } from '@marketplace/constants'
 import {
-  Cart
+  purchaseCartsTableName, usersTableName
+} from '@marketplace/constants'
+import {
+  Cart,
+  User
 } from '@marketplace/types'
 import { APIGatewayProxyHandler } from 'aws-lambda'
 import { get } from '../../helpers/dynamo-helpers/get'
 import { collectReceiptEmailData } from '../../helpers/emails/collect-receipt-data'
-import { getUserFromEvent } from '../../helpers/get-user-from-event'
+import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
 
 /**
- * GET /receipts/:cartId
+ * GET /receipts/:cartId/:userId
  * Fetches receipt data for a specific cart
  */
-export const getReceipt: APIGatewayProxyHandler = async (event) => {
+export const getReceipt: APIGatewayProxyHandler = rateLimitedHandler(async (event) => {
   try {
     const cartId = event.pathParameters?.cartId
+    const userId = event.pathParameters?.userId
 
-    if (!cartId) {
+    if (!cartId || !userId) {
       return {
         statusCode: 400,
         headers: {
@@ -23,13 +27,28 @@ export const getReceipt: APIGatewayProxyHandler = async (event) => {
           'Access-Control-Allow-Origin': '*'
         },
         body: JSON.stringify({
-          error: 'Cart ID is required'
+          error: 'Cart ID and User ID are required'
         })
       }
     }
 
-    // Get authenticated user
-    const user = await getUserFromEvent(event)
+    // Fetch user and cart in parallel for better performance
+    const [
+      user,
+      cart
+    ] = await Promise.all([
+      get<User>({
+        tableName: usersTableName,
+        key: { id: userId! }
+      }),
+      get<Cart>({
+        tableName: purchaseCartsTableName!,
+        key: {
+          user_id: userId!,
+          id: cartId
+        }
+      })
+    ])
 
     if (!user) {
       return {
@@ -43,15 +62,6 @@ export const getReceipt: APIGatewayProxyHandler = async (event) => {
         })
       }
     }
-
-    // Fetch cart
-    const cart = await get<Cart>({
-      tableName: purchaseCartsTableName!,
-      key: {
-        user_id: user.id,
-        id: cartId
-      }
-    })
 
     if (!cart) {
       return {
@@ -108,4 +118,4 @@ export const getReceipt: APIGatewayProxyHandler = async (event) => {
       })
     }
   }
-}
+})

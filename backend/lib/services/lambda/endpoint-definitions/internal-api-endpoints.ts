@@ -222,18 +222,5 @@ export const internalApiEndpoints: LambdaEndpointDefinition[] = [
       auth: 'cognito',
       cors: true
     }
-  },
-
-  // Receipts (1 lambda)
-  {
-    name: 'getReceipt',
-    handler: 'receipts/get-receipt.getReceipt',
-    description: 'Get receipt data for a specific cart',
-    apiGw: {
-      path: 'receipts/{cartId}',
-      method: 'GET',
-      auth: 'cognito',
-      cors: true
-    }
   }
 ]
