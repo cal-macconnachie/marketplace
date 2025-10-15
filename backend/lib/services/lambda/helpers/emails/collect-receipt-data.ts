@@ -277,9 +277,7 @@ export const collectReceiptEmailData = async (
     }
   })
 
-  const envName = process.env.NODE_ENV || 'dev'
-  const domainPrefix = envName === 'prod' ? '' : `${envName}.`
-  const receiptUrl = `https://${domainPrefix}${domain}/receipts/${cart.id}/${user.id}`
+  const receiptUrl = `https://${domain}/receipts/${cart.id}/${user.id}`
   const context: ReceiptEmailContext = {
     preheader: `Your receipt for ${line_items.length} item(s) – ${summary.total_formatted}`,
     receipt_number: cart.id,

@@ -7,7 +7,6 @@ export interface CloudFrontDistributionDefinition {
   name: string
   comment?: string
   domainName?: string
-  domainPrefix?: string // Prefix for dev environment (e.g., 'dev' will create dev.domain.com)
   subdomain?: string // Subdomain within the zone (e.g., 'images' for images.dev.domain.com)
   hostedZoneName?: string
   requireBasicAuth?: boolean // Enable basic auth for dev environment
