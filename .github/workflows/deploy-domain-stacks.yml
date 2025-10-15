@@ -744,9 +744,7 @@ jobs:
           echo "cognito-client-id=$COGNITO_CLIENT_ID" >> $GITHUB_OUTPUT
 
       - name: Build shared packages
-        run: |
-          yarn workspace @marketplace/constants build
-          yarn workspace @marketplace/types build
+        run: yarn workspace @marketplace/constants build
 
       - name: Clean frontend dist directory
         working-directory: frontend
