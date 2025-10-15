@@ -1,17 +1,18 @@
-import { getPromoByCode } from "./get-promo-by-code"
-import { getStripeClient } from "./stripe-client"
+import {
+  ItemsInterface,
+  Organization,
+  Product, Purchase, User
+} from '@marketplace/types'
 import { v4 } from 'uuid'
 import {
-  calculatePlatformFee, 
-} from './calculate-platform-fee'
-import {
-  calculateTaxesWithCaching 
+  calculateTaxesWithCaching
 } from '../tax/calculate-taxes-with-caching'
 import { generateLocationKey } from '../tax/tax-calculation-cache'
 import {
-  Product, Purchase, User, Organization, 
-  ItemsInterface
-} from '@marketplace/types'
+  calculatePlatformFee,
+} from './calculate-platform-fee'
+import { getPromoByCode } from "./get-promo-by-code"
+import { getStripeClient } from "./stripe-client"
 export const createOneTimePurchase = async ({
   promotionCode,
   couponId,
@@ -175,7 +176,7 @@ export const createOneTimePurchase = async ({
         percent_off: appliedDiscount.coupon?.percent_off || 0
       }
     } : undefined,
-    seller_organization_id: product.metadata?.organization_id,
+    seller_organization_id: product.organization_id,
     status: 'pending'
   }
   return purchaseData

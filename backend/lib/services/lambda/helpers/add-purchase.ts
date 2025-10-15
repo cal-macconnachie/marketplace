@@ -26,6 +26,9 @@ export async function addPurchase(purchase: Omit<Purchase, 'status'>, product?: 
       seller_organization_id: product.organization_id
     }
   }
+  if (!finalPurchase.seller_organization_id) {
+    throw new Error('seller_organization_id is required on purchase if product is not provided or does not have organization_id')
+  }
 
   finalPurchase = await create<Purchase>({
     tableName: purchasesTableName!,

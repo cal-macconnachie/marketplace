@@ -29,7 +29,7 @@ export const sendReceiptSMS = async ({
     sellerText = `${sellerNames.slice(0, -1).join(', ')}, and ${sellerNames[sellerNames.length - 1]}`
   }
 
-  const message = `Thank you for your ${ctx.line_items?.length > 1 ? 'purchases' : 'purchase'} from ${sellerText}!\nTotal: ${ctx.summary.total_formatted}\nView receipt: ${ctx.receipt_url}`
+  const message = `Thank you for your ${ctx.line_items?.length > 1 ? 'purchases' : 'purchase'} from ${sellerText}!\nTotal: ${ctx.summary.total_formatted}\n\nView receipt: ${ctx.receipt_url} -`
 
   await sendSMS({
     phoneNumber: ctx.customer_phone,

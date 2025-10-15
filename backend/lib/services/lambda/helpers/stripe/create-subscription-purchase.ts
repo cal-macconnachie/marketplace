@@ -1,14 +1,16 @@
 import {
-  Product, Purchase, User, Organization, ItemsInterface 
+  ItemsInterface,
+  Organization,
+  Product, Purchase, User
 } from '@marketplace/types'
-import { getPromoByCode } from './get-promo-by-code'
-import { getStripeClient } from './stripe-client'
 import { v4 } from 'uuid'
-import { calculatePlatformFee } from './calculate-platform-fee'
 import {
-  calculateTaxesWithCaching 
+  calculateTaxesWithCaching
 } from '../tax/calculate-taxes-with-caching'
 import { generateLocationKey } from '../tax/tax-calculation-cache'
+import { calculatePlatformFee } from './calculate-platform-fee'
+import { getPromoByCode } from './get-promo-by-code'
+import { getStripeClient } from './stripe-client'
 
 export const createSubscriptionPurchase = async ({
   promotionCode,
@@ -58,7 +60,7 @@ export const createSubscriptionPurchase = async ({
       connected_account_id: product.account_id,
       tax_amount: 0,
       base_amount: 0,
-      seller_organization_id: product.metadata?.organization_id,
+      seller_organization_id: product.organization_id,
       status: 'pending' // Remains pending until invoice is finalized
     }
 
@@ -237,7 +239,7 @@ export const createSubscriptionPurchase = async ({
         percent_off: appliedDiscount.coupon?.percent_off || 0
       }
     } : undefined,
-    seller_organization_id: product.metadata?.organization_id,
+    seller_organization_id: product.organization_id,
     status: 'pending'
   }
 
