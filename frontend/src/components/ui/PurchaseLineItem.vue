@@ -237,9 +237,10 @@
           >
         </span>
       </div>
+      <!-- Active Dispute Info -->
       <div
-        v-if="purchase.status === 'in_dispute' && purchase.dispute_id"
-        class="dispute-info-breakdown"
+        v-if="purchase.status === 'in_dispute' && purchase.dispute_id && purchase.dispute_status === 'pending'"
+        class="dispute-info-breakdown dispute-info-breakdown--pending"
       >
         <svg class="dispute-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
           <path
@@ -249,6 +250,70 @@
           />
         </svg>
         <span>This purchase is currently being disputed</span>
+      </div>
+
+      <!-- Dispute Accepted (Refunded) -->
+      <div
+        v-if="purchase.dispute_id && purchase.dispute_status === 'accepted'"
+        class="dispute-info-breakdown dispute-info-breakdown--accepted"
+      >
+        <svg class="dispute-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fill-rule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        <span>Dispute was accepted - Refund processed</span>
+      </div>
+
+      <!-- Dispute Rejected -->
+      <div
+        v-if="purchase.dispute_id && purchase.dispute_status === 'rejected'"
+        class="dispute-info-breakdown dispute-info-breakdown--rejected"
+      >
+        <svg class="dispute-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fill-rule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        <span>Dispute was rejected - No refund issued</span>
+      </div>
+
+      <!-- Dispute Escalated -->
+      <div
+        v-if="purchase.dispute_id && purchase.dispute_status === 'escalated'"
+        class="dispute-info-breakdown dispute-info-breakdown--escalated"
+      >
+        <svg class="dispute-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fill-rule="evenodd"
+            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        <span>Dispute has been escalated to platform review</span>
+      </div>
+
+      <!-- Dispute Resolved -->
+      <div
+        v-if="purchase.dispute_id && purchase.dispute_status === 'resolved'"
+        class="dispute-info-breakdown dispute-info-breakdown--resolved"
+      >
+        <svg class="dispute-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fill-rule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        <span>Dispute has been resolved by platform
+          <span v-if="purchase.dispute_resolved_at" class="dispute-date">
+            ({{ new Date(purchase.dispute_resolved_at).toLocaleDateString() }})
+          </span>
+        </span>
       </div>
       <div
         v-if="
@@ -407,14 +472,35 @@ const discountAmount = computed(() => {
 })
 
 const isDisputable = computed(() => {
-  // A purchase can be disputed if it's not already in dispute, refunded, or failed
-  return (
-    purchase.status !== 'in_dispute' &&
-    purchase.status !== 'refunded' &&
-    purchase.status !== 'partially_refunded' &&
-    purchase.status !== 'failed' &&
-    !purchase.disputed
-  )
+  // A purchase can be disputed if:
+  // 1. It's not failed
+  // 2. It doesn't have an active or resolved dispute
+  // 3. If it has a dispute, it must be pending (not resolved in any way)
+
+  // Cannot dispute failed purchases
+  if (purchase.status === 'failed') {
+    return false
+  }
+
+  // If there's a dispute_id, check if the dispute has been resolved
+  if (purchase.dispute_id) {
+    // Can only re-open if dispute is still pending
+    // Once accepted, rejected, escalated, or resolved - cannot dispute again
+    if (purchase.dispute_status && purchase.dispute_status !== 'pending') {
+      return false
+    }
+    // If status is 'pending', the dispute is still active
+    if (purchase.dispute_status === 'pending') {
+      return false
+    }
+  }
+
+  // If marked as disputed without status, assume it's been handled
+  if (purchase.disputed && !purchase.dispute_status) {
+    return false
+  }
+
+  return true
 })
 
 function toggleBreakdown() {
@@ -746,15 +832,52 @@ onUnmounted(() => {
   gap: var(--space-2);
   margin-top: var(--space-3);
   padding: var(--space-2) var(--space-3);
-  background: rgba(245, 158, 11, 0.05);
-  border-left: 2px solid rgb(245, 158, 11);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
+}
+
+/* Pending dispute - orange/warning */
+.dispute-info-breakdown--pending {
+  background: rgba(245, 158, 11, 0.05);
+  border-left: 2px solid rgb(245, 158, 11);
   color: rgb(245, 158, 11);
+}
+
+/* Accepted dispute - green/success */
+.dispute-info-breakdown--accepted {
+  background: rgba(34, 197, 94, 0.05);
+  border-left: 2px solid rgb(34, 197, 94);
+  color: rgb(34, 197, 94);
+}
+
+/* Rejected dispute - red/error */
+.dispute-info-breakdown--rejected {
+  background: rgba(239, 68, 68, 0.05);
+  border-left: 2px solid rgb(239, 68, 68);
+  color: rgb(239, 68, 68);
+}
+
+/* Escalated dispute - blue/info */
+.dispute-info-breakdown--escalated {
+  background: rgba(59, 130, 246, 0.05);
+  border-left: 2px solid rgb(59, 130, 246);
+  color: rgb(59, 130, 246);
+}
+
+/* Resolved dispute - purple */
+.dispute-info-breakdown--resolved {
+  background: rgba(139, 92, 246, 0.05);
+  border-left: 2px solid rgb(139, 92, 246);
+  color: rgb(139, 92, 246);
 }
 
 .dispute-icon {
   flex-shrink: 0;
+}
+
+.dispute-date {
+  font-size: var(--font-size-xs);
+  opacity: 0.8;
 }
 
 .breakdown {

@@ -266,11 +266,9 @@ async function submitDispute() {
     // Emit success event
     emit('disputeCreated')
 
-    // Reset form after 2 seconds and close
-    setTimeout(() => {
-      resetForm()
-      emit('close')
-    }, 2000)
+    // Close immediately after success
+    resetForm()
+    emit('close')
   } catch (err) {
     console.error('Failed to submit dispute:', err)
     error.value = err instanceof Error ? err.message : 'Failed to submit dispute. Please try again.'

@@ -137,13 +137,13 @@ async function submitResponse() {
       response: responseText.value.trim()
     })
 
-    // Emit success and close
-    emit('success', updatedDispute)
-    emit('close')
-
     // Reset form
     responseText.value = ''
     attemptedSubmit.value = false
+
+    // Emit success and close
+    emit('success', updatedDispute)
+    emit('close')
   } catch (err) {
     console.error('Failed to respond to dispute:', err)
     error.value = err instanceof Error ? err.message : 'Failed to submit response'

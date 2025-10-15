@@ -107,8 +107,8 @@
                     <span v-if="item.refunded_at" class="refund-date">({{ new Date(item.refunded_at).toLocaleDateString() }})</span>
                   </span>
                 </div>
-                <!-- Dispute info for this item -->
-                <div v-if="item.disputed" class="item-dispute-info">
+                <!-- Active Dispute (Pending) -->
+                <div v-if="item.disputed && item.purchase_status === 'in_dispute'" class="item-dispute-info item-dispute-info--pending">
                   <svg class="dispute-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
                     <path
                       fill-rule="evenodd"
@@ -117,6 +117,30 @@
                     />
                   </svg>
                   <span>This item is currently being disputed</span>
+                </div>
+
+                <!-- Dispute Accepted (Refunded) -->
+                <div v-else-if="item.disputed && item.purchase_status === 'refunded'" class="item-dispute-info item-dispute-info--accepted">
+                  <svg class="dispute-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fill-rule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                  <span>Dispute was accepted - Refund processed</span>
+                </div>
+
+                <!-- Dispute Rejected -->
+                <div v-else-if="item.disputed && item.purchase_status === 'completed'" class="item-dispute-info item-dispute-info--rejected">
+                  <svg class="dispute-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fill-rule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                  <span>Dispute was rejected - No refund issued</span>
                 </div>
               </div>
             </div>
@@ -180,8 +204,8 @@
                   <span v-if="item.refunded_at" class="refund-date">({{ new Date(item.refunded_at).toLocaleDateString() }})</span>
                 </span>
               </div>
-              <!-- Dispute info for this item -->
-              <div v-if="item.disputed" class="item-dispute-info">
+              <!-- Active Dispute (Pending) -->
+              <div v-if="item.disputed && item.purchase_status === 'in_dispute'" class="item-dispute-info item-dispute-info--pending">
                 <svg class="dispute-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
                   <path
                     fill-rule="evenodd"
@@ -190,6 +214,30 @@
                   />
                 </svg>
                 <span>This item is currently being disputed</span>
+              </div>
+
+              <!-- Dispute Accepted (Refunded) -->
+              <div v-else-if="item.disputed && item.purchase_status === 'refunded'" class="item-dispute-info item-dispute-info--accepted">
+                <svg class="dispute-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+                <span>Dispute was accepted - Refund processed</span>
+              </div>
+
+              <!-- Dispute Rejected -->
+              <div v-else-if="item.disputed && item.purchase_status === 'completed'" class="item-dispute-info item-dispute-info--rejected">
+                <svg class="dispute-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+                <span>Dispute was rejected - No refund issued</span>
               </div>
             </div>
           </div>

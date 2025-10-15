@@ -132,7 +132,8 @@ export async function processDisputeRefund(params: {
 
       console.log(`Refund created: ${refund.id} for purchase ${purchaseId}, amount: ${refundAmount}`)
 
-      // Update purchase record
+      // Update purchase record with refund and dispute resolution info
+      const now = new Date().toISOString()
       await update<Purchase>({
         tableName: purchasesTableName!,
         key: {
@@ -143,7 +144,9 @@ export async function processDisputeRefund(params: {
           status: 'refunded',
           refund_amount: refundAmount,
           refund_id: refund.id,
-          refunded_at: new Date().toISOString()
+          refunded_at: now,
+          dispute_status: 'accepted', // Mark dispute as accepted (refund processed)
+          dispute_resolved_at: now
         }
       })
 

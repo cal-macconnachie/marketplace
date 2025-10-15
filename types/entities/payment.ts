@@ -63,6 +63,8 @@ export interface Purchase {
   // Dispute tracking
   disputed?: boolean // Flag to prevent re-disputing
   dispute_id?: string // Reference to active dispute
+  dispute_status?: 'pending' | 'accepted' | 'rejected' | 'escalated' | 'resolved' // Final dispute outcome
+  dispute_resolved_at?: string // ISO timestamp when dispute was resolved
   refund_amount?: number // Track partial/full refunds
   refund_id?: string // Stripe refund ID
   refunded_at?: string // ISO timestamp of refund

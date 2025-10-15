@@ -378,11 +378,10 @@ const updateCartItemQuantity = (item: CartItem) => {
 }
 
 const goToCheckout = () => {
-  showCartModal.value = false
-
   // Only serialize cart if there are items
   if (cartItems.value.length === 0) {
     router.push('/cart')
+    showCartModal.value = false
     return
   }
 
@@ -390,10 +389,12 @@ const goToCheckout = () => {
     // Generate cart URL with encoded cart data
     const encodedCart = cartService.serializeCart()
     router.push(`/cart?cart=${encodedCart}`)
+    showCartModal.value = false
   } catch (error) {
     console.error('Error serializing cart:', error)
     // Fallback to basic cart page
     router.push('/cart')
+    showCartModal.value = false
   }
 }
 
