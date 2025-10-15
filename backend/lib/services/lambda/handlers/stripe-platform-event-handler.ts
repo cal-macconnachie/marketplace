@@ -170,6 +170,12 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
       const purchaseIds = paymentIntent.metadata?.purchase_ids ? JSON.parse(paymentIntent.metadata.purchase_ids) : []
       const purchasedProducts: PurchasedProduct[] = []
 
+      // Extract the charge ID from the payment intent
+      // PaymentIntent.latest_charge is a string ID (not an object)
+      const chargeId = typeof paymentIntent.latest_charge === 'string'
+        ? paymentIntent.latest_charge
+        : undefined
+
       for (const purchaseId of purchaseIds) {
         if (user) {
           try {
@@ -177,7 +183,8 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
               cartId: paymentIntent.metadata?.cart_id,
               userId: user.id,
               purchaseId,
-              status: 'completed'
+              status: 'completed',
+              destinationChargeId: chargeId
             })
             purchasedProducts.push(await createPurchasedProductFromPurchase({
               purchaseKey: {
@@ -409,6 +416,38 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
           const isInitialPurchase = invoice.billing_reason === 'subscription_create' ||
                                      invoice.billing_reason === 'subscription_update'
 
+          // Extract charge ID from invoice payments for refund tracking
+          // Invoices store charges in payments.data array
+          let chargeId: string | undefined
+          if (invoice.payments?.data && invoice.payments.data.length > 0) {
+            const latestPayment = invoice.payments.data[0]
+            if (latestPayment.payment) {
+              if (latestPayment.payment.type === 'charge' && latestPayment.payment.charge) {
+                // Charge ID is a string when type is 'charge'
+                chargeId = typeof latestPayment.payment.charge === 'string'
+                  ? latestPayment.payment.charge
+                  : undefined
+              } else if (latestPayment.payment.type === 'payment_intent' && latestPayment.payment.payment_intent) {
+                // For payment intents, we need to fetch it to get the charge ID
+                const paymentIntentId = typeof latestPayment.payment.payment_intent === 'string'
+                  ? latestPayment.payment.payment_intent
+                  : undefined
+
+                if (paymentIntentId) {
+                  try {
+                    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
+                    // PaymentIntent.latest_charge is a string ID
+                    chargeId = typeof paymentIntent.latest_charge === 'string'
+                      ? paymentIntent.latest_charge
+                      : undefined
+                  } catch (error) {
+                    console.error(`Failed to retrieve payment intent ${paymentIntentId}:`, error)
+                  }
+                }
+              }
+            }
+          }
+
           if (isInitialPurchase) {
             // Initial purchase - update existing pending purchases to completed (non-metered only)
             for (const item of invoice.lines.data) {
@@ -453,7 +492,8 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                       cartId: purchase?.cart_id || cartId,
                       userId: user.id,
                       purchaseId,
-                      status: 'completed'
+                      status: 'completed',
+                      destinationChargeId: chargeId
                     })
 
                     purchasedProducts.push(await createPurchasedProductFromPurchase({
@@ -568,7 +608,8 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                             cartId: purchase.cart_id || cartId,
                             userId: user.id,
                             purchaseId: purchase.id,
-                            status: 'completed'
+                            status: 'completed',
+                            destinationChargeId: chargeId
                           })
 
                           // Update the existing purchased product with new amount
