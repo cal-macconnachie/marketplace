@@ -97,12 +97,18 @@ watch(
   flex-direction: column;
   gap: var(--space-6);
   margin-top: var(--space-4);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .form-section {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .form-section h5,
@@ -115,14 +121,21 @@ watch(
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   gap: var(--space-4);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .form-field {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .form-field.full-width {

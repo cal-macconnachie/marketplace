@@ -992,6 +992,9 @@ onUnmounted(() => {
 }
 .products-grid-view {
   margin-top: var(--space-6);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .form-header {
   display: flex;
@@ -1014,6 +1017,24 @@ onUnmounted(() => {
 }
 .product-creator {
   margin-top: var(--space-6);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.product-creator-collapsed {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow-x: hidden;
+}
+.products-section {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .error-message {

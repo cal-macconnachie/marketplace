@@ -27,30 +27,11 @@
           </div>
         </div>
 
-        <div
-          class="toggle-section notification-types"
-          :class="{ expandable: hasNotificationTypes, expanded: showNotificationTypes }"
-          @click="toggleNotificationTypes"
-        >
+        <div class="toggle-section notification-types">
           <div class="notification-types-header">
             <span class="notification-types-title">Notification Preferences</span>
-            <svg
-              v-if="hasNotificationTypes"
-              class="expand-icon"
-              :class="{ rotated: showNotificationTypes }"
-              width="16"
-              height="16"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                clip-rule="evenodd"
-              />
-            </svg>
           </div>
-          <div class="toggle-grid-wrapper" :class="{ visible: showNotificationTypes }" @click.stop>
+          <div class="toggle-grid-wrapper visible">
             <div class="toggle-grid">
               <EditableToggle
                 v-for="(config, notifType) in visibleNotificationTypes"
@@ -212,7 +193,6 @@ const isLoadingNotifications = ref(false)
 const markingAsRead = ref(new Set<string>())
 const isMarkingAllRead = ref(false)
 const expandedNotifications = ref(new Set<string>())
-const showNotificationTypes = ref(false)
 const filters = ref<{
   unreadOnly: boolean
   type?: string
@@ -231,10 +211,6 @@ const optimisticPreferences = ref<{
 // Computed
 const userHasPhone = computed(() => !!app.user?.phone_number)
 const userHasStripeAccount = computed(() => !!app?.organization?.stripe_account_id)
-
-const hasNotificationTypes = computed(() => {
-  return Object.keys(visibleNotificationTypes.value).length > 0
-})
 
 // Filter notification types based on user's Stripe account status and exclude system
 const visibleNotificationTypes = computed(() => {
@@ -428,11 +404,6 @@ async function handleNotificationClick(notification: Notification) {
   }
 }
 
-function toggleNotificationTypes() {
-  if (hasNotificationTypes.value) {
-    showNotificationTypes.value = !showNotificationTypes.value
-  }
-}
 
 // Lifecycle
 onMounted(async () => {
@@ -471,9 +442,7 @@ onMounted(async () => {
 
 .notification-types {
   border-top: 1px solid var(--color-border);
-  padding-top: 1em;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  padding-top: var(--space-4);
 }
 
 .notification-types-header {
@@ -481,6 +450,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-2) 0;
+  margin-bottom: var(--space-2);
 }
 
 .notification-types-title {
@@ -489,28 +459,12 @@ onMounted(async () => {
   color: var(--color-text-secondary);
 }
 
-.expand-icon {
-  flex-shrink: 0;
-  transition: transform 0.3s ease;
-  color: var(--color-text-secondary);
-}
-
-.expand-icon.rotated {
-  transform: rotate(180deg);
-}
-
 .toggle-grid-wrapper {
-  max-height: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
-  padding-top: 0;
+  opacity: 1;
 }
 
 .toggle-grid-wrapper.visible {
-  max-height: 600px;
   opacity: 1;
-  padding-top: var(--space-3);
 }
 
 .toggle-row {

@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Original Card -->
-    <div :class="cardClasses" ref="originalCard">
+    <div :class="cardClasses" :style="cardStyles" ref="originalCard">
       <!-- Expand Button (shows on hover when expandable) -->
       <button v-if="expandable" class="expand-btn" @click="toggleExpanded" aria-label="Expand card">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -67,6 +67,7 @@ interface Props {
   hoverable?: boolean
   expandable?: boolean
   badge?: string | number
+  minHeight?: number | string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -88,6 +89,14 @@ const cardClasses = computed(() => [
     'base-card--expandable': props.expandable,
   },
 ])
+
+const cardStyles = computed(() => {
+  const styles: Record<string, string> = {}
+  if (props.minHeight) {
+    styles.minHeight = typeof props.minHeight === 'number' ? `${props.minHeight}px` : props.minHeight
+  }
+  return styles
+})
 
 const modalCardClasses = computed(() => [
   'modal-card-content',
@@ -114,10 +123,11 @@ defineExpose({
   border-radius: var(--radius-lg);
   transition: all var(--transition-fast);
   position: relative;
-  /* flex: 1; */
   display: flex;
   flex-direction: column;
   height: 100%;
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 /* Variants */
@@ -283,6 +293,7 @@ defineExpose({
 
 .card-body {
   flex: 1;
+  min-width: 0;
 }
 
 .card-footer {

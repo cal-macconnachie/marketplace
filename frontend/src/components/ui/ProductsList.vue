@@ -871,18 +871,28 @@ onUnmounted(() => {
 .products-list {
   position: relative;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .carousel-container {
   position: relative;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .grid-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
   gap: var(--space-4);
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .list-container {
@@ -890,10 +900,14 @@ onUnmounted(() => {
   flex-direction: column;
   gap: var(--space-3);
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .list-item {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .carousel-track {
@@ -906,20 +920,29 @@ onUnmounted(() => {
   width: 100%;
   padding: var(--space-2) 0;
   scroll-snap-type: x mandatory;
+  box-sizing: border-box;
 }
 
 .carousel-item {
   scroll-snap-align: center;
   margin-right: var(--space-6);
   border-radius: var(--radius-lg);
+  flex-shrink: 0;
+  width: min(320px, 85vw);
 }
 
 .carousel-item:first-child {
-  margin-left: calc(50vw - 160px);
+  margin-left: var(--space-4);
 }
 
 .carousel-item:last-child {
-  margin-right: calc(50vw - 160px);
+  margin-right: var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .carousel-item {
+    width: 320px;
+  }
 }
 
 .carousel-track::-webkit-scrollbar {
