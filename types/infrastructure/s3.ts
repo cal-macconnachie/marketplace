@@ -5,6 +5,8 @@
 
 export interface S3BucketDefinition {
   bucketName: string
+  /** If true, skip adding environment prefix (for buckets that already include env in their name) */
+  skipEnvPrefix?: boolean
   description?: string
   allowedFileTypes?: string[]
   lifecycleRules?: {

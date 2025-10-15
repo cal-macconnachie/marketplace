@@ -31,7 +31,7 @@ export class S3Construct extends Construct {
     } = props || {}
 
     s3Definitions.forEach((def: S3BucketDefinition) => {
-      const bucketName = `${envName}-${def.bucketName}`
+      const bucketName = def.skipEnvPrefix ? def.bucketName : `${envName}-${def.bucketName}`
       let bucket: Bucket | IBucket
       
       const bucketProps: BucketProps = {

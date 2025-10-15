@@ -20,6 +20,7 @@ export const s3Definitions: S3BucketDefinition[] = [
   },
   {
     bucketName: domain,
+    skipEnvPrefix: true, // domain constant already includes env prefix
     description: 'Static website hosting for marketplace',
     websiteHosting: {
       indexDocument: 'index.html',
