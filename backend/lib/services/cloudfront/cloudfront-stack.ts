@@ -172,20 +172,23 @@ function handler(event) {
         })
       })
 
-      // Create cache policy with long TTL for images
+      // Create cache policy - with query string caching only for images
       const cachePolicy = new CachePolicy(this, `${def.name}-cache-policy`, {
         cachePolicyName: `${envName}-${def.name}-cache-policy`,
         comment: `Cache policy for ${def.name}`,
-        defaultTtl: def.defaultBehavior.ttl?.defaultTtl 
-          ? Duration.seconds(def.defaultBehavior.ttl.defaultTtl) 
+        defaultTtl: def.defaultBehavior.ttl?.defaultTtl
+          ? Duration.seconds(def.defaultBehavior.ttl.defaultTtl)
           : Duration.days(365),
-        maxTtl: def.defaultBehavior.ttl?.maxTtl 
-          ? Duration.seconds(def.defaultBehavior.ttl.maxTtl) 
+        maxTtl: def.defaultBehavior.ttl?.maxTtl
+          ? Duration.seconds(def.defaultBehavior.ttl.maxTtl)
           : Duration.days(365),
-        minTtl: def.defaultBehavior.ttl?.minTtl 
-          ? Duration.seconds(def.defaultBehavior.ttl.minTtl) 
+        minTtl: def.defaultBehavior.ttl?.minTtl
+          ? Duration.seconds(def.defaultBehavior.ttl.minTtl)
           : Duration.seconds(0),
-        queryStringBehavior: CacheQueryStringBehavior.allowList('w', 'h', 'q'),
+        // Only cache query strings for image processing (w, h, q params)
+        queryStringBehavior: def.name === 'image-processing-distribution'
+          ? CacheQueryStringBehavior.allowList('w', 'h', 'q')
+          : CacheQueryStringBehavior.none(),
         enableAcceptEncodingGzip: true,
         enableAcceptEncodingBrotli: true
       })
@@ -206,13 +209,13 @@ function handler(event) {
             httpStatus: 403,
             responseHttpStatus: 200,
             responsePagePath: '/index.html',
-            ttl: Duration.minutes(5)
+            ttl: Duration.seconds(0) // Don't cache error responses
           },
           {
             httpStatus: 404,
             responseHttpStatus: 200,
             responsePagePath: '/index.html',
-            ttl: Duration.minutes(5)
+            ttl: Duration.seconds(0) // Don't cache error responses
           }
         ]
         : undefined

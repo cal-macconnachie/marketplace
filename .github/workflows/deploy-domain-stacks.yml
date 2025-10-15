@@ -744,7 +744,13 @@ jobs:
           echo "cognito-client-id=$COGNITO_CLIENT_ID" >> $GITHUB_OUTPUT
 
       - name: Build shared packages
-        run: yarn workspace @marketplace/constants build
+        run: |
+          yarn workspace @marketplace/constants build
+          yarn workspace @marketplace/types build
+
+      - name: Clean frontend dist directory
+        working-directory: frontend
+        run: rm -rf dist
 
       - name: Build frontend
         working-directory: frontend
@@ -758,14 +764,33 @@ jobs:
           ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
         run: yarn build
 
+      - name: Verify build output
+        working-directory: frontend
+        run: |
+          echo "Build directory contents:"
+          ls -la dist/
+          echo "Checking for index.html:"
+          test -f dist/index.html && echo "✓ index.html exists" || (echo "✗ index.html missing" && exit 1)
+          echo "Build timestamp: $(date)"
+
       - name: Upload to S3 bucket
-        run: aws s3 sync ./frontend/dist s3://${{ steps.cfn-outputs.outputs.bucket-name }} --delete
+        run: |
+          echo "Syncing to s3://${{ steps.cfn-outputs.outputs.bucket-name }}"
+          aws s3 sync ./frontend/dist s3://${{ steps.cfn-outputs.outputs.bucket-name }} --delete --cache-control "public,max-age=0,must-revalidate" --exclude "*.js" --exclude "*.css"
+          aws s3 sync ./frontend/dist s3://${{ steps.cfn-outputs.outputs.bucket-name }} --delete --cache-control "public,max-age=31536000,immutable" --exclude "*" --include "*.js" --include "*.css"
+          echo "S3 sync completed at $(date)"
 
       - name: Invalidate CloudFront cache
-        uses: chetan/invalidate-cloudfront-action@v2
-        env:
-          DISTRIBUTION: ${{ steps.cfn-outputs.outputs.distribution-id }}
-          PATHS: '/*'
-          AWS_REGION: 'us-east-1'
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          echo "Creating CloudFront invalidation for distribution ${{ steps.cfn-outputs.outputs.distribution-id }}"
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.cfn-outputs.outputs.distribution-id }} \
+            --paths "/*" \
+            --query 'Invalidation.Id' \
+            --output text)
+          echo "Invalidation created: ${INVALIDATION_ID}"
+          echo "Waiting for invalidation to complete..."
+          aws cloudfront wait invalidation-completed \
+            --distribution-id ${{ steps.cfn-outputs.outputs.distribution-id }} \
+            --id "${INVALIDATION_ID}"
+          echo "CloudFront invalidation completed at $(date)"

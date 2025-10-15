@@ -73,8 +73,8 @@ export const cloudFrontDefinitions: CloudFrontDistributionDefinition[] = [
       ],
       compress: true,
       ttl: {
-        defaultTtl: 86400, // 1 day
-        maxTtl: 31536000, // 1 year
+        defaultTtl: 0, // No default caching - respect S3 Cache-Control headers
+        maxTtl: 31536000, // 1 year (for assets with cache headers)
         minTtl: 0
       }
     },
