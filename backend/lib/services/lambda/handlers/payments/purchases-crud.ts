@@ -1,9 +1,9 @@
+import { purchasesTableName } from '@marketplace/constants'
 import { Purchase } from '@marketplace/types'
 import {
   PurchasesInput, QueryStrategy
 } from '@marketplace/types/internal/query-strategies'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { purchasesTableName } from '@marketplace/constants'
 import { get } from '../../helpers/dynamo-helpers/get'
 import { query } from '../../helpers/dynamo-helpers/query'
 import { update } from '../../helpers/dynamo-helpers/update'
@@ -78,8 +78,10 @@ export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
     lastEvaluatedKey,
     limit = 30,
     sortOrder = 'DESC',
-    sortBy = 'purchased_at'
   }: PurchasesInput = JSON.parse(event.body || '{}')
+
+  // Map created_at to purchased_at since purchases don't have a separate created_at field
+  const normalizedSortBy = 'purchased_at'
   try {
     // read requests are allowed to not have the full key
     if ((purchase.id == null || purchase.user_id == null) && purchaseType !== 'read') {
@@ -228,7 +230,7 @@ export const purchasesCrud = async (event: APIGatewayProxyEvent) => {
         } | Purchase | undefined
 
         // Determine the best query strategy based on available parameters
-        const queryStrategy = determineQueryStrategy(purchase, sortBy)
+        const queryStrategy = determineQueryStrategy(purchase, normalizedSortBy)
 
         if (queryStrategy.type === 'get') {
           // Direct item lookup using primary key

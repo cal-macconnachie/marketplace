@@ -11,10 +11,14 @@
   --color-error: #dc2626;
   --color-info: #0891b2;
 
-  --color-success-bg: rgba(22, 162, 73, 0.5);
-  --color-warning-bg: rgba(217, 119, 6, 0.5);
-  --color-error-bg: rgba(220, 38, 38, 0.5);
-  --color-info-bg: rgba(8, 145, 178, 0.5);
+  --color-success-bg: rgba(22, 162, 73, 0.1);
+  --color-success-border: rgba(22, 162, 73, 0.2);
+  --color-warning-bg: rgba(217, 119, 6, 0.1);
+  --color-warning-border: rgba(217, 119, 6, 0.2);
+  --color-error-bg: rgba(220, 38, 38, 0.1);
+  --color-error-border: rgba(220, 38, 38, 0.2);
+  --color-info-bg: rgba(8, 145, 178, 0.1);
+  --color-info-border: rgba(8, 145, 178, 0.2);
 
   /* Product type colors */
   --color-subscription: rgb(99, 102, 241);

@@ -42,6 +42,13 @@ import axios from 'axios'
 const BASE_URL = `https://api.${domain}/`
 const IMAGE_URL = `https://images.${domain}`
 
+// Flag to prevent token refresh during logout
+let isLoggingOut = false
+
+export function setLoggingOut(value: boolean) {
+  isLoggingOut = value
+}
+
 // Create axios instance with base configuration
 const apiClient = axios.create({
   baseURL: BASE_URL,
@@ -84,6 +91,11 @@ apiClient.interceptors.response.use(
         url: originalRequest?.url,
         message: error?.message,
       })
+      return Promise.reject(error)
+    }
+
+    // Don't attempt token refresh if we're in the middle of logging out
+    if (isLoggingOut) {
       return Promise.reject(error)
     }
 
@@ -268,11 +280,15 @@ export const authAPI = {
     lastEvaluatedKey,
     type = 'read',
     limit = 10,
+    sortBy = 'purchased_at',
+    sortOrder = 'DESC',
   }: {
     purchase: Partial<Purchase>
     lastEvaluatedKey?: Record<string, unknown>
     type?: 'read' | 'update'
     limit?: number
+    sortBy?: string
+    sortOrder?: 'ASC' | 'DESC'
   }): Promise<
     | {
         items: Purchase[]
@@ -286,6 +302,8 @@ export const authAPI = {
       type,
       lastEvaluatedKey,
       limit,
+      sortBy,
+      sortOrder,
     }
     const response = await apiClient.post(`/purchases`, data)
     return response.data

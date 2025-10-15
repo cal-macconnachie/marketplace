@@ -224,7 +224,7 @@ const allowedFields = ['given_name', 'family_name', 'name', 'phone_number', 'add
 async function handleLogout() {
   isLoggingOut.value = true
   await app.logout()
-  router.push('/auth')
+  router.push('/marketplace')
 }
 
 function goToMarketplace() {

@@ -3,7 +3,8 @@ import { defineStore } from 'pinia'
 import {
   authAPI,
   publicApi,
-  apiClient
+  apiClient,
+  setLoggingOut
 } from '@/services/api'
 import { dedupedConcatInPlace } from '@/utils/dedupedConcatInPlace'
 import { setAuthToken, getAuthToken, clearAllAuthTokens } from '@/utils/cookies'
@@ -197,6 +198,8 @@ export const useAppStore = defineStore('app', {
           purchase: { user_id: this.user?.id },
           lastEvaluatedKey: this.userPurchasesLastKey,
           limit,
+          sortBy: 'purchased_at',
+          sortOrder: 'DESC',
         })
         let items: Purchase[] = []
         if (
@@ -231,6 +234,8 @@ export const useAppStore = defineStore('app', {
           purchase: { organization_id: this.organization.id },
           lastEvaluatedKey: this.organizationPurchasesLastKey,
           limit,
+          sortBy: 'purchased_at',
+          sortOrder: 'DESC',
         })
         let items: Purchase[] = []
         if (
@@ -265,6 +270,8 @@ export const useAppStore = defineStore('app', {
           purchase: { seller_organization_id: this.organization.id },
           lastEvaluatedKey: this.organizationPurchasesLastKey,
           limit,
+          sortBy: 'purchased_at',
+          sortOrder: 'DESC',
         })
         let items: Purchase[] = []
         if (
@@ -430,6 +437,10 @@ export const useAppStore = defineStore('app', {
     async logout() {
       try {
         this.setLoading(true)
+
+        // Set flag to prevent token refresh during logout
+        setLoggingOut(true)
+
         const accessToken = getAuthToken('ACCESS_TOKEN')
         const refreshToken = getAuthToken('REFRESH_TOKEN') ?? ''
         const token = getAuthToken('AUTH_TOKEN')
@@ -457,6 +468,9 @@ export const useAppStore = defineStore('app', {
         this.clearAuth()
         this.clearAllStoreData()
         return { success: false, error: (error as { message?: string }).message }
+      } finally {
+        // Reset the flag after logout is complete
+        setLoggingOut(false)
       }
     },
 

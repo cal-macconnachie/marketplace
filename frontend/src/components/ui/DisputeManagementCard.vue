@@ -1,11 +1,10 @@
 <template>
-  <div class="dispute-management-card">
-    <div class="card-header">
-      <h3 class="card-title">Dispute Management</h3>
-      <span v-if="pendingCount > 0" class="pending-badge">
-        {{ pendingCount }} Pending
-      </span>
-    </div>
+  <BaseCard title="Dispute Management" padding="lg">
+    <template #header>
+      <div class="card-header-content">
+        <h3 class="card-title">Dispute Management</h3>
+      </div>
+    </template>
 
     <!-- Loading State -->
     <div v-if="isLoading" class="loading-state">
@@ -33,42 +32,53 @@
         v-for="dispute in disputes"
         :key="dispute.id"
         class="dispute-item"
-        :class="`status-${dispute.status}`"
       >
         <div class="dispute-header">
           <div class="dispute-meta">
-            <span class="dispute-id">Dispute #{{ dispute.id.substring(0, 8) }}</span>
-            <span class="dispute-date">{{ formatDate(dispute.created_at) }}</span>
-          </div>
-          <span class="status-badge" :class="`status-${dispute.status}`">
-            {{ formatStatus(dispute.status) }}
-          </span>
-        </div>
-
-        <div class="dispute-details">
-          <div class="detail-row">
-            <span class="detail-label">Amount:</span>
-            <span class="detail-value">{{ formatMoneyInt(dispute.total_dispute_amount, dispute.currency) }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Items:</span>
-            <span class="detail-value">{{ dispute.purchase_ids.length }}</span>
+            <div class="status-icon" :class="`status-${dispute.status}`">
+              <svg v-if="dispute.status === 'pending'" width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+              </svg>
+              <svg v-else-if="dispute.status === 'accepted'" width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <svg v-else-if="dispute.status === 'rejected'" width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+              </svg>
+              <svg v-else-if="dispute.status === 'escalated'" width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+              </svg>
+              <svg v-else-if="dispute.status === 'resolved'" width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div class="dispute-info">
+              <span class="dispute-amount">{{ formatMoneyInt(dispute.total_dispute_amount, dispute.currency) }}</span>
+              <span class="dispute-date">{{ formatDate(dispute.created_at) }} • {{ dispute.purchase_ids.length }} {{ dispute.purchase_ids.length === 1 ? 'item' : 'items' }}</span>
+            </div>
           </div>
         </div>
 
         <div class="dispute-reason">
-          <p class="reason-label">Reason:</p>
-          <p class="reason-text">{{ dispute.reason }}</p>
+          <p class="reason-label">Reason</p>
+          <p class="reason-text">{{ truncateReason(dispute.reason) }}</p>
         </div>
 
         <!-- Seller Response (if exists) -->
         <div v-if="dispute.seller_response" class="seller-response">
-          <p class="response-label">Your Response:</p>
+          <p class="response-label">Your Response</p>
           <p class="response-text">{{ dispute.seller_response }}</p>
         </div>
 
         <!-- Actions -->
         <div v-if="dispute.status === 'pending'" class="dispute-actions">
+          <BaseButton
+            variant="ghost"
+            size="sm"
+            @click="handleViewDetails(dispute)"
+          >
+            View Details
+          </BaseButton>
           <BaseButton
             variant="outline"
             size="sm"
@@ -88,28 +98,52 @@
         <!-- Status Messages -->
         <div v-else class="status-message" :class="`status-${dispute.status}`">
           <template v-if="dispute.status === 'accepted'">
-            ✓ Dispute accepted. Refund has been processed.
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+            </svg>
+            Dispute accepted. Refund has been processed.
+          </template>
+          <template v-else-if="dispute.status === 'rejected'">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+            </svg>
+            Dispute rejected.
           </template>
           <template v-else-if="dispute.status === 'escalated'">
-            ⚠ Dispute escalated to platform team for review.
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+            Dispute escalated to platform team for review.
           </template>
           <template v-else-if="dispute.status === 'resolved'">
-            ✓ Dispute resolved by platform team.
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+            </svg>
+            Dispute resolved by platform team.
           </template>
         </div>
       </div>
     </div>
 
-    <!-- Load More Button -->
-    <div v-if="hasMore && !isLoading" class="load-more-section">
-      <BaseButton
-        variant="outline"
-        @click="loadMore"
-        :loading="isLoadingMore"
-      >
-        Load More
-      </BaseButton>
-    </div>
+    <template v-if="hasMore && !isLoading" #footer>
+      <div class="load-more-section">
+        <BaseButton
+          variant="outline"
+          @click="loadMore"
+          :loading="isLoadingMore"
+          fullWidth
+        >
+          Load More
+        </BaseButton>
+      </div>
+    </template>
+
+    <!-- Dispute Details Drawer -->
+    <DisputeDetailsDrawer
+      :show="showDetailsDrawer"
+      :dispute="selectedDispute"
+      @close="closeDetailsDrawer"
+    />
 
     <!-- Respond Modal -->
     <DisputeRespondModal
@@ -119,7 +153,7 @@
       @close="closeRespondModal"
       @success="handleRespondSuccess"
     />
-  </div>
+  </BaseCard>
 </template>
 
 <script setup lang="ts">
@@ -128,6 +162,8 @@ import type { Dispute } from '@marketplace/types'
 import { computed, onMounted, ref } from 'vue'
 import BaseAlert from './BaseAlert.vue'
 import BaseButton from './BaseButton.vue'
+import BaseCard from './BaseCard.vue'
+import DisputeDetailsDrawer from './DisputeDetailsDrawer.vue'
 import DisputeRespondModal from './DisputeRespondModal.vue'
 import LoadingSpinner from './LoadingSpinner.vue'
 
@@ -139,12 +175,12 @@ const error = ref<string | null>(null)
 const lastKey = ref<string | undefined>(undefined)
 const hasMore = ref(false)
 
+const showDetailsDrawer = ref(false)
 const showRespondModal = ref(false)
 const selectedDispute = ref<Dispute | null>(null)
 const respondAction = ref<'accept' | 'reject'>('accept')
 
 const disputes = computed(() => disputeStore.disputes)
-const pendingCount = computed(() => disputeStore.pendingDisputeCount)
 
 onMounted(() => {
   loadDisputes()
@@ -190,6 +226,16 @@ async function loadMore() {
   }
 }
 
+function handleViewDetails(dispute: Dispute) {
+  selectedDispute.value = dispute
+  showDetailsDrawer.value = true
+}
+
+function closeDetailsDrawer() {
+  showDetailsDrawer.value = false
+  selectedDispute.value = null
+}
+
 function handleAccept(dispute: Dispute) {
   selectedDispute.value = dispute
   respondAction.value = 'accept'
@@ -229,35 +275,20 @@ function formatDate(isoString: string): string {
   })
 }
 
-function formatStatus(status: Dispute['status']): string {
-  const statusMap: Record<Dispute['status'], string> = {
-    pending: 'Pending',
-    accepted: 'Accepted',
-    rejected: 'Rejected',
-    escalated: 'Escalated',
-    resolved: 'Resolved'
-  }
-  return statusMap[status] || status
+function truncateReason(reason: string, maxLength: number = 150): string {
+  if (reason.length <= maxLength) return reason
+  return reason.substring(0, maxLength) + '...'
 }
 </script>
 
 <style scoped>
-.dispute-management-card {
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-6);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
-
 /* Card Header */
-.card-header {
+.card-header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: var(--space-4);
+  width: 100%;
 }
 
 .card-title {
@@ -269,9 +300,9 @@ function formatStatus(status: Dispute['status']): string {
 
 .pending-badge {
   padding: var(--space-2) var(--space-3);
-  background: var(--color-error-bg);
-  color: var(--color-error);
-  border: 1px solid var(--color-error-border);
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning-border);
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -282,9 +313,11 @@ function formatStatus(status: Dispute['status']): string {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: var(--space-3);
   padding: var(--space-8);
   color: var(--color-text-secondary);
+  min-height: 200px;
 }
 
 /* Empty State */
@@ -320,36 +353,30 @@ function formatStatus(status: Dispute['status']): string {
 .disputes-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 .dispute-item {
   padding: var(--space-4);
-  background: var(--color-bg-muted);
+  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
+  transition: all var(--transition-base);
 }
 
-.dispute-item.status-pending {
-  border-left: 4px solid var(--color-warning);
-}
-
-.dispute-item.status-accepted {
-  border-left: 4px solid var(--color-success);
-}
-
-.dispute-item.status-escalated {
-  border-left: 4px solid var(--color-error);
+.dispute-item:hover {
+  border-color: var(--color-border-hover);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Dispute Header */
 .dispute-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-4);
 }
 
@@ -357,13 +384,47 @@ function formatStatus(status: Dispute['status']): string {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  flex-wrap: wrap;
+  flex: 1;
 }
 
-.dispute-id {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+.status-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+
+.status-icon.status-pending {
+  color: var(--color-warning);
+}
+
+.status-icon.status-accepted {
+  color: var(--color-success);
+}
+
+.status-icon.status-rejected {
+  color: var(--color-text-secondary);
+}
+
+.status-icon.status-escalated {
+  color: var(--color-error);
+}
+
+.status-icon.status-resolved {
+  color: var(--color-info);
+}
+
+.dispute-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.dispute-amount {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
 
@@ -372,75 +433,17 @@ function formatStatus(status: Dispute['status']): string {
   color: var(--color-text-secondary);
 }
 
-.status-badge {
-  padding: 4px 10px;
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
-}
-
-.status-badge.status-pending {
-  background: var(--color-warning-bg);
-  color: var(--color-warning);
-  border: 1px solid var(--color-warning-border);
-}
-
-.status-badge.status-accepted {
-  background: var(--color-success-bg);
-  color: var(--color-success);
-  border: 1px solid var(--color-success-border);
-}
-
-.status-badge.status-escalated {
-  background: var(--color-error-bg);
-  color: var(--color-error);
-  border: 1px solid var(--color-error-border);
-}
-
-.status-badge.status-resolved {
-  background: var(--color-info-bg);
-  color: var(--color-info);
-  border: 1px solid var(--color-info-border);
-}
-
-/* Dispute Details */
-.dispute-details {
-  display: flex;
-  gap: var(--space-4);
-  padding: var(--space-3);
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-sm);
-}
-
-.detail-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-sm);
-}
-
-.detail-label {
-  color: var(--color-text-secondary);
-}
-
-.detail-value {
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
 /* Dispute Reason */
 .dispute-reason {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
 .reason-label {
   margin: 0;
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -450,22 +453,22 @@ function formatStatus(status: Dispute['status']): string {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
-  line-height: 1.5;
+  line-height: var(--line-height-relaxed);
   white-space: pre-wrap;
 }
 
 /* Seller Response */
 .seller-response {
   padding: var(--space-3);
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-sm);
-  border-left: 3px solid var(--color-primary);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
 }
 
 .response-label {
-  margin: 0 0 var(--space-1) 0;
+  margin: 0 0 var(--space-2) 0;
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -475,7 +478,8 @@ function formatStatus(status: Dispute['status']): string {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
-  line-height: 1.5;
+  line-height: var(--line-height-relaxed);
+  white-space: pre-wrap;
 }
 
 /* Actions */
@@ -483,22 +487,35 @@ function formatStatus(status: Dispute['status']): string {
   display: flex;
   gap: var(--space-2);
   justify-content: flex-end;
-  padding-top: var(--space-2);
+  padding-top: var(--space-3);
   border-top: 1px solid var(--color-border);
 }
 
 /* Status Message */
 .status-message {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   padding: var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
+}
+
+.status-message svg {
+  flex-shrink: 0;
 }
 
 .status-message.status-accepted {
   background: var(--color-success-bg);
   color: var(--color-success);
   border: 1px solid var(--color-success-border);
+}
+
+.status-message.status-rejected {
+  background: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
 }
 
 .status-message.status-escalated {
@@ -515,34 +532,19 @@ function formatStatus(status: Dispute['status']): string {
 
 /* Load More */
 .load-more-section {
-  display: flex;
-  justify-content: center;
   padding-top: var(--space-2);
 }
 
 /* Responsive */
 @media (max-width: 640px) {
-  .dispute-management-card {
-    padding: var(--space-4);
-  }
-
-  .card-header {
+  .card-header-content {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .dispute-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .dispute-details {
-    flex-direction: column;
-    gap: var(--space-2);
   }
 
   .dispute-actions {
-    flex-direction: column-reverse;
+    flex-direction: column;
+    gap: var(--space-2);
   }
 
   .dispute-actions button {
