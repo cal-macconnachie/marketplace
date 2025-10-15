@@ -9,10 +9,6 @@
       <!-- Dispute Information -->
       <section v-if="dispute" class="dispute-info">
         <div class="info-row">
-          <span class="info-label">Dispute ID:</span>
-          <span class="info-value">{{ dispute.id.substring(0, 8) }}...</span>
-        </div>
-        <div class="info-row">
           <span class="info-label">Amount:</span>
           <span class="info-value">{{ formatMoneyInt(dispute.total_dispute_amount, dispute.currency) }}</span>
         </div>
