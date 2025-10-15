@@ -39,5 +39,7 @@ export const purchasedProductsTableName = getTableName('purchased-products');
 export const notificationsTableName = getTableName('notifications');
 export const disputesTableName = getTableName('disputes');
 
+export const domain = ENV === 'dev' ? 'dev.marketplace.csm.codes' : 'marketplace.csm.codes';
+
 // Export environment for direct access if needed
 export const environment = ENV;

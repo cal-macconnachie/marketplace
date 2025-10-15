@@ -141,8 +141,6 @@ export const taxCodes: SelectOption[] = [
   { value: 'txcd_36010004', label: 'Pet Food' },
 ];
 
-export const domain = 'marketplace.csm.codes'
-
 export const emailStringsToIgnore = [
   'privaterelay.appleid.com',
   'noreply'

@@ -19,7 +19,11 @@ export const respondToDispute = async (event: APIGatewayProxyEvent): Promise<API
     if (!userId || !user) {
       return {
         statusCode: 401,
-        body: JSON.stringify({ error: 'Unauthorized' })
+        body: JSON.stringify({ error: 'Unauthorized' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
@@ -35,21 +39,33 @@ export const respondToDispute = async (event: APIGatewayProxyEvent): Promise<API
     ].includes(action)) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Missing required fields or invalid action. Action must be: accept or reject' })
+        body: JSON.stringify({ error: 'Missing required fields or invalid action. Action must be: accept or reject' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
     if (!response || response.trim().length === 0) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Response message is required' })
+        body: JSON.stringify({ error: 'Response message is required' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
     if (!user.organization_id) {
       return {
         statusCode: 404,
-        body: JSON.stringify({ error: 'User does not belong to an organization' })
+        body: JSON.stringify({ error: 'User does not belong to an organization' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
@@ -68,7 +84,11 @@ export const respondToDispute = async (event: APIGatewayProxyEvent): Promise<API
     if (!dispute) {
       return {
         statusCode: 404,
-        body: JSON.stringify({ error: 'Dispute not found or you do not have permission to respond' })
+        body: JSON.stringify({ error: 'Dispute not found or you do not have permission to respond' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
@@ -76,7 +96,11 @@ export const respondToDispute = async (event: APIGatewayProxyEvent): Promise<API
     if (dispute.status !== 'pending') {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: `Cannot respond to dispute with status: ${dispute.status}` })
+        body: JSON.stringify({ error: `Cannot respond to dispute with status: ${dispute.status}` }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
@@ -84,7 +108,11 @@ export const respondToDispute = async (event: APIGatewayProxyEvent): Promise<API
     if (dispute.seller_organization_id !== user.organization_id) {
       return {
         statusCode: 403,
-        body: JSON.stringify({ error: 'You do not have permission to respond to this dispute' })
+        body: JSON.stringify({ error: 'You do not have permission to respond to this dispute' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
@@ -145,7 +173,11 @@ export const respondToDispute = async (event: APIGatewayProxyEvent): Promise<API
 
     return {
       statusCode: 200,
-      body: JSON.stringify(updatedDispute)
+      body: JSON.stringify(updatedDispute),
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
     }
 
   } catch (error) {
@@ -155,7 +187,11 @@ export const respondToDispute = async (event: APIGatewayProxyEvent): Promise<API
       statusCode: 500,
       body: JSON.stringify({
         error: (error as Error).message || 'Failed to respond to dispute'
-      })
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
     }
   }
 }

@@ -1,14 +1,14 @@
-import * as cdk from 'aws-cdk-lib'
-import { Construct } from 'constructs'
-import { DdbTablesConstruct } from './services/dynamodb/ddb-tables-stack'
-import { CognitoStack } from './services/cognito/cognito-stack'
-import { createDefaultNodejsFunction } from './services/lambda/lambda-defaults'
-import path from 'path'
-import { S3Construct } from './services/s3/s3-stack'
-import { Route53Construct } from './services/route53/route53-stack'
-import * as ssm from 'aws-cdk-lib/aws-ssm'
-import type { MarketplaceInfrastructureStackOutputs } from '@marketplace/types'
 import { domain } from '@marketplace/constants'
+import type { MarketplaceInfrastructureStackOutputs } from '@marketplace/types'
+import * as cdk from 'aws-cdk-lib'
+import * as ssm from 'aws-cdk-lib/aws-ssm'
+import { Construct } from 'constructs'
+import path from 'path'
+import { CognitoStack } from './services/cognito/cognito-stack'
+import { DdbTablesConstruct } from './services/dynamodb/ddb-tables-stack'
+import { createDefaultNodejsFunction } from './services/lambda/lambda-defaults'
+import { Route53Construct } from './services/route53/route53-stack'
+import { S3Construct } from './services/s3/s3-stack'
 
 export class MarketplaceInfrastructureStack extends cdk.Stack {
   public readonly outputs: MarketplaceInfrastructureStackOutputs
@@ -46,9 +46,7 @@ export class MarketplaceInfrastructureStack extends cdk.Stack {
     })
 
     // Create Route53 hosted zones
-    const route53Construct = new Route53Construct(this, `Route53-${envName}`, {
-      envName
-    })
+    const route53Construct = new Route53Construct(this, `Route53-${envName}`)
 
     // Create Cognito stack WITHOUT custom domain
     // Custom domain will be added in a separate stack after networking is deployed
@@ -83,7 +81,10 @@ export class MarketplaceInfrastructureStack extends cdk.Stack {
     })
 
     // Export only stream ARNs (table names follow a stable convention: <name>-<env>)
-    Object.entries(ddbTables.tables).forEach(([name, table]) => {
+    Object.entries(ddbTables.tables).forEach(([
+      name,
+      table
+    ]) => {
       if (table.tableStreamArn) {
         new ssm.StringParameter(this, `TableStreamArn-${name}`, {
           parameterName: `/marketplace/${envName}/dynamodb/${name}-stream-arn`,
@@ -137,7 +138,7 @@ export class MarketplaceInfrastructureStack extends cdk.Stack {
     })
 
     // Output marketplace bucket for frontend deployment
-    const marketplaceBucket = s3Construct.buckets[`${envName}-${domain}`]
+    const marketplaceBucket = s3Construct.buckets[domain]
 
     if (marketplaceBucket) {
       new cdk.CfnOutput(this, 'MarketplaceBucketName', {

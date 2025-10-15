@@ -400,9 +400,8 @@ import {
   apiClient,
   authAPI
 } from '@/services/api'
-import { domain } from '@marketplace/constants'
 import { useAppStore } from '@/stores/app'
-import { taxCodes } from '@marketplace/constants'
+import { domain, taxCodes } from '@marketplace/constants'
 import type { CreatePresignedUploadUrlRequest, Product } from '@marketplace/types'
 import { v4 } from 'uuid'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
@@ -683,9 +682,7 @@ const handleFieldUpdate = (field: string, value: string) => {
 const handleImageUpload = async (files: FileList) => {
   try {
     // Construct IMAGE_URL the same way as api.ts and ImageUploader.vue
-    const IMAGE_URL = import.meta.env.VITE_API_ENV === 'dev'
-      ? `https://images.${import.meta.env.VITE_API_ENV}.${domain}`
-      : `https://images.${domain}`
+    const IMAGE_URL = `https://images.${domain}`
 
     for (const file of Array.from(files)) {
       // Validate file type

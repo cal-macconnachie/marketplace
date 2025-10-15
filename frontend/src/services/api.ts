@@ -39,14 +39,8 @@ import type {
 import axios from 'axios'
 
 // Determine environment - can be overridden via environment variable
-const BASE_URL = import.meta.env.VITE_API_ENV === 'dev' ? `https://api.${import.meta.env.VITE_API_ENV}.${domain}` : `https://api.${domain}/`
-const IMAGE_URL = import.meta.env.VITE_API_ENV === 'dev' ? `https://images.${import.meta.env.VITE_API_ENV}.${domain}` : `https://images.${domain}`
-
-if (BASE_URL === 'unknown' || IMAGE_URL === 'unknown') {
-  console.warn(
-    'API base URL or Image service URL is not set. Please check your environment variables.',
-  )
-}
+const BASE_URL = `https://api.${domain}/`
+const IMAGE_URL = `https://images.${domain}`
 
 // Create axios instance with base configuration
 const apiClient = axios.create({

@@ -64,8 +64,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import { domain } from '@marketplace/constants'
+import { ref } from 'vue'
 import LoadingSpinner from './LoadingSpinner.vue'
 
 interface Props {
@@ -91,9 +91,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>()
 
 // Determine the image service URL based on environment
-const IMAGE_URL = import.meta.env.VITE_API_ENV === 'dev'
-  ? `https://images.${import.meta.env.VITE_API_ENV}.${domain}`
-  : `https://images.${domain}`
+const IMAGE_URL = `https://images.${domain}`
 
 // Construct the full image URL from the key
 const getImageUrl = (imageKey: string) => {

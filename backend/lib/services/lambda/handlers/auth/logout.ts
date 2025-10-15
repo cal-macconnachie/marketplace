@@ -46,11 +46,8 @@ export const logout = async (event: APIGatewayProxyEvent) => {
       await cognitoClient.send(revokeCommand)
 
       // Build Cognito logout URL for OAuth users
-      const envName = process.env.NODE_ENV || 'dev'
-      const cognitoDomain = envName === 'dev'
-        ? `auth.dev.${domain}`
-        : `auth.${domain}`
-      const logoutUrl = envName === 'dev' ? `https://dev.${domain}` : `https://${domain}`
+      const cognitoDomain = `auth.${domain}`
+      const logoutUrl = `https://${domain}`
       const cognitoLogoutUrl = `https://${cognitoDomain}/logout?client_id=${process.env.USER_POOL_CLIENT_ID}&logout_uri=${encodeURIComponent(logoutUrl)}`
 
       return {

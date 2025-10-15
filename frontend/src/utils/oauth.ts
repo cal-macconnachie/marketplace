@@ -1,14 +1,12 @@
-import type { CognitoConfig } from '@marketplace/types'
 import { domain } from '@marketplace/constants'
+import type { CognitoConfig } from '@marketplace/types'
 
 /**
  * Get Cognito configuration from environment variables
  */
 export function getCognitoConfig(): CognitoConfig {
   // Use custom Cognito domain: auth.{env}.{domain} for dev, auth.{domain} for prod
-  const cognitoDomain = import.meta.env.VITE_API_ENV === 'dev'
-    ? `https://auth.dev.${domain}`
-    : `https://auth.${domain}`
+  const cognitoDomain = `https://auth.${domain}`
 
   return {
     region: import.meta.env.VITE_COGNITO_REGION,

@@ -21,7 +21,11 @@ export const platformResolveDispute = async (event: APIGatewayProxyEvent): Promi
     if (!userId || !user) {
       return {
         statusCode: 401,
-        body: JSON.stringify({ error: 'Unauthorized' })
+        body: JSON.stringify({ error: 'Unauthorized' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
@@ -41,14 +45,22 @@ export const platformResolveDispute = async (event: APIGatewayProxyEvent): Promi
     ].includes(action)) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Missing required fields or invalid action. Action must be: accept or reject' })
+        body: JSON.stringify({ error: 'Missing required fields or invalid action. Action must be: accept or reject' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
     if (!notes || notes.trim().length === 0) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Platform notes are required' })
+        body: JSON.stringify({ error: 'Platform notes are required' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
@@ -63,7 +75,11 @@ export const platformResolveDispute = async (event: APIGatewayProxyEvent): Promi
     if (!dispute) {
       return {
         statusCode: 404,
-        body: JSON.stringify({ error: 'Escalated dispute not found' })
+        body: JSON.stringify({ error: 'Escalated dispute not found' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
@@ -71,7 +87,11 @@ export const platformResolveDispute = async (event: APIGatewayProxyEvent): Promi
     if (dispute.status !== 'escalated') {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: `Can only resolve escalated disputes. Current status: ${dispute.status}` })
+        body: JSON.stringify({ error: `Can only resolve escalated disputes. Current status: ${dispute.status}` }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
@@ -191,7 +211,11 @@ export const platformResolveDispute = async (event: APIGatewayProxyEvent): Promi
 
     return {
       statusCode: 200,
-      body: JSON.stringify(updatedDispute)
+      body: JSON.stringify(updatedDispute),
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
     }
 
   } catch (error: unknown) {
@@ -201,7 +225,11 @@ export const platformResolveDispute = async (event: APIGatewayProxyEvent): Promi
       statusCode: 500,
       body: JSON.stringify({
         error: (error as Error).message || 'Failed to resolve dispute'
-      })
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
     }
   }
 }

@@ -26,9 +26,9 @@ export class MarketplaceCertificatesStack extends cdk.Stack {
     const envName = props?.envName ?? 'dev'
 
     // Determine zone and domains
-    const hostedZoneName = envName === 'dev' ? `dev.${domain}` : domain
-    const apiDomain = envName === 'dev' ? `api.dev.${domain}` : `api.${domain}`
-    const cognitoCustomDomainName = envName === 'dev' ? `auth.dev.${domain}` : `auth.${domain}`
+    const hostedZoneName = domain
+    const apiDomain = `api.${domain}`
+    const cognitoCustomDomainName = `auth.${domain}`
 
     // Import hosted zone from SSM
     const hostedZoneId = ssm.StringParameter.valueFromLookup(

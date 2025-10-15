@@ -123,8 +123,8 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
     })
 
     // Setup custom domain for API Gateway
-    const hostedZoneName = envName === 'dev' ? `dev.${domain}` : domain
-    const apiDomain = envName === 'dev' ? `api.dev.${domain}` : `api.${domain}`
+    const hostedZoneName = domain
+    const apiDomain = `api.${domain}`
 
     // Import hosted zone from SSM
     const hostedZoneId = ssm.StringParameter.valueFromLookup(
@@ -263,7 +263,7 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
     // ========================================
 
     // Get S3 website URLs from SSM for CloudFront
-    const marketplaceBucketName = `${envName}-${domain}`
+    const marketplaceBucketName = domain
     const s3WebsiteUrls = {
       [domain]: ssm.StringParameter.valueFromLookup(
         this,

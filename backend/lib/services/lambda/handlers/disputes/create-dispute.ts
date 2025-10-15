@@ -22,7 +22,11 @@ export const createDispute = async (event: APIGatewayProxyEvent): Promise<APIGat
     if (!userId) {
       return {
         statusCode: 401,
-        body: JSON.stringify({ error: 'Unauthorized' })
+        body: JSON.stringify({ error: 'Unauthorized' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
@@ -35,21 +39,33 @@ export const createDispute = async (event: APIGatewayProxyEvent): Promise<APIGat
     if (!cart_id || !purchase_ids || purchase_ids.length === 0) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Missing required fields: cart_id, purchase_ids' })
+        body: JSON.stringify({ error: 'Missing required fields: cart_id, purchase_ids' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
     if (!reason || reason.trim().length === 0) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Dispute reason is required' })
+        body: JSON.stringify({ error: 'Dispute reason is required' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
     if (!user) {
       return {
         statusCode: 404,
-        body: JSON.stringify({ error: 'User not found' })
+        body: JSON.stringify({ error: 'User not found' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
@@ -63,7 +79,11 @@ export const createDispute = async (event: APIGatewayProxyEvent): Promise<APIGat
     if (validation.cartId !== cart_id) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Provided cart_id does not match purchases' })
+        body: JSON.stringify({ error: 'Provided cart_id does not match purchases' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
@@ -137,7 +157,11 @@ export const createDispute = async (event: APIGatewayProxyEvent): Promise<APIGat
 
     return {
       statusCode: 200,
-      body: JSON.stringify(dispute)
+      body: JSON.stringify(dispute),
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
     }
 
   } catch (error: unknown) {
@@ -149,7 +173,11 @@ export const createDispute = async (event: APIGatewayProxyEvent): Promise<APIGat
         errorMessage?.includes('already') || errorMessage?.includes('must') ? 400 : 500,
       body: JSON.stringify({
         error: errorMessage
-      })
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
     }
   }
 }

@@ -17,7 +17,11 @@ export const getDisputes = async (event: APIGatewayProxyEvent): Promise<APIGatew
     if (!userId || !user) {
       return {
         statusCode: 401,
-        body: JSON.stringify({ error: 'Unauthorized' })
+        body: JSON.stringify({ error: 'Unauthorized' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
@@ -34,7 +38,11 @@ export const getDisputes = async (event: APIGatewayProxyEvent): Promise<APIGatew
     ].includes(view)) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Invalid view parameter. Must be: buyer, seller, or platform' })
+        body: JSON.stringify({ error: 'Invalid view parameter. Must be: buyer, seller, or platform' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
 
@@ -80,7 +88,11 @@ export const getDisputes = async (event: APIGatewayProxyEvent): Promise<APIGatew
       default:
         return {
           statusCode: 400,
-          body: JSON.stringify({ error: 'Invalid view' })
+          body: JSON.stringify({ error: 'Invalid view' }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
         }
     }
 
@@ -91,7 +103,11 @@ export const getDisputes = async (event: APIGatewayProxyEvent): Promise<APIGatew
 
     return {
       statusCode: 200,
-      body: JSON.stringify(response)
+      body: JSON.stringify(response),
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
     }
 
   } catch (error: unknown) {
@@ -101,7 +117,11 @@ export const getDisputes = async (event: APIGatewayProxyEvent): Promise<APIGatew
       statusCode: 500,
       body: JSON.stringify({
         error: (error as Error).message || 'Failed to get disputes'
-      })
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
     }
   }
 }
