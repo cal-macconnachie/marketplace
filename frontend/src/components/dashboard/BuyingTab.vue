@@ -47,13 +47,13 @@
       </BaseCard> -->
 
       <!-- Empty State for Products -->
-      <BaseCard v-if="!paymentMethodsLoading && paymentMethods.length > 0" title="Products For You" :min-height="300">
+      <!-- <BaseCard v-if="!paymentMethodsLoading && paymentMethods.length > 0" title="Products For You" :min-height="300">
         <BaseEmptyState
           icon="shopping-bag"
           title="No Products Available"
           description="Products will appear here when they become available for your account."
         />
-      </BaseCard>
+      </BaseCard> -->
 
       <!-- Purchases Card -->
       <BaseCard v-if="app.hasPurchased" title="Your Purchases" :expandable="true" :min-height="300">
