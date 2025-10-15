@@ -174,7 +174,13 @@ export const eventsEndpoints: LambdaEndpointDefinition[] = [
     name: 'disputesStream',
     handler: 'disputes.disputes',
     description: 'Handle dispute status changes and process refunds via DynamoDB stream',
-    environment: ['STRIPE_SECRET_KEY'],
+    environment: [
+      'STRIPE_SECRET_KEY',
+      'EMAIL_LAMBDA_ARN',
+      'SMS_LAMBDA_ARN',
+      'EMAIL_AWS_REGION',
+      'EMAIL_ASSUME_ROLE_ARN'
+    ],
     dynamoStreamEvent: {
       tableName: 'disputes',
       enabled: true,
