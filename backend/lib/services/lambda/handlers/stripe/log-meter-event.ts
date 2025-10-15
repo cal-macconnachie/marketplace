@@ -1,7 +1,8 @@
 import { MeterEventParams } from '@marketplace/types'
+import { getUserFromEvent } from '../../helpers/get-user-from-event'
 import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
 import {
-  logMeterEvent 
+  logMeterEvent
 } from '../../helpers/stripe/log-meter-event'
 
 export const logMeterEventHandler = rateLimitedHandler(async (event) => {
@@ -53,8 +54,21 @@ export const logMeterEventHandler = rateLimitedHandler(async (event) => {
         }
       }
     }
+    const user = await getUserFromEvent(event)
+    if (user == null || user.stripe_id == null) {
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ error: 'Unauthorized' }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
+      }
+    }
     const meterEventParams: MeterEventParams = {
       purchaseId: purchase_id,
+      customerId: user.stripe_id,
       userId: user_id,
       value: value,
       metadata: metadata

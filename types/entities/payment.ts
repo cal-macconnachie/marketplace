@@ -43,7 +43,7 @@ export interface Purchase {
   base_amount?: number
   /** @internal Original base amount before adjustments */
   original_base_amount?: number
-  seller_organization_id?: string
+  seller_organization_id: string
   applied_discount?: {
     type: 'promotion_code' | 'coupon'
     code?: string

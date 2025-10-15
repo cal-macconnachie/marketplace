@@ -179,37 +179,42 @@ export const handleSubscription = async ({
     subscription = await stripe.subscriptions.create(createParams)
 
     // If subscription requires payment action, add next step to cart
-    if (subscription && subscription.status === 'incomplete' && subscription.latest_invoice) {
+    if (subscription && subscription.status === 'incomplete' && subscription.latest_invoice && cartId) {
       const invoice = typeof subscription.latest_invoice === 'string'
-        ? await stripe.invoices.retrieve(subscription.latest_invoice)
+        ? await stripe.invoices.retrieve(subscription.latest_invoice, { expand: ['payment_intent'] })
         : subscription.latest_invoice
 
-      if (invoice && invoice.payment_intent) {
-        const paymentIntent = typeof invoice.payment_intent === 'string'
-          ? await stripe.paymentIntents.retrieve(invoice.payment_intent)
-          : invoice.payment_intent
+      // Check if there's a payment intent in the invoice payments
+      if (invoice && invoice.payments?.data && invoice.payments.data.length > 0) {
+        const latestPayment = invoice.payments.data[0]
 
-        if (paymentIntent && paymentIntent.status === 'requires_action' && cartId) {
-          console.log(`Payment intent ${paymentIntent.id} requires action, updating cart ${cartId} with next step`)
+        if (latestPayment.payment && latestPayment.payment.type === 'payment_intent' && latestPayment.payment.payment_intent) {
+          const paymentIntent = typeof latestPayment.payment.payment_intent === 'string'
+            ? await stripe.paymentIntents.retrieve(latestPayment.payment.payment_intent)
+            : latestPayment.payment.payment_intent
 
-          const nextStepItem = {
-            type: 'payment_action_required',
-            payment_intent_client_secret: paymentIntent.client_secret!,
-            payment_intent_id: paymentIntent.id
-          }
+          if (paymentIntent && paymentIntent.status === 'requires_action') {
+            console.log(`Payment intent ${paymentIntent.id} requires action, updating cart ${cartId} with next step`)
 
-          await atomicUpdate({
-            tableName: purchaseCartsTableName,
-            key: {
-              user_id: user.id,
-              id: cartId
-            },
-            updateExpression: 'SET next_steps = if_not_exists(next_steps, :empty_list), next_steps = list_append(next_steps, :new_step)',
-            expressionAttributeValues: {
-              ':empty_list': [],
-              ':new_step': [nextStepItem]
+            const nextStepItem = {
+              type: 'payment_action_required',
+              payment_intent_client_secret: paymentIntent.client_secret!,
+              payment_intent_id: paymentIntent.id
             }
-          })
+
+            await atomicUpdate({
+              tableName: purchaseCartsTableName,
+              key: {
+                user_id: user.id,
+                id: cartId
+              },
+              updateExpression: 'SET next_steps = if_not_exists(next_steps, :empty_list), next_steps = list_append(next_steps, :new_step)',
+              expressionAttributeValues: {
+                ':empty_list': [],
+                ':new_step': [nextStepItem]
+              }
+            })
+          }
         }
       }
     }

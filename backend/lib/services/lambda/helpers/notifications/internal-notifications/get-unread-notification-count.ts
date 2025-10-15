@@ -15,8 +15,7 @@ export const getUnreadNotificationCount = async (
     expressionAttributeValues: {
       ':userId': params.userId,
       ':prefix': 'false#'
-    },
-    sortOrder: 'DESC'
+    }
   })
   return items.length
 }

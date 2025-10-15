@@ -6,7 +6,6 @@ import {
   Organization,
   User
 } from '@marketplace/types'
-import getCurrencyByCountry from 'country-to-currency'
 import Stripe from 'stripe'
 import { get } from '../dynamo-helpers/get'
 import { update } from '../dynamo-helpers/update'
@@ -166,7 +165,8 @@ export const createConnectedAccount = async ({
       throw new Error('Country is required either in bank details or company address')
     }
     if (!currency) {
-      currency = getCurrencyByCountry[country.toUpperCase() as keyof typeof getCurrencyByCountry]?.toLowerCase() || 'usd'
+      const getCurrencyByCountry = await import('country-to-currency')
+      currency = getCurrencyByCountry.default[country.toUpperCase() as keyof typeof getCurrencyByCountry.default]?.toLowerCase() || 'usd'
     }
     
     // Validate bank account details

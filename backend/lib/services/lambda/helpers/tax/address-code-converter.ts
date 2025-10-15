@@ -1,5 +1,5 @@
 import {
-  AddressCodes, AddressInput 
+  AddressCodes, AddressInput
 } from '@marketplace/types'
 import { countryToAlpha2 } from 'country-to-iso'
 import { iso31662 } from 'iso-3166'

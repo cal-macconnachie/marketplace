@@ -52,7 +52,7 @@ export const markNotificationRead = async ({
 export const getUpdatedCompositeFields = (
   read: boolean,
   created_at: number,
-  type: 'receipt' | 'sale' | 'system'
+  type: Notification['type']
 ): Pick<Notification, 'read_created_at' | 'type_created_at'> => {
   return {
     read_created_at: `${read}#${created_at}`,
