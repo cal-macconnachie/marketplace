@@ -51,6 +51,9 @@
           'status-badge--failed': purchase.status === 'failed',
           'status-badge--metered':
             purchase.status === 'pending' && purchase.type === 'metered_subscription',
+          'status-badge--in-dispute': purchase.status === 'in_dispute',
+          'status-badge--refunded': purchase.status === 'refunded',
+          'status-badge--partially-refunded': purchase.status === 'partially_refunded',
         }"
       >
         <!-- Metered subscription in billing period -->
@@ -69,6 +72,49 @@
         </svg>
         <!-- Regular pending (payment processing) -->
         <LoadingSpinner v-else-if="purchase.status === 'pending'" :size="10" />
+        <!-- In Dispute -->
+        <svg
+          v-else-if="purchase.status === 'in_dispute'"
+          class="status-icon"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          title="In Dispute"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        <!-- Refunded -->
+        <svg
+          v-else-if="purchase.status === 'refunded'"
+          class="status-icon"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          title="Refunded"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        <!-- Partially Refunded -->
+        <svg
+          v-else-if="purchase.status === 'partially_refunded'"
+          class="status-icon"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          title="Partially Refunded"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        <!-- Completed -->
         <svg
           v-else-if="purchase.status === 'completed'"
           class="status-icon"
@@ -81,6 +127,7 @@
             clip-rule="evenodd"
           />
         </svg>
+        <!-- Failed -->
         <svg
           v-else-if="purchase.status === 'failed'"
           class="status-icon"
@@ -125,9 +172,10 @@
           variant="ghost"
           size="xs"
           class="dispute-button"
+          :disabled="!isDisputable"
           @click.stop="showDisputeDrawer = true"
           aria-label="Dispute purchase"
-          title="Dispute purchase"
+          :title="isDisputable ? 'Dispute purchase' : 'This purchase cannot be disputed'"
         >
           <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
@@ -172,6 +220,35 @@
       <div v-if="viewerType === 'seller'" class="breakdown-row total">
         <span>You {{ purchase.status === 'completed' ? 'Received' : 'Will Receive' }}</span>
         <span>{{ formatMoneyInt(displayTotal, purchase.currency) }}</span>
+      </div>
+      <div v-if="purchase.refund_amount && purchase.refund_amount > 0" class="refund-info">
+        <svg class="refund-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fill-rule="evenodd"
+            d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        <span
+          >Refund:
+          {{ formatMoneyInt(purchase.refund_amount, purchase.currency) }}
+          <span v-if="purchase.refunded_at" class="refund-date"
+            >({{ new Date(purchase.refunded_at).toLocaleDateString() }})</span
+          >
+        </span>
+      </div>
+      <div
+        v-if="purchase.status === 'in_dispute' && purchase.dispute_id"
+        class="dispute-info-breakdown"
+      >
+        <svg class="dispute-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fill-rule="evenodd"
+            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        <span>This purchase is currently being disputed</span>
       </div>
       <div
         v-if="
@@ -327,6 +404,17 @@ const discountAmount = computed(() => {
 
   const discountValue = originalAmount.value - (purchase.base_amount ?? 0)
   return `-${formatMoneyInt(discountValue, purchase.currency)}`
+})
+
+const isDisputable = computed(() => {
+  // A purchase can be disputed if it's not already in dispute, refunded, or failed
+  return (
+    purchase.status !== 'in_dispute' &&
+    purchase.status !== 'refunded' &&
+    purchase.status !== 'partially_refunded' &&
+    purchase.status !== 'failed' &&
+    !purchase.disputed
+  )
 })
 
 function toggleBreakdown() {
@@ -594,6 +682,19 @@ onUnmounted(() => {
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
+.status-badge--in-dispute {
+  background: rgba(245, 158, 11, 0.1);
+  color: rgb(245, 158, 11);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.status-badge--refunded,
+.status-badge--partially-refunded {
+  background: rgba(139, 92, 246, 0.1);
+  color: rgb(139, 92, 246);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
 .status-icon {
   width: 10px;
   height: 10px;
@@ -614,6 +715,45 @@ onUnmounted(() => {
 }
 
 .discount-icon {
+  flex-shrink: 0;
+}
+
+.refund-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(139, 92, 246, 0.05);
+  border-left: 2px solid rgb(139, 92, 246);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: rgb(139, 92, 246);
+}
+
+.refund-icon {
+  flex-shrink: 0;
+}
+
+.refund-date {
+  font-size: var(--font-size-xs);
+  opacity: 0.8;
+}
+
+.dispute-info-breakdown {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(245, 158, 11, 0.05);
+  border-left: 2px solid rgb(245, 158, 11);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: rgb(245, 158, 11);
+}
+
+.dispute-icon {
   flex-shrink: 0;
 }
 

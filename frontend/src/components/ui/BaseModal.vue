@@ -128,6 +128,8 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   close: []
   'update:show': [value: boolean]
+  success: []
+  error: [error: string]
 }>()
 
 const isClosing = ref(false)

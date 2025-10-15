@@ -203,17 +203,28 @@ async function loadPurchases() {
       limit: 100
     })
 
+    let allPurchases: Purchase[] = []
     if (response && 'items' in response) {
-      purchases.value = response.items
+      allPurchases = response.items
     } else if (Array.isArray(response)) {
-      purchases.value = response
-    } else {
-      purchases.value = []
+      allPurchases = response
     }
 
-    // Pre-select the initial purchase if provided
+    // Filter out purchases that are already disputed, refunded, or partially refunded
+    purchases.value = allPurchases.filter(purchase => {
+      const isDisputable = purchase.status !== 'in_dispute'
+        && purchase.status !== 'refunded'
+        && purchase.status !== 'partially_refunded'
+        && !purchase.disputed
+      return isDisputable
+    })
+
+    // Pre-select the initial purchase if provided and it's disputable
     if (props.initialPurchaseId) {
-      selectedPurchaseIds.value.add(props.initialPurchaseId)
+      const isDisputable = purchases.value.some(p => p.id === props.initialPurchaseId)
+      if (isDisputable) {
+        selectedPurchaseIds.value.add(props.initialPurchaseId)
+      }
     }
   } catch (err) {
     console.error('Failed to load purchases:', err)
