@@ -599,7 +599,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                             connected_account_id: product.account_id,
                             tax_amount: 0,
                             base_amount: 0,
-                            seller_organization_id: product.metadata?.organization_id,
+                            seller_organization_id: product.organization_id,
                             status: 'pending' // Pending for next period's usage
                           }
 
@@ -660,7 +660,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                         connected_account_id: product.account_id,
                         tax_amount: taxAmount,
                         base_amount: item.amount - taxAmount,
-                        seller_organization_id: product.metadata?.organization_id,
+                        seller_organization_id: product.organization_id,
                         status: 'completed'
                       }
 
@@ -967,7 +967,7 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
                         connected_account_id: product.account_id,
                         tax_amount: taxAmount,
                         base_amount: item.amount - taxAmount,
-                        seller_organization_id: product.metadata?.organization_id,
+                        seller_organization_id: product.organization_id,
                         status: 'failed'
                       }
 
