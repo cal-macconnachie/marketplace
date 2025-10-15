@@ -11,6 +11,14 @@ export interface ReceiptLineItem {
   seller_id?: string
   seller_name?: string
   purchase_id?: string
+  // Refund information
+  refund_amount?: number
+  refund_amount_formatted?: string
+  refunded_at?: string
+  // Dispute information
+  disputed?: boolean
+  dispute_id?: string
+  purchase_status?: 'completed' | 'pending' | 'failed' | 'in_dispute' | 'refunded' | 'partially_refunded'
 }
 
 export interface ReceiptSummary {
@@ -85,4 +93,9 @@ export interface ReceiptEmailContext {
   }>
   receipt_url: string
   customer_ip_address?: string
+  // Overall refund/dispute tracking for the cart
+  has_refunds?: boolean
+  has_disputes?: boolean
+  total_refund_amount?: number
+  total_refund_amount_formatted?: string
 }

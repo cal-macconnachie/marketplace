@@ -93,6 +93,31 @@
                   <span class="item-unit-price">{{ item.unit_price_formatted }} each</span>
                   <span class="item-subtotal">{{ item.subtotal_formatted }}</span>
                 </div>
+                <!-- Refund info for this item -->
+                <div v-if="item.refund_amount && item.refund_amount > 0" class="item-refund-info">
+                  <svg class="refund-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fill-rule="evenodd"
+                      d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                  <span>
+                    Refund: {{ item.refund_amount_formatted }}
+                    <span v-if="item.refunded_at" class="refund-date">({{ new Date(item.refunded_at).toLocaleDateString() }})</span>
+                  </span>
+                </div>
+                <!-- Dispute info for this item -->
+                <div v-if="item.disputed" class="item-dispute-info">
+                  <svg class="dispute-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fill-rule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                  <span>This item is currently being disputed</span>
+                </div>
               </div>
             </div>
           </div>
@@ -141,6 +166,31 @@
                 <span class="item-unit-price">{{ item.unit_price_formatted }} each</span>
                 <span class="item-subtotal">{{ item.subtotal_formatted }}</span>
               </div>
+              <!-- Refund info for this item -->
+              <div v-if="item.refund_amount && item.refund_amount > 0" class="item-refund-info">
+                <svg class="refund-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fill-rule="evenodd"
+                    d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+                <span>
+                  Refund: {{ item.refund_amount_formatted }}
+                  <span v-if="item.refunded_at" class="refund-date">({{ new Date(item.refunded_at).toLocaleDateString() }})</span>
+                </span>
+              </div>
+              <!-- Dispute info for this item -->
+              <div v-if="item.disputed" class="item-dispute-info">
+                <svg class="dispute-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fill-rule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+                <span>This item is currently being disputed</span>
+              </div>
             </div>
           </div>
         </div>
@@ -170,6 +220,34 @@
             <span class="summary-label">Total</span>
             <span class="summary-value">{{ receipt.summary.total_formatted }}</span>
           </div>
+        </div>
+      </section>
+
+      <!-- Overall Refund Information -->
+      <section v-if="receipt.has_refunds" class="details-section refund-section">
+        <div class="overall-refund-info">
+          <svg class="refund-icon" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+            <path
+              fill-rule="evenodd"
+              d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          <span>Total Refunded: {{ receipt.total_refund_amount_formatted }}</span>
+        </div>
+      </section>
+
+      <!-- Overall Dispute Information -->
+      <section v-if="receipt.has_disputes" class="details-section dispute-section">
+        <div class="overall-dispute-info">
+          <svg class="dispute-icon" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+            <path
+              fill-rule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          <span>One or more items in this receipt are currently being disputed</span>
         </div>
       </section>
 
@@ -532,6 +610,75 @@ watch(() => props.show, (newShow) => {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   line-height: var(--line-height-relaxed);
+}
+
+/* Item Refund/Dispute Info */
+.item-refund-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(139, 92, 246, 0.05);
+  border-left: 2px solid rgb(139, 92, 246);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: rgb(139, 92, 246);
+}
+
+.item-dispute-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(245, 158, 11, 0.05);
+  border-left: 2px solid rgb(245, 158, 11);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: rgb(245, 158, 11);
+}
+
+.refund-icon,
+.dispute-icon {
+  flex-shrink: 0;
+}
+
+.refund-date {
+  font-size: var(--font-size-xs);
+  opacity: 0.8;
+}
+
+/* Overall Refund/Dispute Info */
+.refund-section,
+.dispute-section {
+  margin-top: var(--space-4);
+}
+
+.overall-refund-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: rgba(139, 92, 246, 0.1);
+  border: 2px solid rgb(139, 92, 246);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: rgb(139, 92, 246);
+}
+
+.overall-dispute-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: rgba(245, 158, 11, 0.1);
+  border: 2px solid rgb(245, 158, 11);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: rgb(245, 158, 11);
 }
 
 /* Responsive */

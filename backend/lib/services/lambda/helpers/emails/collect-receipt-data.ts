@@ -173,6 +173,12 @@ export const collectReceiptEmailData = async (
 
     const unitMinor = qty > 0 ? Math.round(productBaseMinor / qty) : 0
 
+    // Aggregate refund/dispute info from all related purchases
+    const totalRefundAmount = relatedPurchases.reduce((sum, p) => sum + (p.refund_amount || 0), 0)
+    const hasDispute = relatedPurchases.some(p => p.disputed || p.dispute_id || p.status === 'in_dispute')
+    const refundedAt = relatedPurchases.find(p => p.refunded_at)?.refunded_at
+    const purchaseStatus = relatedPurchases[0]?.status
+
     const item: ReceiptLineItem = {
       product_id: productId,
       product_name: name,
@@ -184,7 +190,13 @@ export const collectReceiptEmailData = async (
       interval_text: interval,
       seller_id: sellerId,
       seller_name: sellerName,
-      purchase_id: relatedPurchases[0]?.id
+      purchase_id: relatedPurchases[0]?.id,
+      refund_amount: totalRefundAmount > 0 ? totalRefundAmount : undefined,
+      refund_amount_formatted: totalRefundAmount > 0 ? formatCurrency(totalRefundAmount, currency) : undefined,
+      refunded_at: refundedAt,
+      disputed: hasDispute || undefined,
+      dispute_id: relatedPurchases.find(p => p.dispute_id)?.dispute_id,
+      purchase_status: purchaseStatus
     }
 
     line_items.push(item)
@@ -278,6 +290,12 @@ export const collectReceiptEmailData = async (
   })
 
   const receiptUrl = `https://${domain}/receipts/${cart.id}/${user.id}`
+
+  // Calculate overall refund/dispute tracking
+  const totalRefundAmount = purchases.reduce((sum, p) => sum + (p.refund_amount || 0), 0)
+  const hasRefunds = totalRefundAmount > 0
+  const hasDisputes = purchases.some(p => p.disputed || p.dispute_id || p.status === 'in_dispute')
+
   const context: ReceiptEmailContext = {
     preheader: `Your receipt for ${line_items.length} item(s) – ${summary.total_formatted}`,
     receipt_number: cart.id,
@@ -315,7 +333,13 @@ export const collectReceiptEmailData = async (
     summary,
     sellers,
     seller_groups,
-    receipt_url: receiptUrl
+    receipt_url: receiptUrl,
+
+    // Refund/Dispute tracking
+    has_refunds: hasRefunds || undefined,
+    has_disputes: hasDisputes || undefined,
+    total_refund_amount: hasRefunds ? totalRefundAmount : undefined,
+    total_refund_amount_formatted: hasRefunds ? formatCurrency(totalRefundAmount, currency) : undefined
   }
   context.customer_ip_address = cart.ip_address || user.ip_address || undefined
 

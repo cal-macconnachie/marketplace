@@ -33,7 +33,7 @@
       </BaseCard>
 
       <!-- Products Card -->
-      <BaseCard
+      <!-- <BaseCard
         v-if="products.length > 0 && paymentMethods.length > 0"
         title="Products For You"
         :expandable="true"
@@ -44,10 +44,10 @@
             <ProductsList :products="products" @purchase-success="handlePurchaseSuccess" />
           </div>
         </template>
-      </BaseCard>
+      </BaseCard> -->
 
       <!-- Empty State for Products -->
-      <BaseCard v-else-if="!paymentMethodsLoading && paymentMethods.length > 0" title="Products For You" :min-height="300">
+      <BaseCard v-if="!paymentMethodsLoading && paymentMethods.length > 0" title="Products For You" :min-height="300">
         <BaseEmptyState
           icon="shopping-bag"
           title="No Products Available"
@@ -86,11 +86,10 @@ import InfinitePurchasesList from '@/components/ui/InfinitePurchasesList.vue'
 import PaymentActionRequired from '@/components/ui/PaymentActionRequired.vue'
 import PaymentMethodForm from '@/components/ui/PaymentMethodForm.vue'
 import PaymentMethodList from '@/components/ui/PaymentMethodList.vue'
-import ProductsList from '@/components/ui/ProductsList.vue'
 import SubscriptionManager from '@/components/ui/SubscriptionManager.vue'
 import { useAppStore } from '@/stores/app'
 import type { PaymentMethod, Product } from '@marketplace/types'
-import { ref, onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 
 const app = useAppStore()
 const paymentMethods = ref<PaymentMethod[]>([])
@@ -173,10 +172,10 @@ async function fetchProducts() {
   }
 }
 
-async function handlePurchaseSuccess() {
-  await app.getUserPurchases()
-  await app.fetchOrganization()
-}
+// async function handlePurchaseSuccess() {
+//   await app.getUserPurchases()
+//   await app.fetchOrganization()
+// }
 
 async function handlePaymentMethodAdded() {
   await fetchPaymentMethods()

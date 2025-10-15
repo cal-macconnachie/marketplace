@@ -181,6 +181,12 @@ export const eventsEndpoints: LambdaEndpointDefinition[] = [
       'EMAIL_AWS_REGION',
       'EMAIL_ASSUME_ROLE_ARN'
     ],
+    iamPolicies: [
+      {
+        actions: ['sts:AssumeRole'],
+        resources: ['arn:aws:iam::472312425428:role/cross-dev-lambdaInvokeFrom-629891807011']
+      }
+    ],
     dynamoStreamEvent: {
       tableName: 'disputes',
       enabled: true,
