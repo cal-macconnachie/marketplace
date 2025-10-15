@@ -5,6 +5,7 @@ import { DynamoDBStreamEvent } from 'aws-lambda'
 import { processDisputeRefund } from '../helpers/disputes/process-dispute-refund'
 import { updatePurchaseDisputeStatus } from '../helpers/disputes/update-purchase-dispute-status'
 import { update } from '../helpers/dynamo-helpers/update'
+import { formatCurrency } from '../helpers/emails/collect-receipt-data'
 import { createNotification } from '../helpers/notifications/internal-notifications/create-notification'
 
 /**
@@ -49,7 +50,7 @@ export const disputes = async (event: DynamoDBStreamEvent) => {
             type: 'refund_processed',
             user_id: newDispute.buyer_user_id,
             title: 'Refund Processed',
-            message: `Your dispute has been resolved and a refund of ${refundResult.totalRefunded / 100} ${newDispute.currency} has been processed to your original payment method.`,
+            message: `Your dispute has been resolved and a refund of ${formatCurrency(refundResult.totalRefunded, newDispute.currency)} has been processed to your original payment method.`,
             metadata: {
               dispute_id: newDispute.id,
               refund_amount: refundResult.totalRefunded.toString(),

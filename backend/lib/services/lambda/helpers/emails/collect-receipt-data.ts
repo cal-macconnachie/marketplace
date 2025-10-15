@@ -14,7 +14,7 @@ import {
 import { getAllPurchasesForCart } from '../carts/get-all-purchases-for-cart'
 import { get } from "../dynamo-helpers/get"
 
-const formatCurrency = (amountMinor: number, currency: string): string => {
+export const formatCurrency = (amountMinor: number, currency: string): string => {
   // amountMinor is in smallest unit (e.g., cents)
   const amount = amountMinor / 100
   return new Intl.NumberFormat("en-US", {
