@@ -128,7 +128,7 @@
                       clip-rule="evenodd"
                     />
                   </svg>
-                  <span>Dispute was accepted - Refund processed</span>
+                  <span>Refund processed</span>
                 </div>
 
                 <!-- Dispute Rejected -->
@@ -140,7 +140,7 @@
                       clip-rule="evenodd"
                     />
                   </svg>
-                  <span>Dispute was rejected - No refund issued</span>
+                  <span>No refund issued</span>
                 </div>
               </div>
             </div>
@@ -225,7 +225,7 @@
                     clip-rule="evenodd"
                   />
                 </svg>
-                <span>Dispute was accepted - Refund processed</span>
+                <span>Refund processed</span>
               </div>
 
               <!-- Dispute Rejected -->
@@ -237,7 +237,7 @@
                     clip-rule="evenodd"
                   />
                 </svg>
-                <span>Dispute was rejected - No refund issued</span>
+                <span>No refund issued</span>
               </div>
             </div>
           </div>
@@ -282,20 +282,6 @@
             />
           </svg>
           <span>Total Refunded: {{ receipt.total_refund_amount_formatted }}</span>
-        </div>
-      </section>
-
-      <!-- Overall Dispute Information -->
-      <section v-if="receipt.has_disputes" class="details-section dispute-section">
-        <div class="overall-dispute-info">
-          <svg class="dispute-icon" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              fill-rule="evenodd"
-              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-              clip-rule="evenodd"
-            />
-          </svg>
-          <span>One or more items in this receipt are currently being disputed</span>
         </div>
       </section>
 

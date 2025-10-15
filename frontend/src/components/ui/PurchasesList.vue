@@ -14,10 +14,10 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits, ref, onMounted, onUnmounted } from 'vue'
-import PurchaseLineItem from './PurchaseLineItem.vue'
-import LoadingSpinner from './LoadingSpinner.vue'
 import type { Purchase } from '@marketplace/types'
+import { defineEmits, defineProps, onMounted, onUnmounted, ref } from 'vue'
+import LoadingSpinner from './LoadingSpinner.vue'
+import PurchaseLineItem from './PurchaseLineItem.vue'
 
 const {
   purchases,
@@ -66,7 +66,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  max-height: 500px;
+  max-height: 600px;
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;

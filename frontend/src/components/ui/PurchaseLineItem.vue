@@ -264,7 +264,7 @@
             clip-rule="evenodd"
           />
         </svg>
-        <span>Dispute was accepted - Refund processed</span>
+        <span>Refund processed</span>
       </div>
 
       <!-- Dispute Rejected -->
@@ -279,7 +279,7 @@
             clip-rule="evenodd"
           />
         </svg>
-        <span>Dispute was rejected - No refund issued</span>
+        <span>No refund issued</span>
       </div>
 
       <!-- Dispute Escalated -->
