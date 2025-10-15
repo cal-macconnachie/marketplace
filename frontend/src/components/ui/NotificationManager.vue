@@ -77,32 +77,16 @@
               </div>
             </div>
 
-            <div class="filter-group">
-              <label class="filter-label">Type:</label>
-              <div class="filter-buttons">
-                <BaseButton
-                  :variant="!filters.type ? 'primary' : 'outline'"
-                  size="sm"
-                  @click="updateFilter('type', undefined)"
-                >
-                  All
-                </BaseButton>
-                <BaseButton
-                  :variant="filters.type === 'receipt' ? 'primary' : 'outline'"
-                  size="sm"
-                  @click="updateFilter('type', 'receipt')"
-                >
-                  Receipts
-                </BaseButton>
-                <BaseButton
-                  v-if="userHasStripeAccount"
-                  :variant="filters.type === 'sale' ? 'primary' : 'outline'"
-                  size="sm"
-                  @click="updateFilter('type', 'sale')"
-                >
-                  Sales
-                </BaseButton>
-              </div>
+            <div class="filter-group filter-select">
+              <EditableSelect
+                :value="filters.type"
+                field="type"
+                label=""
+                :options="filterNotificationTypes"
+                :searchable="true"
+                placeholder="All Types"
+                @update="handleTypeFilterUpdate"
+              />
             </div>
           </div>
 
@@ -169,9 +153,10 @@
 import { authAPI } from '@/services/api'
 import { useAppStore } from '@/stores/app'
 import { USER_NOTIFICATION_TYPES } from '@marketplace/constants'
-import type { Notification, NotificationType, User } from '@marketplace/types'
+import type { Notification, NotificationType, SelectOption, User } from '@marketplace/types'
 import { computed, onMounted, ref } from 'vue'
 import BaseButton from './BaseButton.vue'
+import EditableSelect from './EditableSelect.vue'
 import EditableToggle from './EditableToggle.vue'
 import LoadingSpinner from './LoadingSpinner.vue'
 import NotificationItem from './NotificationItem.vue'
@@ -195,10 +180,10 @@ const isMarkingAllRead = ref(false)
 const expandedNotifications = ref(new Set<string>())
 const filters = ref<{
   unreadOnly: boolean
-  type?: string
+  type: string
 }>({
   unreadOnly: false,
-  type: undefined,
+  type: '',
 })
 
 // Optimistic preferences state
@@ -227,6 +212,28 @@ const visibleNotificationTypes = computed(() => {
   }
 
   return filtered
+})
+
+// Dynamic filter types for notification filtering as SelectOptions
+const filterNotificationTypes = computed((): SelectOption[] => {
+  const types: SelectOption[] = [
+    { value: '', label: 'All Types' }
+  ]
+
+  for (const [key, config] of Object.entries(USER_NOTIFICATION_TYPES) as [NotificationType, { label: string; requiresStripeAccount?: boolean }][]) {
+    // Exclude 'system' notifications from filters
+    if (key === 'system') continue
+
+    // Include if no Stripe account required, or user has Stripe account
+    if (!config.requiresStripeAccount || userHasStripeAccount.value) {
+      types.push({
+        value: key,
+        label: config.label,
+      })
+    }
+  }
+
+  return types
 })
 
 // Notification preferences from user entity, with optimistic override
@@ -311,7 +318,7 @@ async function loadNotifications() {
     const response = await authAPI.getNotifications({
       limit: 50,
       unreadOnly: filters.value.unreadOnly,
-      type: filters.value.type,
+      type: filters.value.type || undefined,
     })
 
     if ('notifications' in response) {
@@ -324,15 +331,20 @@ async function loadNotifications() {
   }
 }
 
-async function updateFilter(field: 'unreadOnly' | 'type', value: boolean | string | undefined) {
+async function updateFilter(field: 'unreadOnly' | 'type', value: boolean | string) {
   if (field === 'unreadOnly') {
     filters.value.unreadOnly = value as boolean
   } else if (field === 'type') {
-    filters.value.type = value as string | undefined
+    filters.value.type = value as string
   }
 
   // Reload notifications with new filters
   await loadNotifications()
+}
+
+// Wrapper for EditableSelect to handle type filtering
+async function handleTypeFilterUpdate(field: string, value: string) {
+  await updateFilter('type', value)
 }
 
 async function markAsRead(notificationId: string) {
@@ -538,6 +550,11 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.filter-select {
+  min-width: 200px;
+  max-width: 250px;
 }
 
 .filter-label {
