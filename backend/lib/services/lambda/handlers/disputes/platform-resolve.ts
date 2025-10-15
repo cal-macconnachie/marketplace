@@ -117,7 +117,7 @@ export const platformResolveDispute = async (event: APIGatewayProxyEvent): Promi
       // Notify buyer and seller
       await Promise.all([
         createNotification({
-          type: 'system',
+          type: 'dispute_updated',
           user_id: dispute.buyer_user_id,
           title: 'Dispute Resolved - Refund Approved',
           message: 'Our platform team has reviewed and approved your dispute. Your refund will be processed shortly.',
@@ -127,7 +127,7 @@ export const platformResolveDispute = async (event: APIGatewayProxyEvent): Promi
           }
         }),
         createNotification({
-          type: 'system',
+          type: 'dispute_updated',
           user_id: dispute.seller_organization_id, // Should notify org admins
           title: 'Dispute Resolved - Refund Issued',
           message: 'A disputed purchase has been resolved in favor of the buyer. The refund has been issued.',
@@ -176,7 +176,7 @@ export const platformResolveDispute = async (event: APIGatewayProxyEvent): Promi
       // Notify buyer and seller
       await Promise.all([
         createNotification({
-          type: 'system',
+          type: 'dispute_updated',
           user_id: dispute.buyer_user_id,
           title: 'Dispute Resolved - Not Approved',
           message: 'Our platform team has reviewed your dispute. After careful consideration, we have determined that a refund is not warranted in this case.',
@@ -186,7 +186,7 @@ export const platformResolveDispute = async (event: APIGatewayProxyEvent): Promi
           }
         }),
         createNotification({
-          type: 'system',
+          type: 'dispute_updated',
           user_id: dispute.seller_organization_id, // Should notify org admins
           title: 'Dispute Resolved - No Refund Required',
           message: 'A disputed purchase has been resolved in your favor. No refund is required.',

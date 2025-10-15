@@ -354,6 +354,9 @@ function truncateReason(reason: string, maxLength: number = 150): string {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  max-height: 600px;
+  overflow: hidden;
+  overflow-y: auto;
 }
 
 .dispute-item {

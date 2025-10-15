@@ -34,6 +34,6 @@ export const sendReceiptSMS = async ({
   await sendSMS({
     phoneNumber: ctx.customer_phone,
     message,
-    senderId: process.env.MARKETPLACE_BRAND || 'Marketplace'
+    senderId: 'Marketplace'
   })
 }

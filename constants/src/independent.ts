@@ -1,4 +1,4 @@
-import type { SelectOption } from '@marketplace/types'
+import type { SelectOption, UserNotificationTypeConfig } from '@marketplace/types'
 /**
  * Environment-independent constants
  * These values remain the same across all environments
@@ -145,3 +145,40 @@ export const emailStringsToIgnore = [
   'privaterelay.appleid.com',
   'noreply'
 ]
+
+/**
+ * Exhaustive list of user-facing notification types that can be toggled in preferences.
+ *
+ * IMPORTANT: When you add a new NotificationType, you MUST add it here to avoid type errors.
+ * The exhaustive type checking below ensures this constant includes all notification types
+ * that should be user-toggleable.
+ *
+ * To add a new notification type:
+ * 1. Add it to NotificationType in types/entities/notification.ts
+ * 2. Add a corresponding entry here with label and requiresStripeAccount flag
+ * 3. TypeScript will error with the exact missing type if you forget to add it
+ */
+export const USER_NOTIFICATION_TYPES: UserNotificationTypeConfig = {
+  receipt: {
+    label: 'Receipts',
+  },
+  sale: {
+    label: 'Sales',
+    requiresStripeAccount: true
+  },
+  system: {
+    label: 'System Updates',
+  },
+  refund_processed: {
+    label: 'Refunds Processed',
+  },
+  dispute_created: {
+    label: 'Disputes Created',
+  },
+  refund_failed: {
+    label: 'Refunds Failed',
+  },
+  dispute_updated: {
+    label: 'Dispute Updates',
+  },
+}

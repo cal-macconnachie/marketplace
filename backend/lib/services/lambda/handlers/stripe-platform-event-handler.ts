@@ -289,11 +289,74 @@ export const stripePlatformEventHandler = async (event: EventBridgeEvent<'Stripe
     
     case 'transfer.created': {
       const transfer = event.detail.data.object as Stripe.Transfer
-      
+
       console.log(`Transfer created: ${transfer.id} to destination ${transfer.destination}`)
-      
-      // TODO: Update purchase records with transfer_id for tracking
+
+      // Update purchase records with transfer_id for tracking
       // This helps with reconciliation and refund handling
+      try {
+        const stripe = getStripeClient()
+
+        // Get the source transaction (charge) to find the associated purchase_ids
+        const sourceTransactionId = typeof transfer.source_transaction === 'string'
+          ? transfer.source_transaction
+          : transfer.source_transaction?.id
+
+        if (sourceTransactionId) {
+          // Retrieve the charge to get metadata with purchase_ids
+          const charge = await stripe.charges.retrieve(sourceTransactionId)
+
+          // Check if this charge came from a PaymentIntent (one-time payments)
+          if (charge.payment_intent) {
+            const paymentIntentId = typeof charge.payment_intent === 'string'
+              ? charge.payment_intent
+              : charge.payment_intent.id
+
+            const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
+            const purchaseIds = paymentIntent.metadata?.purchase_ids
+              ? JSON.parse(paymentIntent.metadata.purchase_ids)
+              : []
+
+            // Update all purchases with this transfer_id
+            for (const purchaseId of purchaseIds) {
+              try {
+                // Get the purchase to find the user_id
+                const purchase = await get<Purchase>({
+                  tableName: purchasesTableName!,
+                  key: {
+                    user_id: paymentIntent.metadata?.user_id || '',
+                    id: purchaseId
+                  }
+                })
+
+                if (purchase) {
+                  await update<Purchase>({
+                    tableName: purchasesTableName!,
+                    key: {
+                      user_id: purchase.user_id,
+                      id: purchaseId
+                    },
+                    updates: {
+                      transfer_id: transfer.id
+                    }
+                  })
+
+                  console.log(`Updated purchase ${purchaseId} with transfer_id ${transfer.id}`)
+                }
+              } catch (error) {
+                console.error(`Failed to update purchase ${purchaseId} with transfer_id:`, error)
+              }
+            }
+          } else {
+            // For subscription payments, the charge might not have a payment_intent
+            // but the invoice should have metadata
+            console.log(`Charge ${sourceTransactionId} has no payment_intent - may be a subscription charge`)
+          }
+        }
+      } catch (error) {
+        console.error(`Error handling transfer.created for ${transfer.id}:`, error)
+      }
+
       break
     }
     

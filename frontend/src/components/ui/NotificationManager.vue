@@ -27,27 +27,43 @@
           </div>
         </div>
 
-        <div class="toggle-section notification-types">
-          <div class="toggle-grid">
-            <EditableToggle
-              :value="preferences.receipts"
-              field="receipts"
-              label="Receipts"
-              :off-label="''"
-              :on-label="''"
-              :loading="isInitialLoad"
-              @update="handleToggleUpdate"
-            />
-            <EditableToggle
-              v-if="userHasStripeAccount"
-              :value="preferences.sales"
-              field="sales"
-              label="Sales"
-              :off-label="''"
-              :on-label="''"
-              :loading="isInitialLoad"
-              @update="handleToggleUpdate"
-            />
+        <div
+          class="toggle-section notification-types"
+          :class="{ expandable: hasNotificationTypes, expanded: showNotificationTypes }"
+          @click="toggleNotificationTypes"
+        >
+          <div class="notification-types-header">
+            <span class="notification-types-title">Notification Preferences</span>
+            <svg
+              v-if="hasNotificationTypes"
+              class="expand-icon"
+              :class="{ rotated: showNotificationTypes }"
+              width="16"
+              height="16"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </div>
+          <div class="toggle-grid-wrapper" :class="{ visible: showNotificationTypes }" @click.stop>
+            <div class="toggle-grid">
+              <EditableToggle
+                v-for="(config, notifType) in visibleNotificationTypes"
+                :key="notifType"
+                :value="preferences[notifType]"
+                :field="notifType"
+                :label="config?.label ?? ''"
+                :off-label="''"
+                :on-label="''"
+                :loading="isInitialLoad"
+                @update="handleToggleUpdate"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -171,7 +187,8 @@
 <script setup lang="ts">
 import { authAPI } from '@/services/api'
 import { useAppStore } from '@/stores/app'
-import type { Notification, User } from '@marketplace/types'
+import { USER_NOTIFICATION_TYPES } from '@marketplace/constants'
+import type { Notification, NotificationType, User } from '@marketplace/types'
 import { computed, onMounted, ref } from 'vue'
 import BaseButton from './BaseButton.vue'
 import EditableToggle from './EditableToggle.vue'
@@ -195,6 +212,7 @@ const isLoadingNotifications = ref(false)
 const markingAsRead = ref(new Set<string>())
 const isMarkingAllRead = ref(false)
 const expandedNotifications = ref(new Set<string>())
+const showNotificationTypes = ref(false)
 const filters = ref<{
   unreadOnly: boolean
   type?: string
@@ -207,21 +225,51 @@ const filters = ref<{
 const optimisticPreferences = ref<{
   email_enabled?: boolean
   sms_enabled?: boolean
-  receipts?: boolean
-  sales?: boolean
+  [key: string]: boolean | undefined
 }>({})
 
 // Computed
 const userHasPhone = computed(() => !!app.user?.phone_number)
 const userHasStripeAccount = computed(() => !!app?.organization?.stripe_account_id)
 
+const hasNotificationTypes = computed(() => {
+  return Object.keys(visibleNotificationTypes.value).length > 0
+})
+
+// Filter notification types based on user's Stripe account status and exclude system
+const visibleNotificationTypes = computed(() => {
+  const filtered: Partial<Record<NotificationType, { label: string; requiresStripeAccount?: boolean }>> = {}
+
+  for (const [key, config] of Object.entries(USER_NOTIFICATION_TYPES) as [NotificationType, { label: string; requiresStripeAccount?: boolean }][]) {
+    // Exclude 'system' notifications as they can't be toggled
+    if (key === 'system') continue
+
+    // Include if no Stripe account required, or user has Stripe account
+    if (!config.requiresStripeAccount || userHasStripeAccount.value) {
+      filtered[key] = config
+    }
+  }
+
+  return filtered
+})
+
 // Notification preferences from user entity, with optimistic override
-const preferences = computed(() => ({
-  email_enabled: optimisticPreferences.value.email_enabled ?? app.user?.notifications?.email ?? true,
-  sms_enabled: optimisticPreferences.value.sms_enabled ?? app.user?.notifications?.sms ?? false,
-  receipts: optimisticPreferences.value.receipts ?? !(app.user?.notification_opt_out?.receipts ?? false),
-  sales: optimisticPreferences.value.sales ?? !(app.user?.notification_opt_out?.sales ?? false),
-}))
+const preferences = computed(() => {
+  const prefs: Record<string, boolean> = {
+    email_enabled: optimisticPreferences.value.email_enabled ?? app.user?.notifications?.email ?? true,
+    sms_enabled: optimisticPreferences.value.sms_enabled ?? app.user?.notifications?.sms ?? false,
+  }
+
+  // Dynamically add all notification type preferences (excluding system)
+  for (const notifType of Object.keys(USER_NOTIFICATION_TYPES)) {
+    if (notifType === 'system') continue
+
+    prefs[notifType] = optimisticPreferences.value[notifType] ??
+      !(app.user?.notification_opt_out?.[notifType] ?? false)
+  }
+
+  return prefs
+})
 
 // Methods
 async function handleToggleUpdate(field: string, value: boolean) {
@@ -246,8 +294,8 @@ async function handleToggleUpdate(field: string, value: boolean) {
           [notificationType]: value,
         } as User['notifications']
       }
-    } else if (field === 'receipts' || field === 'sales') {
-      // Update notification_opt_out object (inverted logic)
+    } else {
+      // All other fields are notification types - update notification_opt_out object (inverted logic)
       updates = {
         notification_opt_out: {
           ...app.user.notification_opt_out,
@@ -380,6 +428,12 @@ async function handleNotificationClick(notification: Notification) {
   }
 }
 
+function toggleNotificationTypes() {
+  if (hasNotificationTypes.value) {
+    showNotificationTypes.value = !showNotificationTypes.value
+  }
+}
+
 // Lifecycle
 onMounted(async () => {
   // Mark initial load as complete since preferences are loaded from app store
@@ -418,6 +472,45 @@ onMounted(async () => {
 .notification-types {
   border-top: 1px solid var(--color-border);
   padding-top: 1em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.notification-types-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) 0;
+}
+
+.notification-types-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.expand-icon {
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+  color: var(--color-text-secondary);
+}
+
+.expand-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.toggle-grid-wrapper {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
+  padding-top: 0;
+}
+
+.toggle-grid-wrapper.visible {
+  max-height: 600px;
+  opacity: 1;
+  padding-top: var(--space-3);
 }
 
 .toggle-row {

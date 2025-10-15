@@ -138,7 +138,7 @@ export const respondToDispute = async (event: APIGatewayProxyEvent): Promise<API
     // Send notification to buyer
     try {
       await createNotification({
-        type: 'system',
+        type: 'dispute_updated',
         user_id: dispute.buyer_user_id,
         title: action === 'accept' ? 'Dispute Accepted' : 'Dispute Escalated',
         message: action === 'accept'

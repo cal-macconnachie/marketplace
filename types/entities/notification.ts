@@ -14,6 +14,21 @@ export interface NotificationPreferences {
   updated_at: number
 }
 
+export type NotificationType = 'receipt' |
+  'sale' |
+  'system' |
+  'refund_processed' |
+  'dispute_created' |
+  'refund_failed' |
+  'dispute_updated'
+
+/**
+ * User-facing notification type configuration
+ */
+export type UserNotificationTypeConfig = Record<NotificationType, {
+  label: string
+  requiresStripeAccount?: boolean
+}>
 /**
  * Individual notification sent to a user
  */
@@ -24,7 +39,7 @@ export interface Notification {
   message: string
   read: boolean
   created_at: number
-  type: 'receipt' | 'sale' | 'system' | 'refund_processed' | 'dispute_created' | 'refund_failed'
+  type: NotificationType
   // Composite attributes for GSI queries (auto-populated)
   read_created_at: string // Format: "true#1234567890" or "false#1234567890"
   type_created_at: string // Format: "receipt#1234567890" or "sale#1234567890"
@@ -42,6 +57,7 @@ export interface CreateNotificationRequest {
   message: string
   type?: Notification['type']
   metadata?: Notification['metadata']
+  basic?: boolean
 }
 
 /**

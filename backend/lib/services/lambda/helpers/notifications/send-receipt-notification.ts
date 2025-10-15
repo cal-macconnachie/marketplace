@@ -65,7 +65,8 @@ export const sendReceiptNotification = async ({
         unit_price_formatted: item.unit_price_formatted,
         subtotal_formatted: item.subtotal_formatted
       }))
-    }
+    },
+    basic: false
   })
 
   // Create in-app notifications for all seller organization admins
