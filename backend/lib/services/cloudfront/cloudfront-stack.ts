@@ -1,3 +1,4 @@
+import { domain } from '@marketplace/constants'
 import { CloudFrontDistributionDefinition } from '@marketplace/types'
 import {
   Duration, Fn
@@ -32,7 +33,6 @@ import {
 import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets'
 import { Construct } from 'constructs'
 import { cloudFrontDefinitions } from './cloudfront-definitions'
-import { domain } from '@marketplace/constants'
 
 interface CloudFrontConstructProps {
   envName?: string
@@ -107,10 +107,6 @@ function handler(event) {
           parts.push(def.subdomain)
         }
 
-        if (def.domainPrefix && envName === 'dev') {
-          parts.push(def.domainPrefix)
-        }
-
         parts.push(def.domainName)
         actualDomainName = parts.join('.')
       }
@@ -124,10 +120,6 @@ function handler(event) {
       if (actualDomainName && hostedZoneName) {
         // Determine the actual hosted zone name based on environment
         let actualHostedZoneName = hostedZoneName
-        if (envName === 'dev' && def.domainPrefix) {
-          // For dev, use the dev-prefixed zone name (e.g., dev.marketplace.csm.codes)
-          actualHostedZoneName = `${def.domainPrefix}.${hostedZoneName}`
-        }
 
         // Use provided hosted zone, or reuse already created zone, or create a new one
         if (hostedZones && hostedZones[actualHostedZoneName]) {
