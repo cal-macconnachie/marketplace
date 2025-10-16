@@ -11,6 +11,10 @@ export function createDefaultNodejsFunction(scope: Construct, id: string, props:
   if (!props.entry) {
     throw new Error('Lambda function "entry" (path) is required')
   }
+
+  // Get ENV_NAME from props.environment if available for esbuild define
+  const envName = props.environment?.ENV_NAME || process.env.ENV_NAME || 'dev'
+
   return new NodejsFunction(scope, id, {
     runtime: Runtime.NODEJS_22_X,
     memorySize: 256,
@@ -20,6 +24,13 @@ export function createDefaultNodejsFunction(scope: Construct, id: string, props:
       sourceMap: true,
       banner: "require('source-map-support').install();",
       nodeModules: ['source-map-support'],
+      // Use esbuild's define to inline process.env.ENV_NAME at build time
+      define: {
+        'process.env.ENV_NAME': JSON.stringify(envName),
+        ...(props.bundling?.define || {})
+      },
+      // Enable minification to trigger constant folding and inlining
+      minify: true,
       ...props.bundling
     },
     ...props
@@ -43,6 +54,9 @@ export function createNodejsFunctionWithNativeDeps(
     nativeBundling, ...functionProps
   } = props
 
+  // Get ENV_NAME from props.environment if available for esbuild define
+  const envName = props.environment?.ENV_NAME || process.env.ENV_NAME || 'dev'
+
   return new NodejsFunction(scope, id, {
     runtime: Runtime.NODEJS_22_X,
     memorySize: 512, // Higher memory for native deps
@@ -52,6 +66,13 @@ export function createNodejsFunctionWithNativeDeps(
       sourceMap: true,
       banner: "require('source-map-support').install();",
       nodeModules: ['source-map-support'],
+      // Use esbuild's define to inline process.env.ENV_NAME at build time
+      define: {
+        'process.env.ENV_NAME': JSON.stringify(envName),
+        ...(nativeBundling.define || {})
+      },
+      // Enable minification to trigger constant folding and inlining
+      minify: true,
       ...nativeBundling
     },
     ...functionProps

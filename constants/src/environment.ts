@@ -1,45 +1,35 @@
 /**
  * Environment-dependent constants
  * Works in both Node.js (backend) and browser (frontend) environments
+ *
+ * For Lambda functions, esbuild's define option will replace process.env.ENV_NAME
+ * with the actual environment string at build time, allowing full constant inlining.
+ *
+ * IMPORTANT: Using plain string concatenation (+) instead of template literals
+ * allows esbuild to fully inline these constants at build time.
  */
 
-// Check if running in browser (window exists) or Node.js (process exists)
-const ENV = (() => {
-  // Browser environment - check window object for Vite injected env
-  if (typeof window !== 'undefined' && (window as any).__MARKETPLACE_ENV__) {
-    return (window as any).__MARKETPLACE_ENV__;
-  }
-  // Node.js environment
-  if (typeof process !== 'undefined' && process.env?.ENV_NAME) {
-    return process.env.ENV_NAME;
-  }
-  // Default fallback
-  return 'dev';
-})();
-
-/**
- * Get environment-specific table name
- */
-const getTableName = (baseName: string): string => {
-  return `${baseName}-${ENV}`;
-};
+// This will be replaced by esbuild's define option during Lambda bundling
+// e.g., process.env.ENV_NAME becomes "prod" or "dev" at build time
+const ENV_NAME = process.env.ENV_NAME || 'dev';
 
 // DynamoDB Table Names - must match ddb-table-definitions.ts
-export const usersTableName = getTableName('users');
-export const organizationsTableName = getTableName('organizations');
-export const productsTableName = getTableName('products');
-export const purchasesTableName = getTableName('purchases');
-export const paymentMethodsTableName = getTableName('payment-methods');
-export const promosTableName = getTableName('promos');
-export const taxCalculationsTableName = getTableName('tax-calculations');
-export const rateLimitsTableName = getTableName('rate-limits');
-export const oneTimeCodesTableName = getTableName('one-time-codes');
-export const purchaseCartsTableName = getTableName('purchase-carts');
-export const purchasedProductsTableName = getTableName('purchased-products');
-export const notificationsTableName = getTableName('notifications');
-export const disputesTableName = getTableName('disputes');
+// Using + instead of template literals for better esbuild constant folding
+export const usersTableName = 'users-' + ENV_NAME;
+export const organizationsTableName = 'organizations-' + ENV_NAME;
+export const productsTableName = 'products-' + ENV_NAME;
+export const purchasesTableName = 'purchases-' + ENV_NAME;
+export const paymentMethodsTableName = 'payment-methods-' + ENV_NAME;
+export const promosTableName = 'promos-' + ENV_NAME;
+export const taxCalculationsTableName = 'tax-calculations-' + ENV_NAME;
+export const rateLimitsTableName = 'rate-limits-' + ENV_NAME;
+export const oneTimeCodesTableName = 'one-time-codes-' + ENV_NAME;
+export const purchaseCartsTableName = 'purchase-carts-' + ENV_NAME;
+export const purchasedProductsTableName = 'purchased-products-' + ENV_NAME;
+export const notificationsTableName = 'notifications-' + ENV_NAME;
+export const disputesTableName = 'disputes-' + ENV_NAME;
 
-export const domain = ENV === 'dev' ? 'dev.marketplace.csm.codes' : 'marketplace.csm.codes';
+export const domain = ENV_NAME === 'dev' ? 'dev.marketplace.csm.codes' : 'marketplace.csm.codes';
 
 // Export environment for direct access if needed
-export const environment = ENV;
+export const environment = ENV_NAME;

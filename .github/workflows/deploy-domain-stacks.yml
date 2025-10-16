@@ -763,6 +763,8 @@ jobs:
           echo "cognito-client-id=$COGNITO_CLIENT_ID" >> $GITHUB_OUTPUT
 
       - name: Build shared packages
+        env:
+          ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
         run: yarn workspace @marketplace/constants build
 
       - name: Clean frontend dist directory
