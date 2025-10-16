@@ -287,7 +287,7 @@ function handleViewReceipt() {
   if (!props.notification.metadata?.order_id) return
 
   // Open receipt page in new tab
-  const receiptUrl = `/receipts/${props.notification.metadata.order_id}`
+  const receiptUrl = `/receipts/${props.notification.metadata.order_id}/${props.notification.user_id}`
   window.open(receiptUrl, '_blank')
 }
 </script>
