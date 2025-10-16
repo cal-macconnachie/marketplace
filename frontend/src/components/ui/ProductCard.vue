@@ -203,9 +203,14 @@ defineEmits<{
   tap-highlight-color: transparent;
 }
 
+.product-card :deep(.base-card) {
+  height: 100%;
+}
+
 .product-card :deep(.card-body) {
   display: flex;
   flex-direction: column;
+  flex: 1;
 }
 
 .product-card:hover {

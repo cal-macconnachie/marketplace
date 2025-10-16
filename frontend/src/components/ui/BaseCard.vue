@@ -125,7 +125,6 @@ defineExpose({
   position: relative;
   display: flex;
   flex-direction: column;
-  height: 100%;
   box-sizing: border-box;
   max-width: 100%;
 }
@@ -292,7 +291,6 @@ defineExpose({
 }
 
 .card-body {
-  flex: 1;
   min-width: 0;
 }
 
