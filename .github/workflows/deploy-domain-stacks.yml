@@ -709,8 +709,15 @@ jobs:
         run: |
           ENV_NAME="${{ needs.detect-changes.outputs.env-name }}"
 
+          # Bucket name pattern differs for prod (no env prefix)
+          if [ "$ENV_NAME" = "prod" ]; then
+            BUCKET_PARAM_NAME="/marketplace/${ENV_NAME}/s3/marketplace-csm-codes"
+          else
+            BUCKET_PARAM_NAME="/marketplace/${ENV_NAME}/s3/${ENV_NAME}-marketplace-csm-codes"
+          fi
+
           BUCKET_NAME=$(aws ssm get-parameter \
-            --name "/marketplace/${ENV_NAME}/s3/${ENV_NAME}-marketplace-csm-codes" \
+            --name "$BUCKET_PARAM_NAME" \
             --query "Parameter.Value" \
             --output text)
 
