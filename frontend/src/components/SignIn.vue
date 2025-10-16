@@ -745,17 +745,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed, nextTick, type ComponentPublicInstance } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAppStore } from '@/stores/app'
-import { authAPI } from '@/services/api'
-import { useFormValidation, validationRules } from '@/utils/validation'
-import { redirectToGoogleAuth, redirectToAppleAuth } from '@/utils/oauth'
-import BaseCard from '@/components/ui/BaseCard.vue'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseAlert from '@/components/ui/BaseAlert.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseCard from '@/components/ui/BaseCard.vue'
+import BaseInput from '@/components/ui/BaseInput.vue'
 import ThemeToggle from '@/components/ui/ThemeToggle.vue'
+import { authAPI } from '@/services/api'
+import { useAppStore } from '@/stores/app'
+import { redirectToAppleAuth, redirectToGoogleAuth } from '@/utils/oauth'
+import { useFormValidation, validationRules } from '@/utils/validation'
+import { computed, nextTick, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
+import { useRouter } from 'vue-router'
 
 interface Props {
   initialMode?: 'signin' | 'signup'
@@ -1372,11 +1372,6 @@ function goToMarketplace() {
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
-  background: linear-gradient(
-    135deg,
-    var(--color-primary-light) 0%,
-    var(--color-bg-secondary) 100%
-  );
   position: relative;
 }
 

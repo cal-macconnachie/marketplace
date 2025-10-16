@@ -122,11 +122,6 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
-  background: linear-gradient(
-    135deg,
-    var(--color-primary-light) 0%,
-    var(--color-bg-secondary) 100%
-  );
 }
 
 .callback-card {

@@ -252,7 +252,19 @@ export const internalApiEndpoints: LambdaEndpointDefinition[] = [
     name: 'respondToDispute',
     handler: 'disputes/respond-to-dispute.respondToDispute',
     description: 'Seller responds to dispute (accept/reject)',
-    environment: ['STRIPE_SECRET_KEY'],
+    environment: [
+      'STRIPE_SECRET_KEY',
+      'EMAIL_LAMBDA_ARN',
+      'SMS_LAMBDA_ARN',
+      'EMAIL_AWS_REGION',
+      'EMAIL_ASSUME_ROLE_ARN'
+    ],
+    iamPolicies: [
+      {
+        actions: ['sts:AssumeRole'],
+        resources: ['arn:aws:iam::472312425428:role/cross-dev-lambdaInvokeFrom-629891807011']
+      }
+    ],
     apiGw: {
       path: 'disputes/respond',
       method: 'POST',

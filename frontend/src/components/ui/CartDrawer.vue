@@ -155,10 +155,6 @@
               <span class="summary-label">Tax</span>
               <span class="summary-value">{{ sellerGroup.tax_formatted }}</span>
             </div>
-            <div v-if="sellerGroup.fees_formatted" class="summary-row">
-              <span class="summary-label">Fees</span>
-              <span class="summary-value">{{ sellerGroup.fees_formatted }}</span>
-            </div>
             <div class="summary-row summary-total">
               <span class="summary-label">Total</span>
               <span class="summary-value">{{ sellerGroup.total_formatted }}</span>
@@ -259,10 +255,6 @@
           <div v-if="receipt.summary.tax_formatted" class="summary-row">
             <span class="summary-label">Tax</span>
             <span class="summary-value">{{ receipt.summary.tax_formatted }}</span>
-          </div>
-          <div v-if="receipt.summary.fees_formatted" class="summary-row">
-            <span class="summary-label">Fees</span>
-            <span class="summary-value">{{ receipt.summary.fees_formatted }}</span>
           </div>
           <div class="summary-row summary-total">
             <span class="summary-label">Total</span>

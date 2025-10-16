@@ -18,11 +18,12 @@ interface Props {
   id: string
   label: string
   badge?: number
+  icon?: string
 }
 
 const props = defineProps<Props>()
 
-const registerTab = inject<(id: string, label: string, badge?: number) => void>('registerTab')
+const registerTab = inject<(id: string, label: string, badge?: number, icon?: string) => void>('registerTab')
 const updateTabBadge = inject<(id: string, badge: number | undefined) => void>('updateTabBadge')
 const activeTabId = inject<Ref<string>>('activeTabId')
 
@@ -30,7 +31,7 @@ const isActive = computed(() => activeTabId?.value === props.id)
 
 onMounted(() => {
   if (registerTab) {
-    registerTab(props.id, props.label, props.badge)
+    registerTab(props.id, props.label, props.badge, props.icon)
   }
 })
 
