@@ -3,9 +3,11 @@ import {
   InitiateAuthCommand
 } from '@aws-sdk/client-cognito-identity-provider'
 import { APIGatewayProxyEvent } from 'aws-lambda'
+import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
+
 const cognitoClient = new CognitoIdentityProviderClient({})
 
-export const refresh = async (event: APIGatewayProxyEvent) => {
+export const refresh = rateLimitedHandler(async (event: APIGatewayProxyEvent) => {
   const CLIENT_ID = process.env.USER_POOL_CLIENT_ID
   if (!CLIENT_ID) {
     return {
@@ -14,7 +16,6 @@ export const refresh = async (event: APIGatewayProxyEvent) => {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,
-        'Content-Type': 'application/json'
       }
     }
   }
@@ -29,7 +30,6 @@ export const refresh = async (event: APIGatewayProxyEvent) => {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,
-        'Content-Type': 'application/json'
       }
     }
   }
@@ -71,4 +71,7 @@ export const refresh = async (event: APIGatewayProxyEvent) => {
       }
     }
   }
-}
+}, {
+  windowMs: 60 * 1000, // 1 minute window
+  maxRequests: 10 // 10 refresh requests per minute (more lenient for auto-refresh)
+})

@@ -82,4 +82,7 @@ export const resetPassword = rateLimitedHandler(async function (event: APIGatewa
       'Access-Control-Allow-Credentials': true
     }
   }
+}, {
+  windowMs: 60 * 1000, // 1 minute window
+  maxRequests: 5 // 5 attempts per minute
 })

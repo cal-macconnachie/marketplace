@@ -2,6 +2,7 @@ import { APIGatewayProxyEvent } from 'aws-lambda'
 import { get } from '../../helpers/dynamo-helpers/get'
 import { Product } from '@marketplace/types'
 import { productsTableName } from '@marketplace/constants'
+import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
 export const publicProductFields: (keyof Product)[] = [
   'id',
   'name',
@@ -13,7 +14,7 @@ export const publicProductFields: (keyof Product)[] = [
   'organization_id',
   'metadata'
 ]
-export const publicGetProduct = async (event: APIGatewayProxyEvent) => {
+export const publicGetProduct = rateLimitedHandler(async (event: APIGatewayProxyEvent) => {
   try {
     const { pathParameters } = event
     const {
@@ -102,7 +103,10 @@ export const publicGetProduct = async (event: APIGatewayProxyEvent) => {
       }
     }
   }
-}
+}, {
+  windowMs: 60 * 1000, // 1 minute window
+  maxRequests: 30 // 30 requests per minute for product views
+})
 
 export const getProduct = async (
   request: APIGatewayProxyEvent

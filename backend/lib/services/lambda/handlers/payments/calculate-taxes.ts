@@ -13,8 +13,9 @@ import {
   calculateTaxesWithCaching
 } from '../../helpers/tax/calculate-taxes-with-caching'
 import { generateLocationKey } from '../../helpers/tax/tax-calculation-cache'
+import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
 
-export const calculateTaxes = async (event: APIGatewayProxyEvent) => {
+export const calculateTaxes = rateLimitedHandler(async (event: APIGatewayProxyEvent) => {
   try {
     const { body } = event
     const {
@@ -154,4 +155,7 @@ export const calculateTaxes = async (event: APIGatewayProxyEvent) => {
       }
     }
   }
-}
+}, {
+  windowMs: 60 * 1000, // 1 minute window
+  maxRequests: 10 // 10 tax calculations per minute (can be expensive)
+})

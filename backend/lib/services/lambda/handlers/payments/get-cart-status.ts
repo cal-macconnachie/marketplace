@@ -45,13 +45,18 @@ export const getCartStatus = rateLimitedHandler(async (event: APIGatewayProxyEve
     const requiresAction = (cart.next_steps?.length ?? 0) > 0
 
     // Build purchases array with requiresAction and clientSecret for frontend
-    const purchases = Object.entries(cart.purchases || {}).map(([id, status]) => {
+    const purchases = Object.entries(cart.purchases || {}).map(([
+      id,
+      status
+    ]) => {
       const purchase: {
         id: string
         status: string
         requiresAction?: boolean
         clientSecret?: string
-      } = { id, status }
+      } = {
+        id, status 
+      }
 
       // If this purchase is pending and we have a next_step for payment action
       if (status === 'pending' && cart.next_steps && cart.next_steps.length > 0) {

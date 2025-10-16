@@ -65,4 +65,7 @@ export const purchaseProducts = async (event: APIGatewayProxyEvent) => {
   }
 }
 
-export const publicPurchaseProducts = rateLimitedHandler(purchaseProducts)
+export const publicPurchaseProducts = rateLimitedHandler(purchaseProducts, {
+  windowMs: 60 * 1000, // 1 minute window
+  maxRequests: 3 // 3 purchases per minute (stricter for payment operations)
+})

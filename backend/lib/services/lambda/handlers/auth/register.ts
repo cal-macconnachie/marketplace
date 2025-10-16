@@ -123,4 +123,7 @@ export const register = rateLimitedHandler(async (event: APIGatewayProxyEvent) =
       }
     }
   }
+}, {
+  windowMs: 60 * 1000, // 1 minute window
+  maxRequests: 5 // 5 registration attempts per minute
 })

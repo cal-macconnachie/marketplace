@@ -168,4 +168,7 @@ export const createPaymentMethod = async (event: APIGatewayProxyEvent) => {
   }
 }
 
-export const publicCreatePaymentMethod = rateLimitedHandler(createPaymentMethod)
+export const publicCreatePaymentMethod = rateLimitedHandler(createPaymentMethod, {
+  windowMs: 60 * 1000, // 1 minute window
+  maxRequests: 5 // 5 payment method creations per minute
+})

@@ -2,15 +2,16 @@ import {
   CognitoIdentityProviderClient,
   InitiateAuthCommand
 } from '@aws-sdk/client-cognito-identity-provider'
-import { APIGatewayProxyEvent } from 'aws-lambda'
 import { User } from '@marketplace/types'
-import { getUserByEmail } from '../../helpers/users/get-user-by-email'
+import { APIGatewayProxyEvent } from 'aws-lambda'
+import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
 import { createUpdateUser } from '../../helpers/users/create-update-user'
+import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 
 const cognitoClient = new CognitoIdentityProviderClient({})
 const CLIENT_ID = process.env.USER_POOL_CLIENT_ID || ''
 
-export const login = async (event: APIGatewayProxyEvent) => {
+export const login = rateLimitedHandler(async (event: APIGatewayProxyEvent) => {
   const { body } = event
   const {
     email, password, accessToken, idToken, refreshToken
@@ -26,7 +27,6 @@ export const login = async (event: APIGatewayProxyEvent) => {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,
-        'Content-Type': 'application/json'
       }
     }
   }
@@ -118,4 +118,7 @@ export const login = async (event: APIGatewayProxyEvent) => {
       }
     }
   }
-}
+}, {
+  windowMs: 60 * 1000, // 1 minute window
+  maxRequests: 5 // 5 login attempts per minute to prevent brute force
+})

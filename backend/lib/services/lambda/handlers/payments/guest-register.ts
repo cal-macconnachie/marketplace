@@ -63,6 +63,9 @@ export const guestRegister = rateLimitedHandler(async (event: APIGatewayProxyEve
       }
     }
   }
+}, {
+  windowMs: 60 * 1000, // 1 minute window
+  maxRequests: 5 // 5 guest registrations per minute
 })
 
 export const checkGuestStripeCustomerStatus = rateLimitedHandler(async (event: APIGatewayProxyEvent) => {

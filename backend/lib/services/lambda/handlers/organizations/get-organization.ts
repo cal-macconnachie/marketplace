@@ -3,8 +3,9 @@ import { PurchasedProduct } from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { queryAll } from '../../helpers/dynamo-helpers/query'
 import { getOrganizationById } from '../../helpers/organizations/get-organization-by-id'
+import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
 
-export const publicGetOrganization = async (event: APIGatewayProxyEvent) => {
+export const publicGetOrganization = rateLimitedHandler(async (event: APIGatewayProxyEvent) => {
   const { id } = event.pathParameters ?? {}
   if (!id) {
     return {
@@ -46,7 +47,10 @@ export const publicGetOrganization = async (event: APIGatewayProxyEvent) => {
       'Content-Type': 'application/json'
     }
   }
-}
+}, {
+  windowMs: 60 * 1000, // 1 minute window
+  maxRequests: 30 // 30 requests per minute for organization views
+})
 
 export const getOrganization = async (event: APIGatewayProxyEvent) => {
   const { id } = JSON.parse(event.body ?? '{}')

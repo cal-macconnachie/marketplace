@@ -60,4 +60,7 @@ export const requestRegisterOtp = rateLimitedHandler(async function (event: APIG
       'Access-Control-Allow-Credentials': true
     }
   }
+}, {
+  windowMs: 5 * 60 * 1000, // 5 minute window
+  maxRequests: 3 // 3 requests per 5 minutes to prevent OTP spam
 })

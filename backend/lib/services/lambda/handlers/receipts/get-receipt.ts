@@ -118,4 +118,7 @@ export const getReceipt: APIGatewayProxyHandler = rateLimitedHandler(async (even
       })
     }
   }
+}, {
+  windowMs: 60 * 1000, // 1 minute window
+  maxRequests: 20 // 20 receipt views per minute (moderate limit for read operation)
 })
