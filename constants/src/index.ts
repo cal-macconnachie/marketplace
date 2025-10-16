@@ -4,7 +4,7 @@
  */
 
 // Environment-dependent constants
-export * from './environment.js';
+export * from './environment';
 
 // Environment-independent constants
-export * from './independent.js';
+export * from './independent';

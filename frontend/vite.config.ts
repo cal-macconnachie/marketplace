@@ -16,4 +16,8 @@ export default defineConfig({
       '@marketplace/constants': fileURLToPath(new URL('../constants/src/index.ts', import.meta.url))
     },
   },
+  define: {
+    // Inject VITE_API_ENV as a global constant for @marketplace/constants
+    'VITE_API_ENV': JSON.stringify(process.env.VITE_API_ENV || 'dev'),
+  },
 })

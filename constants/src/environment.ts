@@ -5,13 +5,21 @@
  * For Lambda functions, esbuild's define option will replace process.env.ENV_NAME
  * with the actual environment string at build time, allowing full constant inlining.
  *
+ * For frontend (Vite), VITE_API_ENV is injected at build time via Vite's define.
+ *
  * IMPORTANT: Using plain string concatenation (+) instead of template literals
  * allows esbuild to fully inline these constants at build time.
  */
 
-// This will be replaced by esbuild's define option during Lambda bundling
-// e.g., process.env.ENV_NAME becomes "prod" or "dev" at build time
-const ENV_NAME = process.env.ENV_NAME || 'dev';
+// Declare global for Vite's injected variable
+declare const VITE_API_ENV: string | undefined;
+
+// Detect environment based on runtime:
+// - Backend (Node.js/Lambda): process.env.ENV_NAME (replaced by esbuild)
+// - Frontend (Vite): VITE_API_ENV injected at build time via Vite's define
+const ENV_NAME = typeof process !== 'undefined' && process.env?.ENV_NAME
+  ? process.env.ENV_NAME
+  : typeof VITE_API_ENV !== 'undefined' ? VITE_API_ENV : 'dev';
 
 // DynamoDB Table Names - must match ddb-table-definitions.ts
 // Using + instead of template literals for better esbuild constant folding
