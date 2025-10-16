@@ -18,6 +18,8 @@ runs:
 
     - name: Build shared packages
       shell: bash
+      env:
+        ENV_NAME: ${{ inputs.env-name }}
       run: yarn workspace @marketplace/constants build
 
     - name: Configure AWS credentials
@@ -38,6 +40,10 @@ inputs:
     description: Node.js version
     default: '22'
     required: false
+  env-name:
+    description: Environment name (dev/prod)
+    required: false
+    default: 'dev'
   aws-access-key-id:
     description: AWS access key id
     required: true

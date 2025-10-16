@@ -4,7 +4,7 @@ import { query } from "../dynamo-helpers/query"
 
 export async function getUserByEmail(email: string): Promise<User | undefined> {
   const { items } = await query<User>({
-    tableName: usersTableName! || 'users-dev',
+    tableName: usersTableName,
     indexName: 'email-index',
     keyConditionExpression: '#email = :email',
     expressionAttributeNames: {

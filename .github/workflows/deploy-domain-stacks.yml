@@ -285,6 +285,7 @@ jobs:
       - name: Backend setup
         uses: ./.github/actions/backend-setup
         with:
+          env-name: ${{ needs.detect-changes.outputs.env-name }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -310,6 +311,7 @@ jobs:
       - name: Backend setup
         uses: ./.github/actions/backend-setup
         with:
+          env-name: ${{ needs.detect-changes.outputs.env-name }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -355,6 +357,7 @@ jobs:
       - name: Backend setup
         uses: ./.github/actions/backend-setup
         with:
+          env-name: ${{ needs.detect-changes.outputs.env-name }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -386,6 +389,7 @@ jobs:
       - name: Backend setup
         uses: ./.github/actions/backend-setup
         with:
+          env-name: ${{ needs.detect-changes.outputs.env-name }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -440,6 +444,7 @@ jobs:
       - name: Backend setup
         uses: ./.github/actions/backend-setup
         with:
+          env-name: ${{ needs.detect-changes.outputs.env-name }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -499,6 +504,7 @@ jobs:
       - name: Backend setup
         uses: ./.github/actions/backend-setup
         with:
+          env-name: ${{ needs.detect-changes.outputs.env-name }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -536,6 +542,7 @@ jobs:
       - name: Backend setup
         uses: ./.github/actions/backend-setup
         with:
+          env-name: ${{ needs.detect-changes.outputs.env-name }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -569,6 +576,7 @@ jobs:
       - name: Backend setup
         uses: ./.github/actions/backend-setup
         with:
+          env-name: ${{ needs.detect-changes.outputs.env-name }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -602,6 +610,7 @@ jobs:
       - name: Backend setup
         uses: ./.github/actions/backend-setup
         with:
+          env-name: ${{ needs.detect-changes.outputs.env-name }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -637,6 +646,7 @@ jobs:
       - name: Backend setup
         uses: ./.github/actions/backend-setup
         with:
+          env-name: ${{ needs.detect-changes.outputs.env-name }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -674,6 +684,7 @@ jobs:
       - name: Backend setup
         uses: ./.github/actions/backend-setup
         with:
+          env-name: ${{ needs.detect-changes.outputs.env-name }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -700,6 +711,7 @@ jobs:
       - name: Backend setup
         uses: ./.github/actions/backend-setup
         with:
+          env-name: ${{ needs.detect-changes.outputs.env-name }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
