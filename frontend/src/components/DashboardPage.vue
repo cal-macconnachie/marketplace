@@ -170,6 +170,13 @@ onMounted(async () => {
   min-height: 100vh;
 }
 
+/* Sidebar header - prevent gap changes */
+.sidebar-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3); /* Fixed gap */
+}
+
 /* Sidebar Actions */
 .sidebar-action {
   display: flex;
@@ -233,19 +240,23 @@ onMounted(async () => {
   border-radius: var(--radius-md);
   transition: background var(--transition-fast);
   cursor: default;
+  height: 56px; /* Fixed height to prevent layout shift */
+  min-height: 56px;
 }
 
 .tabs-sidebar:not(.tabs-sidebar--expanded) .sidebar-profile {
   justify-content: center;
-  padding: var(--space-2);
+  padding: var(--space-3); /* Keep same padding when collapsed */
 }
 
 .profile-info {
   display: flex;
   flex-direction: column;
+  justify-content: center; /* Center content vertically within fixed height */
   gap: var(--space-1);
   min-width: 0;
   flex: 1;
+  overflow: hidden; /* Prevent overflow from breaking layout */
 }
 
 .profile-name {
