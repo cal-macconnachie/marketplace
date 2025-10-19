@@ -891,8 +891,7 @@ onUnmounted(() => {
 .guest-checkout-form {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
-  overflow-y: visible;
+  overflow: visible;
 }
 
 .checkout-progress {

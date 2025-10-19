@@ -571,7 +571,7 @@ function selectSuggestion(suggestion: {
   border-radius: 0 0 var(--radius-md) var(--radius-md);
   max-height: 200px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 9999;
   box-shadow: var(--shadow-lg);
 }
 
