@@ -71,8 +71,8 @@
 </template>
 
 <script setup lang="ts">
-import { provide, ref, watch, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { onMounted, provide, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 interface Tab {
   id: string
@@ -106,6 +106,7 @@ const activeTabId = ref<string>('')
 const tabRefs = ref<(HTMLElement | null)[]>([])
 const isExpanded = ref(false)
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const setTabRef = (el: any, index: number) => {
   if (el) {
     tabRefs.value[index] = el as HTMLElement
@@ -351,7 +352,7 @@ onMounted(() => {
 .tabs-sidebar .tab-label {
   flex: 1;
   line-height: 1;
-  overflow: hidden;
+  overflow: visible;
   text-overflow: ellipsis;
 }
 

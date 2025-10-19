@@ -96,8 +96,18 @@ async function handleOAuthCallback() {
     // Fetch organization data
     await app.fetchOrganization()
 
-    // Redirect to dashboard on success
-    await router.push('/dashboard')
+    // Check if there's a stored page to return to
+    const lastViewedPage = localStorage.getItem('last_viewed_page')
+
+    if (lastViewedPage) {
+      // Clean up the stored value
+      localStorage.removeItem('last_viewed_page')
+      // Redirect back to the stored page
+      await router.push(lastViewedPage)
+    } else {
+      // Default: redirect to dashboard
+      await router.push('/dashboard')
+    }
   } catch (err: unknown) {
     console.error('OAuth callback error:', err)
     status.value = 'error'

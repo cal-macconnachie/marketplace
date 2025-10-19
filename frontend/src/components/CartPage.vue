@@ -454,7 +454,6 @@
   </div>
 </template>
 <script lang="ts" setup>
-import router from '@/router'
 import {
   authAPI,
   publicApi,
@@ -727,10 +726,10 @@ const goBack = () => {
       window.location.href = `https://${source.value}`
     }
   } else if (document.referrer && document.referrer !== window.location.href) {
-    router.push('/')
+    window.location.href = document.referrer
   } else {
     // Fallback to going back in history
-    router.push('/')
+    window.history.back()
   }
 }
 
@@ -875,15 +874,31 @@ function formatAddress(address: {
   state?: string
   country?: string
   postal_code?: string
+} | {
+  line1?: string
+  line2?: string
+  city?: string
+  state?: string
+  country?: string
+  postalCode?: string
 }) {
   if (!address) return ''
+
+  // Handle both snake_case and camelCase
+  const line1 = 'line_1' in address ? address.line_1 : 'line1' in address ? address.line1 : undefined
+  const line2 = 'line_2' in address ? address.line_2 : 'line2' in address ? address.line2 : undefined
+  const city = address.city
+  const state = address.state
+  const country = address.country
+  const postalCode = 'postal_code' in address ? address.postal_code : 'postalCode' in address ? address.postalCode : undefined
+
   const parts = [
-    address.line_1,
-    address.line_2,
-    address.city,
-    address.state,
-    address.country,
-    address.postal_code,
+    line1,
+    line2,
+    city,
+    state,
+    country,
+    postalCode,
   ].filter(Boolean)
   return parts.join(', ')
 }
@@ -1832,12 +1847,15 @@ onMounted(async () => {
 
 .cart-item-wrapper {
   position: relative;
+  display: flex;
+  justify-content: center;
+  width: 100%;
 }
 
 .remove-item-btn {
   position: absolute;
   top: -16px;
-  left: -16px;
+  left: calc(50% - 160px);
   z-index: 10;
   border: none;
   border-radius: var(--radius-full);
@@ -1853,6 +1871,7 @@ onMounted(async () => {
   transition: all 0.2s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   background: var(--color-bg-primary);
+  pointer-events: all;
 }
 
 .cart-item-wrapper:hover .remove-item-btn {

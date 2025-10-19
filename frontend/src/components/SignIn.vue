@@ -755,7 +755,7 @@ import { useAppStore } from '@/stores/app'
 import { redirectToAppleAuth, redirectToGoogleAuth } from '@/utils/oauth'
 import { useFormValidation, validationRules } from '@/utils/validation'
 import { computed, nextTick, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 interface Props {
   initialMode?: 'signin' | 'signup'
@@ -773,6 +773,7 @@ const emit = defineEmits<{
 
 const app = useAppStore()
 const router = useRouter()
+const route = useRoute()
 const isSignUp = ref(props.initialMode === 'signup')
 const resetStep = ref<'none' | 'request' | 'confirm'>('none')
 const signupStep = ref<'form' | 'otp'>('form')
@@ -1345,6 +1346,8 @@ function backToSignupForm() {
 
 async function handleGoogleSignIn() {
   try {
+    // Store current page before redirecting to OAuth
+    localStorage.setItem('last_viewed_page', route.fullPath)
     await redirectToGoogleAuth()
   } catch (error) {
     console.error('Failed to initiate Google sign in:', error)
@@ -1354,6 +1357,8 @@ async function handleGoogleSignIn() {
 
 async function handleAppleSignIn() {
   try {
+    // Store current page before redirecting to OAuth
+    localStorage.setItem('last_viewed_page', route.fullPath)
     await redirectToAppleAuth()
   } catch (error) {
     console.error('Failed to initiate Apple sign in:', error)
