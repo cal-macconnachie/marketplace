@@ -165,7 +165,6 @@ onMounted(async () => {
 
 /* Main content */
 .dashboard-main {
-  max-width: 1400px;
   margin: 0 auto;
   min-height: 100vh;
 }

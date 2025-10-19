@@ -56,7 +56,7 @@ router.beforeEach((to: RouteLocationNormalized, from: RouteLocationNormalized, n
   const app = useAppStore()
   // If route requires auth and user is not authenticated, redirect to /auth
   if (to.meta.requiresAuth && !app.isAuthenticated) {
-    next({ path: '/marketplace' })
+    next({ path: '/auth' })
   } else {
     next()
   }

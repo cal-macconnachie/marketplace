@@ -642,7 +642,6 @@ watch(products, (newProducts) => {
 }
 
 .marketplace-header {
-  max-width: 1200px;
   margin: 0 auto;
   padding: var(--space-6) var(--space-4) var(--space-2);
   display: flex;
@@ -697,7 +696,6 @@ watch(products, (newProducts) => {
 
 .marketplace-content {
   min-height: 400px;
-  max-width: 1200px;
   margin: 0 auto;
   padding: var(--space-8) var(--space-4);
 }

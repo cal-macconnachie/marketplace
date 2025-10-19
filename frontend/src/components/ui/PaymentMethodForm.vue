@@ -18,7 +18,7 @@
         </div>
         <h3 class="incomplete-title">Complete Your Profile</h3>
         <p class="incomplete-description">
-          Please add your name and address in the Profile Information section above to enable
+          Please add your name and address in the Profile Information section to enable
           payment methods.
         </p>
         <div class="incomplete-requirements">
@@ -174,21 +174,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import {
-  loadStripe,
-  type Stripe,
-  type StripeElements,
-  type StripeCardElement,
-} from '@stripe/stripe-js'
-import { useAppStore } from '@/stores/app'
+import BaseAlert from '@/components/ui/BaseAlert.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import PaymentVerificationModal from '@/components/ui/PaymentVerificationModal.vue'
 import {
   authAPI
 } from '@/services/api'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseAlert from '@/components/ui/BaseAlert.vue'
-import PaymentVerificationModal from '@/components/ui/PaymentVerificationModal.vue'
+import { useAppStore } from '@/stores/app'
 import type { CreatePaymentMethodRequest, CreatePaymentMethodResponse } from '@marketplace/types'
+import {
+  loadStripe,
+  type Stripe,
+  type StripeCardElement,
+  type StripeElements,
+} from '@stripe/stripe-js'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 interface Emits {
   (e: 'paymentMethodAdded'): void

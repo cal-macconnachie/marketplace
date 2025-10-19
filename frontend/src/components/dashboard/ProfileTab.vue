@@ -2,7 +2,7 @@
   <div class="profile-tab">
     <div class="tab-grid">
       <!-- Profile Information Card -->
-      <BaseCard title="Profile" :min-height="280">
+      <BaseCard title="Profile">
         <template v-if="!app.user">
           <BaseSkeleton variant="card" :height="200" />
         </template>
@@ -47,7 +47,6 @@
         title="Notifications"
         :expandable="true"
         :badge="app.unreadNotificationCount > 0 ? app.unreadNotificationCount : undefined"
-        :min-height="280"
         ref="notificationCard"
       >
         <template #default="{ expanded }">

@@ -5,7 +5,7 @@
       <PaymentActionRequired v-if="app.hasPurchased" />
 
       <!-- Payment Methods Card -->
-      <BaseCard title="Payment Methods" :min-height="240">
+      <BaseCard title="Payment Methods">
         <template v-if="paymentMethodsLoading">
           <BaseSkeleton variant="card" :height="200" />
         </template>
@@ -16,13 +16,6 @@
               :payment-methods="paymentMethods"
               @archive-payment-method="handleArchivePaymentMethod"
             />
-            <BaseEmptyState
-              v-else
-              icon="credit-card"
-              title="No Payment Methods"
-              description="Add a payment method to start purchasing products."
-              :compact="true"
-            />
             <PaymentMethodForm
               :key="`payment-form-${paymentMethods.length}`"
               :has-existing-payment-method="paymentMethods.length > 0"
@@ -32,31 +25,8 @@
         </template>
       </BaseCard>
 
-      <!-- Products Card -->
-      <!-- <BaseCard
-        v-if="products.length > 0 && paymentMethods.length > 0"
-        title="Products For You"
-        :expandable="true"
-        :min-height="300"
-      >
-        <template #default>
-          <div class="product-list">
-            <ProductsList :products="products" @purchase-success="handlePurchaseSuccess" />
-          </div>
-        </template>
-      </BaseCard> -->
-
-      <!-- Empty State for Products -->
-      <!-- <BaseCard v-if="!paymentMethodsLoading && paymentMethods.length > 0" title="Products For You" :min-height="300">
-        <BaseEmptyState
-          icon="shopping-bag"
-          title="No Products Available"
-          description="Products will appear here when they become available for your account."
-        />
-      </BaseCard> -->
-
       <!-- Purchases Card -->
-      <BaseCard v-if="app.hasPurchased" title="Your Purchases" :expandable="true" :min-height="300">
+      <BaseCard v-if="app.hasPurchased" title="Your Purchases" :expandable="true">
         <template #default>
           <InfinitePurchasesList :viewer-type="'purchaser'" :limit="10" />
         </template>
@@ -68,7 +38,6 @@
         title="Subscription"
         ref="subscriptionCard"
         :expandable="true"
-        :min-height="240"
       >
         <template #default="{ expanded }">
           <SubscriptionManager :expanded="expanded" @expand="handleSubscriptionExpanded" />
@@ -80,7 +49,6 @@
 
 <script setup lang="ts">
 import BaseCard from '@/components/ui/BaseCard.vue'
-import BaseEmptyState from '@/components/ui/BaseEmptyState.vue'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 import InfinitePurchasesList from '@/components/ui/InfinitePurchasesList.vue'
 import PaymentActionRequired from '@/components/ui/PaymentActionRequired.vue'

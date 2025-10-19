@@ -2,7 +2,7 @@
   <div class="settings-tab">
     <div class="tab-grid">
       <!-- Account Settings Card -->
-      <BaseCard title="Account Settings" :min-height="240">
+      <BaseCard title="Account Settings">
         <div class="settings-section">
           <div class="setting-item">
             <div class="setting-info">

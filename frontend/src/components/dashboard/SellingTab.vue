@@ -7,7 +7,6 @@
         title="Seller Setup"
         :expandable="true"
         ref="sellerManagerCard"
-        :min-height="300"
       >
         <template #default="{ expanded }">
           <SellerManager :expanded="expanded" @get-started="handleGetStarted" />
@@ -21,7 +20,6 @@
           title="Manage Products"
           :expandable="true"
           ref="vendorProductsCard"
-          :min-height="300"
         >
           <template #default="{ expanded }">
             <VendorProducts
@@ -33,14 +31,14 @@
         </BaseCard>
 
         <!-- Your Sales Card -->
-        <BaseCard title="Your Sales" :expandable="true" :min-height="300">
+        <BaseCard title="Your Sales" :expandable="true">
           <template #default>
             <InfinitePurchasesList :viewer-type="'seller'" :limit="10" />
           </template>
         </BaseCard>
 
         <!-- Dispute Management Card -->
-        <DisputeManagementCard :min-height="300" />
+        <DisputeManagementCard />
       </template>
     </div>
   </div>
@@ -53,7 +51,7 @@ import InfinitePurchasesList from '@/components/ui/InfinitePurchasesList.vue'
 import SellerManager from '@/components/ui/SellerManager.vue'
 import VendorProducts from '@/components/ui/VendorProducts.vue'
 import { useAppStore } from '@/stores/app'
-import { ref, watch, onMounted } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 
 const app = useAppStore()
 const canCreateProducts = ref(false)
