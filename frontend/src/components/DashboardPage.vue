@@ -139,11 +139,11 @@ const settingsIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none
 async function handleLogout() {
   isLoggingOut.value = true
   await app.logout()
-  router.push('/marketplace')
+  router.push('/')
 }
 
 function goToMarketplace() {
-  router.push('/marketplace')
+  router.push('/')
 }
 
 onMounted(async () => {

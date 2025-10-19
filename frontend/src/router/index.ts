@@ -3,7 +3,7 @@ import { createRouter, createWebHistory, type NavigationGuardNext, type RouteLoc
 
 const routes = [
   {
-    path: '/',
+    path: '/dashboard',
     name: 'Dashboard',
     component: () => import('@/components/DashboardPage.vue'),
     meta: { requiresAuth: true },
@@ -14,7 +14,7 @@ const routes = [
     component: () => import('@/components/SignIn.vue'),
   },
   {
-    path: '/marketplace',
+    path: '/',
     name: 'Marketplace',
     component: () => import('@/components/MarketplacePage.vue'),
   },

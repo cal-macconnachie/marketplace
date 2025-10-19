@@ -549,7 +549,7 @@ const handleAuthSuccess = async () => {
 }
 
 const goToAccount = () => {
-  router.push('/')
+  router.push('/dashboard')
 }
 
 // Intersection Observer for infinite scroll

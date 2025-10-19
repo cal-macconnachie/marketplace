@@ -1,14 +1,14 @@
 // Utilities
-import { defineStore } from 'pinia'
 import {
+  apiClient,
   authAPI,
   publicApi,
-  apiClient,
   setLoggingOut
 } from '@/services/api'
+import { clearAllAuthTokens, getAuthToken, setAuthToken } from '@/utils/cookies'
 import { dedupedConcatInPlace } from '@/utils/dedupedConcatInPlace'
-import { setAuthToken, getAuthToken, clearAllAuthTokens } from '@/utils/cookies'
 import type { AuthResponse, CreatePaymentMethodRequest, LoginRequest, Notification, Organization, PaymentMethod, Product, Purchase, PurchasedProduct, RegisterRequest, TaxCalculationRequest, TaxCalculationResult, User } from '@marketplace/types'
+import { defineStore } from 'pinia'
 interface ProductFormData {
   key?: {
     group_id: string

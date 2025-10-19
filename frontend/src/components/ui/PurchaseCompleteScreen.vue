@@ -119,12 +119,12 @@ const handleGoToReferrer = () => {
   } catch (error) {
     console.error('Failed to navigate to referrer:', error)
     // Fallback to marketplace
-    router.push('/')
+    router.push('/dashboard')
   }
 }
 
 const handleGoToAccount = () => {
-  router.push('/')
+  router.push('/dashboard')
 }
 </script>
 

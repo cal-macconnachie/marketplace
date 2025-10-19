@@ -2,7 +2,7 @@
   <div class="buying-tab">
     <div class="tab-grid">
       <!-- Payment Action Required Alert -->
-      <PaymentActionRequired v-if="app.hasPurchased" class="payment-action-alert" />
+      <PaymentActionRequired v-if="app.hasPurchased" />
 
       <!-- Payment Methods Card -->
       <BaseCard title="Payment Methods" :min-height="240">
@@ -226,10 +226,6 @@ onMounted(async () => {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-}
-
-.payment-action-alert {
-  grid-column: 1 / -1;
 }
 
 .payment-methods-section {

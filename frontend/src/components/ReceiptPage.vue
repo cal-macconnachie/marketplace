@@ -12,7 +12,7 @@
       :message="error"
     >
       <template #actions>
-        <BaseButton variant="secondary" size="sm" @click="$router.push('/')">
+        <BaseButton variant="secondary" size="sm" @click="$router.push('/dashboard')">
           Back to Dashboard
         </BaseButton>
       </template>
@@ -28,7 +28,7 @@
         >
           {{ downloadingPDF ? 'Generating PDF...' : 'Download PDF' }}
         </BaseButton>
-        <BaseButton variant="secondary" @click="$router.push('/')">
+        <BaseButton variant="secondary" @click="$router.push('/dashboard')">
           Back to Dashboard
         </BaseButton>
       </div>

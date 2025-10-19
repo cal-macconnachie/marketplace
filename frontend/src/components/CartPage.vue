@@ -460,9 +460,9 @@ import {
   publicApi,
 } from '@/services/api'
 import { useAppStore } from '@/stores/app'
-import { poll } from '@/utils/polling'
 import { cartService } from '@/utils/cart'
-import type { CartItem, CheckoutData, Organization, PaymentMethod, Product, TaxCalculationItem } from '@marketplace/types'
+import { poll } from '@/utils/polling'
+import type { CartItem, Organization, PaymentMethod, Product, TaxCalculationItem } from '@marketplace/types'
 import { loadStripe, type Stripe } from '@stripe/stripe-js'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -727,10 +727,10 @@ const goBack = () => {
       window.location.href = `https://${source.value}`
     }
   } else if (document.referrer && document.referrer !== window.location.href) {
-    router.push('/marketplace')
+    router.push('/')
   } else {
     // Fallback to going back in history
-    router.push('/marketplace')
+    router.push('/')
   }
 }
 

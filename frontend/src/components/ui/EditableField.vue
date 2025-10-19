@@ -216,7 +216,6 @@ function resizeTextarea() {
 /* Fixed height container for both display and edit modes */
 .field-display,
 .field-edit {
-  min-height: 2.5rem;
   position: relative;
   border-radius: var(--radius-sm);
 }
@@ -228,9 +227,11 @@ function resizeTextarea() {
   width: 100%;
   padding: var(--space-3);
   padding-top: var(--space-4);
+  padding-bottom: var(--space-3);
   border: 1px solid var(--color-border);
   background: var(--color-bg-primary);
   transition: all 0.2s ease;
+  box-sizing: border-box;
 }
 
 .field-display:hover {
@@ -253,8 +254,8 @@ function resizeTextarea() {
   flex: 1;
   width: 100%;
   padding-right: var(--space-6);
-  line-height: 1.4; /* Match textarea line height for consistency */
-  min-height: 1.4rem; /* Ensures empty fields maintain height */
+  line-height: 1.5; /* Match edit input line height */
+  min-height: calc(1.5 * var(--font-size-sm)); /* Ensures empty fields maintain height for one line */
   white-space: pre-wrap; /* Preserve line breaks and formatting */
 }
 
@@ -281,7 +282,7 @@ function resizeTextarea() {
 
 .field-edit {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-2);
 }
 
@@ -289,14 +290,15 @@ function resizeTextarea() {
   flex: 1;
   padding: var(--space-3);
   padding-top: var(--space-4);
+  padding-bottom: var(--space-3);
   border: 1px solid var(--color-primary);
   border-radius: var(--radius-sm);
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   text-align: left;
-  min-height: 2.5rem;
-  line-height: 1.25rem; /* Match display line height */
+  line-height: 1.5; /* Match display line height */
+  min-height: calc(1.5 * var(--font-size-sm) + var(--space-4) + var(--space-3) + 2px); /* Match total height with padding and border */
   box-sizing: border-box;
   font-family: inherit;
 }
@@ -305,8 +307,7 @@ function resizeTextarea() {
   text-align: left;
   resize: none; /* Disable manual resize since we auto-grow */
   overflow: hidden; /* Hide scrollbars */
-  min-height: 2.5rem; /* Match input height */
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .edit-input:focus {

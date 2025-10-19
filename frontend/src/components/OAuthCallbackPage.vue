@@ -97,7 +97,7 @@ async function handleOAuthCallback() {
     await app.fetchOrganization()
 
     // Redirect to dashboard on success
-    await router.push('/')
+    await router.push('/dashboard')
   } catch (err: unknown) {
     console.error('OAuth callback error:', err)
     status.value = 'error'

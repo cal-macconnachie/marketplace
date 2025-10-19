@@ -953,7 +953,7 @@ watch(
 
 onMounted(() => {
   if (app.isAuthenticated && !props.isModal) {
-    router.push('/')
+    router.push('/dashboard')
   }
   setupValidation()
 })
@@ -1040,7 +1040,7 @@ async function handleSubmit() {
     if (props.isModal) {
       emit('authSuccess')
     } else {
-      router.push('/')
+      router.push('/dashboard')
     }
   }
 }
@@ -1127,7 +1127,7 @@ async function handleConfirmReset() {
       if (props.isModal) {
         emit('authSuccess')
       } else {
-        router.push('/')
+        router.push('/dashboard')
       }
       return
     }
@@ -1316,7 +1316,7 @@ async function handleSignupWithOtp() {
     if (props.isModal) {
       emit('authSuccess')
     } else {
-      router.push('/')
+      router.push('/dashboard')
     }
   } else if (result.error?.includes('User already has a Cognito ID and it cannot be updated')) {
     // User has an OAuth account, redirect to sign in
@@ -1362,7 +1362,7 @@ async function handleAppleSignIn() {
 }
 
 function goToMarketplace() {
-  router.push('/marketplace')
+  router.push('/')
 }
 </script>
 <style scoped>
