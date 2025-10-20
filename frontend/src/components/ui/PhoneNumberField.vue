@@ -520,6 +520,14 @@ watch(() => props.value, (newValue) => {
   box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.1);
 }
 
+/* Prevent mobile zoom on focus */
+@media (max-width: 768px) {
+  .edit-input,
+  .country-select {
+    font-size: 16px;
+  }
+}
+
 .loading-spinner {
   display: flex;
   align-items: center;

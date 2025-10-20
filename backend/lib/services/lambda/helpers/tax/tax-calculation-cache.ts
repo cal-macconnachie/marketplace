@@ -1,7 +1,7 @@
+import { taxCalculationsTableName } from '@marketplace/constants'
 import type {
   Organization, TaxCalculationCache, User
 } from '@marketplace/types'
-import { taxCalculationsTableName } from '@marketplace/constants'
 import { create } from '../dynamo-helpers/create'
 import { get } from '../dynamo-helpers/get'
 import { convertAddressToCodes } from './address-code-converter'
@@ -88,7 +88,7 @@ export async function cacheTaxCalculation(
   taxRate: number
 ): Promise<void> {
   try {
-    const expiresAt = Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
+    const expiresAt = Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60) // 1 year expiration
     await create({
       tableName: taxCalculationsTableName!,
       key: {

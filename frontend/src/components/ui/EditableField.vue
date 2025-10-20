@@ -338,6 +338,14 @@ function resizeTextarea() {
   box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);
 }
 
+/* Prevent mobile zoom on focus */
+@media (max-width: 768px) {
+  .edit-input,
+  .edit-textarea {
+    font-size: 16px;
+  }
+}
+
 .loading-spinner {
   display: flex;
   align-items: center;

@@ -681,7 +681,7 @@ const initializeStripe = async () => {
       hidePostalCode: true,
       style: {
         base: {
-          fontSize: '16px',
+          fontSize: '16px', // Prevents mobile zoom
           color: '#424770',
           '::placeholder': {
             color: '#aab7c4',
@@ -910,6 +910,8 @@ onUnmounted(() => {
   gap: var(--space-4);
   padding: 0;
   overflow: visible;
+  position: relative;
+  z-index: 1;
 }
 
 .form-row {

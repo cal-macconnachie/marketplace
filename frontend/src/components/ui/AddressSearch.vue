@@ -38,7 +38,8 @@
             :key="suggestion.place_id"
             class="suggestion-item"
             :class="{ active: selectedIndex === index }"
-            @click="selectSuggestion(suggestion)"
+            @mousedown.prevent="selectSuggestion(suggestion)"
+            @touchstart.prevent="selectSuggestion(suggestion)"
             @mouseenter="selectedIndex = index"
           >
             <div class="suggestion-main">{{ suggestion.main_text }}</div>
@@ -541,6 +542,13 @@ function selectSuggestion(suggestion: {
   font-family: inherit;
 }
 
+/* Prevent mobile zoom on focus */
+@media (max-width: 768px) {
+  .search-input {
+    font-size: 16px;
+  }
+}
+
 .search-input:focus {
   outline: none;
   border-color: var(--color-primary);
@@ -562,17 +570,24 @@ function selectSuggestion(suggestion: {
 
 .suggestions-dropdown {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 1px);
   left: 0;
   right: 0;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-top: none;
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  border-radius: var(--radius-md);
   max-height: 200px;
   overflow-y: auto;
-  z-index: 9999;
-  box-shadow: var(--shadow-lg);
+  z-index: 10000;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  margin-top: 4px;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
+
+@media (max-width: 768px) {
+  .suggestions-dropdown {
+    max-height: 250px;
+  }
 }
 
 .suggestion-item {
@@ -580,6 +595,8 @@ function selectSuggestion(suggestion: {
   cursor: pointer;
   border-bottom: 1px solid var(--color-border);
   transition: background-color 0.2s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .suggestion-item:last-child {
@@ -589,6 +606,13 @@ function selectSuggestion(suggestion: {
 .suggestion-item:hover,
 .suggestion-item.active {
   background: var(--color-bg-muted);
+}
+
+@media (max-width: 768px) {
+  .suggestion-item {
+    padding: var(--space-4);
+    min-height: 48px; /* Better touch target */
+  }
 }
 
 .suggestion-main {
