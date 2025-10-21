@@ -122,13 +122,26 @@ jobs:
         id: check
         run: |
           # Get list of changed files
+          # For push events, diff against the remote branch's previous state
+          # This handles multiple commits pushed at once and cross-branch scenarios
           if [ "${{ github.event_name }}" = "push" ]; then
+            BRANCH_NAME="${{ github.ref_name }}"
+            # Fetch the remote branch to ensure we have the latest ref
+            git fetch origin "$BRANCH_NAME" --depth=50 || true
+
+            # Use github.event.before as the base (last commit on remote before this push)
+            # Fall back to origin/BRANCH@{1} if before SHA is invalid
             if git cat-file -e ${{ github.event.before }} 2>/dev/null; then
-              FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+              BASE_SHA="${{ github.event.before }}"
             else
-              FILES=$(git diff --name-only HEAD~1 HEAD)
+              # Fallback: compare against remote branch's previous state
+              BASE_SHA="origin/$BRANCH_NAME"
             fi
+
+            echo "Comparing $BASE_SHA...${{ github.sha }}"
+            FILES=$(git diff --name-only "$BASE_SHA" "${{ github.sha }}" 2>/dev/null || git diff --name-only HEAD~1 HEAD)
           else
+            # For workflow_dispatch, compare against previous commit
             FILES=$(git diff --name-only HEAD~1 HEAD)
           fi
 
