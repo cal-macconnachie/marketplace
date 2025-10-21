@@ -1082,6 +1082,7 @@ onUnmounted(() => {
 .product-info-column {
   flex: 1;
   min-width: 0;
+  margin: auto;
 }
 
 .pricing-column {
@@ -1098,15 +1099,6 @@ onUnmounted(() => {
   margin-bottom: var(--space-6);
   padding-bottom: var(--space-6);
   border-bottom: 1px solid var(--color-border);
-}
-
-.product-image-preview {
-  flex-shrink: 0;
-  width: 120px;
-  height: 120px;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  border: 1px solid var(--color-border);
 }
 
 .product-image-placeholder {
@@ -1324,12 +1316,6 @@ onUnmounted(() => {
     flex-direction: column;
     align-items: center;
     text-align: center;
-  }
-
-  .product-image-preview,
-  .product-image-placeholder {
-    width: 100px;
-    height: 100px;
   }
 
   .product-header-info {

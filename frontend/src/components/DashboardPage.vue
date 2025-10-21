@@ -156,7 +156,7 @@ onMounted(async () => {
 
 <style scoped>
 .dashboard-page {
-  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--color-bg-secondary);
   position: relative;
   width: 100%;
@@ -166,7 +166,7 @@ onMounted(async () => {
 /* Main content */
 .dashboard-main {
   margin: 0 auto;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Sidebar header - prevent gap changes */
@@ -281,7 +281,7 @@ onMounted(async () => {
   top: 0;
   left: 0;
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   background: var(--color-bg-primary);
   display: flex;
   flex-direction: column;

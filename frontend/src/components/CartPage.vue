@@ -1571,7 +1571,7 @@ onMounted(async () => {
 
 <style scoped>
 .cart-page {
-  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--color-bg-secondary, #f8fafc);
   padding: var(--space-6) 0;
 }

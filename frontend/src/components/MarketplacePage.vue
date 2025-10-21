@@ -636,7 +636,7 @@ watch(products, (newProducts) => {
 
 <style scoped>
 .marketplace-page {
-  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--color-bg-secondary);
   position: relative;
 }
@@ -763,7 +763,7 @@ watch(products, (newProducts) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 60vh;
+  min-height: 60dvh;
   text-align: center;
   padding: var(--space-8);
 }

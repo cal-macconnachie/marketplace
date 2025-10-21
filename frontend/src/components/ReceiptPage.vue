@@ -300,7 +300,7 @@ const downloadPDF = async () => {
 <style scoped>
 /* Page Layout */
 .receipt-page {
-  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--color-bg-secondary);
   padding: var(--space-8);
 }
@@ -311,7 +311,7 @@ const downloadPDF = async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 60vh;
+  min-height: 60dvh;
   gap: var(--space-4);
 }
 

@@ -161,9 +161,9 @@ const modalStyle = computed(() => {
   if (props.size === 'full') {
     return {
       width: '100vw',
-      height: '100vh',
+      height: '100dvh',
       maxWidth: '100vw',
-      maxHeight: '100vh',
+      maxHeight: '100dvh',
       margin: 0,
       borderRadius: 0,
     }
@@ -307,8 +307,8 @@ body.modal-open {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-2xl);
   width: 100%;
-  max-height: 85vh;
-  min-height: 85vh;
+  max-height: 85dvh;
+  min-height: 85dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -323,7 +323,7 @@ body.modal-open {
 .modal-container--bottom {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
-  max-height: 95vh;
+  max-height: 95dvh;
 }
 
 .modal-container--drawer {
@@ -331,7 +331,7 @@ body.modal-open {
   border-bottom-right-radius: 0;
   border-top-left-radius: var(--radius-xl, 20px);
   border-top-right-radius: var(--radius-xl, 20px);
-  max-height: 90vh;
+  max-height: 90dvh;
   max-width: 100vw;
   width: 100vw;
   animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
@@ -400,9 +400,9 @@ body.modal-open {
 
 .modal-container--full {
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   max-width: 100vw;
-  max-height: 100vh;
+  max-height: 100dvh;
   margin: 0;
   border-radius: 0;
 }
@@ -508,7 +508,7 @@ body.modal-open {
   flex-shrink: 0;
 }
 
-/* Drawer body allows scrolling when content exceeds 90vh */
+/* Drawer body allows scrolling when content exceeds 90dvh */
 .modal-container--drawer .modal-body {
   overflow-y: auto;
   flex: 1;
@@ -595,7 +595,7 @@ body.modal-open {
 
   .modal-container {
     max-width: 100%;
-    max-height: 95vh;
+    max-height: 95dvh;
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
   }
@@ -614,7 +614,7 @@ body.modal-open {
     padding-top: var(--space-6);
   }
   .modal-container--drawer {
-    max-height: 80vh;
+    max-height: 80dvh;
   }
 }
 

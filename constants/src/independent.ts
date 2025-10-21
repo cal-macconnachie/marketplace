@@ -142,7 +142,7 @@ export const taxCodes: SelectOption[] = [
 ];
 
 export const emailStringsToIgnore = [
-  'privaterelay.appleid.com',
+  'no-reply',
   'noreply'
 ]
 

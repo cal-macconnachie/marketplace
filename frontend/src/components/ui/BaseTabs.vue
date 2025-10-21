@@ -228,7 +228,7 @@ onMounted(() => {
 .tabs-sidebar {
   position: sticky;
   top: var(--space-4);
-  max-height: calc(100vh - var(--space-8));
+  max-height: calc(100dvh - var(--space-8));
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
