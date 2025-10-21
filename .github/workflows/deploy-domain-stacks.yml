@@ -709,14 +709,24 @@ jobs:
   # (Removed) separate API stage job; redeploy happens at end of each domain job
 
   # Frontend deployment (depends on Networking for CloudFront and Infrastructure for Cognito outputs)
-  # Can run in parallel with domain Lambda stacks
+  # Runs after API changes to ensure frontend has latest backend endpoints
   deploy-frontend:
     runs-on: ubuntu-latest
-    needs: [detect-changes, deploy-networking]
+    needs:
+      [
+        detect-changes,
+        detect-stack-changes,
+        deploy-networking,
+        deploy-api-stage
+      ]
     if: |
       always() &&
       needs.detect-changes.outputs.frontend == 'true' &&
-      (needs.deploy-networking.result == 'success' || needs.deploy-networking.result == 'skipped')
+      (
+        needs.deploy-api-stage.result == 'success' ||
+        needs.deploy-api-stage.result == 'skipped' ||
+        needs.detect-changes.outputs.backend != 'true'
+      )
     steps:
       - name: Checkout
         uses: actions/checkout@v4
