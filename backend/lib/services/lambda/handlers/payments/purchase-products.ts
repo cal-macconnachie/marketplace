@@ -19,6 +19,7 @@ export const purchaseProducts = async (event: APIGatewayProxyEvent) => {
       productKeys,
       promoCode,
       couponId,
+      shippingAddress,
     } : {
       userId: string,
       paymentMethodId?: string,
@@ -29,6 +30,15 @@ export const purchaseProducts = async (event: APIGatewayProxyEvent) => {
       promoCode?: string
       couponId?: string
       taxCode?: string
+      shippingAddress?: {
+        full_name: string
+        address_line1: string
+        address_line2?: string
+        city: string
+        state: string
+        postal_code: string
+        country: string
+      }
     } = JSON.parse(body ?? '{}')
     const res = await purchaseProductsHelper({
       userId,
@@ -36,7 +46,8 @@ export const purchaseProducts = async (event: APIGatewayProxyEvent) => {
       productKeys,
       promoCode,
       couponId,
-      ipAddress
+      ipAddress,
+      shippingAddress
     })
     return {
       statusCode: 200,

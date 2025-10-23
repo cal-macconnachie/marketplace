@@ -89,7 +89,7 @@ export async function cacheTaxCalculation(
 ): Promise<void> {
   try {
     const expiresAt = Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60) // 1 year expiration
-    await create({
+    await create<TaxCalculationCache>({
       tableName: taxCalculationsTableName!,
       key: {
         location,
@@ -98,7 +98,9 @@ export async function cacheTaxCalculation(
       record: {
         tax_rate: taxRate,
         expires_at: expiresAt,
-        calculated_at: Math.floor(Date.now() / 1000)
+        calculated_at: Math.floor(Date.now() / 1000),
+        location,
+        tax_code: taxCacheKey
       }
     })
   } catch (error) {

@@ -1,10 +1,10 @@
+import { promosTableName } from '@marketplace/constants'
 import type {
   CreatePromoRequest,
   CreatePromotionCodeRequest,
   Promo
 } from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { promosTableName } from '@marketplace/constants'
 import { create } from '../../helpers/dynamo-helpers/create'
 
 export const createPromo = async (request: APIGatewayProxyEvent) => {
@@ -40,7 +40,7 @@ export const createPromo = async (request: APIGatewayProxyEvent) => {
         account_id: (promoCodeRequest as { account_id: string }).account_id
       }
 
-      await create({
+      await create<Promo>({
         tableName: promosTableName,
         key: {
           type: promoRecord.type,
@@ -108,7 +108,7 @@ export const createPromo = async (request: APIGatewayProxyEvent) => {
         account_id: (promoRequest as { account_id: string }).account_id
       }
 
-      await create({
+      await create<Promo>({
         tableName: promosTableName,
         key: {
           type: couponRecord.type,
@@ -136,7 +136,7 @@ export const createPromo = async (request: APIGatewayProxyEvent) => {
           account_id: (promoRequest as { account_id: string }).account_id
         }
 
-        await create({
+        await create<Promo>({
           tableName: promosTableName,
           key: {
             type: promoCodeRecord.type,

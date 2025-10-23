@@ -43,7 +43,6 @@ const routes = [
     path: '/receipts/:cartId/:userId',
     name: 'Receipt',
     component: () => import('@/components/ReceiptPage.vue'),
-    meta: { requiresAuth: true },
   }
 ]
 

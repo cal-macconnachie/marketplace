@@ -39,7 +39,6 @@ export const sendReceiptNotification = async ({
     user,
     cart
   })
-  console.log(user)
   if (user.email && user.notifications?.email) {
     console.log('Sending receipt email to', user.email)
     await sendReceiptEmail({ ctx })
@@ -59,6 +58,7 @@ export const sendReceiptNotification = async ({
       order_id: cartId,
       summary: ctx.summary,
       currency: ctx.currency,
+      shipping_address: cart.shipping_address,
       line_items: ctx.line_items.map(item => ({
         product_name: item.product_name,
         quantity: item.quantity,
@@ -73,6 +73,7 @@ export const sendReceiptNotification = async ({
   const sellerOrgIds = Array.from(new Set(
     (ctx.sellers ?? []).map(seller => seller.id).filter(Boolean)
   ))
+  console.log('Creating sale notifications for orgs:', sellerOrgIds)
 
   for (const orgId of sellerOrgIds) {
     const orgUsers = await getOrganizationUsers({ orgId })
