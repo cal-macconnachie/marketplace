@@ -83,7 +83,7 @@ function toggleValue() {
 .field-display {
   min-height: 2.5rem;
   position: relative;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   cursor: pointer;
@@ -176,7 +176,7 @@ function toggleValue() {
   transform: translateY(-50%);
   padding: var(--space-1);
   color: var(--color-text-secondary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -89,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, computed } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 
 interface Props {
   value: string
@@ -217,7 +217,7 @@ function resizeTextarea() {
 .field-display,
 .field-edit {
   position: relative;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .field-display {
@@ -266,7 +266,7 @@ function resizeTextarea() {
   transform: translateY(-50%);
   padding: var(--space-1);
   color: var(--color-text-secondary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -292,7 +292,7 @@ function resizeTextarea() {
   padding-top: var(--space-4);
   padding-bottom: var(--space-3);
   border: 1px solid var(--color-primary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);

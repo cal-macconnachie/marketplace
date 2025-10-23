@@ -103,8 +103,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, computed, reactive } from 'vue'
 import type { SelectOption } from '@marketplace/types'
+import { computed, nextTick, reactive, ref } from 'vue'
 
 interface Props {
   value: string
@@ -281,7 +281,7 @@ function handleKeydown(event: KeyboardEvent) {
 .field-edit {
   min-height: 2.5rem;
   position: relative;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .field-display {
@@ -319,7 +319,7 @@ function handleKeydown(event: KeyboardEvent) {
   transform: translateY(-50%);
   padding: var(--space-1);
   color: var(--color-text-secondary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -344,7 +344,7 @@ function handleKeydown(event: KeyboardEvent) {
   padding: var(--space-3);
   padding-top: var(--space-4);
   border: 1px solid var(--color-primary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
@@ -444,7 +444,7 @@ function handleKeydown(event: KeyboardEvent) {
   overflow-y: auto;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-primary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   z-index: 1000;
 }

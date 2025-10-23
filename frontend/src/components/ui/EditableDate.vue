@@ -163,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, computed, reactive } from 'vue'
+import { computed, nextTick, reactive, ref } from 'vue'
 
 interface Props {
   value: string
@@ -533,7 +533,7 @@ function handleKeydown(event: KeyboardEvent) {
 .field-edit {
   min-height: 2.5rem;
   position: relative;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .field-display {
@@ -579,7 +579,7 @@ function handleKeydown(event: KeyboardEvent) {
   transform: translateY(-50%);
   padding: var(--space-1);
   color: var(--color-text-secondary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -604,7 +604,7 @@ function handleKeydown(event: KeyboardEvent) {
   padding: var(--space-3);
   padding-top: var(--space-4);
   border: 1px solid var(--color-primary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
@@ -699,7 +699,7 @@ function handleKeydown(event: KeyboardEvent) {
   min-width: 280px;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-primary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   box-shadow:
     0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -749,7 +749,7 @@ function handleKeydown(event: KeyboardEvent) {
 .year-selector {
   cursor: pointer;
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   transition: all 0.2s ease;
   border: 1px solid transparent;
 }
@@ -858,7 +858,7 @@ function handleKeydown(event: KeyboardEvent) {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -875,7 +875,7 @@ function handleKeydown(event: KeyboardEvent) {
   right: 0;
   bottom: 0;
   background: var(--color-bg-primary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: var(--space-3);
   z-index: 10;
   animation: fadeIn 0.15s ease;
@@ -908,7 +908,7 @@ function handleKeydown(event: KeyboardEvent) {
   padding: var(--space-4) var(--space-2);
   text-align: center;
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   transition: all 0.15s ease;
@@ -984,7 +984,7 @@ function handleKeydown(event: KeyboardEvent) {
   padding: var(--space-4) var(--space-2);
   text-align: center;
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   transition: all 0.2s ease;

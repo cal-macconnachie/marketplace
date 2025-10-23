@@ -18,43 +18,41 @@
       <!-- Personal Information -->
       <div class="form-section">
         <div class="form-row">
-          <EditableField
-            :value="formData.firstName"
-            field="firstName"
-            label="First Name *"
+          <BaseInput
+            v-model="formData.firstName"
+            label="First Name"
             placeholder="Enter your first name"
             :required="true"
             :error="errors.firstName"
-            @update="handleFieldUpdate"
             :disabled="isRegistered"
-            tabindex="1"
+            autocomplete="given-name"
+            @update:modelValue="(value) => handleFieldUpdate('firstName', value)"
           />
-          <EditableField
-            :value="formData.lastName"
-            field="lastName"
-            label="Last Name *"
+          <BaseInput
+            v-model="formData.lastName"
+            label="Last Name"
             placeholder="Enter your last name"
             :required="true"
             :error="errors.lastName"
-            @update="handleFieldUpdate"
             :disabled="isRegistered"
-            tabindex="2"
+            autocomplete="family-name"
+            @update:modelValue="(value) => handleFieldUpdate('lastName', value)"
           />
         </div>
-        <EditableField
-          :value="formData.email"
-          field="email"
-          label="Email Address *"
+        <BaseInput
+          v-model="formData.email"
+          type="email"
+          label="Email Address"
           placeholder="Enter your email"
           :required="true"
           :error="errors.email"
-          @update="handleFieldUpdate"
           :disabled="isRegistered"
-          tabindex="3"
+          autocomplete="email"
+          @update:modelValue="(value) => handleFieldUpdate('email', value)"
         />
 
-        <PhoneNumberField
-          :value="formData.phoneNumber"
+        <SimplePhoneInput
+          v-model="formData.phoneNumber"
           field="phoneNumber"
           label="Phone Number *"
           placeholder="Enter your phone number"
@@ -62,11 +60,11 @@
           :error="errors.phoneNumber"
           @update="handleFieldUpdate"
           :disabled="isRegistered"
-          tabindex="4"
+          :tabindex="4"
         />
 
-        <AddressSearch
-          :value="formatAddress(formData.address)"
+        <SimpleAddressInput
+          :modelValue="formatAddress(formData.address)"
           label="Address *"
           field="address"
           placeholder="Search for your address..."
@@ -76,7 +74,7 @@
           "
           @update="handleFieldUpdate"
           :disabled="isRegistered"
-          tabindex="5"
+          :tabindex="5"
         />
 
         <EditableToggle
@@ -90,9 +88,9 @@
           tabindex="6"
         />
 
-        <AddressSearch
+        <SimpleAddressInput
           v-if="requiresShipping && !shippingAddressSameAsAddress"
-          :value="formatAddress(formData.shippingAddress)"
+          :modelValue="formatAddress(formData.shippingAddress)"
           label="Shipping Address"
           field="shippingAddress"
           placeholder="Search for your address..."
@@ -104,7 +102,7 @@
             errors.shippingAddressPostal
           "
           @update="handleFieldUpdate"
-          tabindex="7"
+          :tabindex="7"
         />
       </div>
 
@@ -181,14 +179,14 @@ import {
   type StripeElements,
 } from '@stripe/stripe-js'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import AddressSearch from './AddressSearch.vue'
 import BaseAlert from './BaseAlert.vue'
 import BaseButton from './BaseButton.vue'
+import BaseInput from './BaseInput.vue'
 import CheckoutProgress from './CheckoutProgress.vue'
-import EditableField from './EditableField.vue'
 import EditableToggle from './EditableToggle.vue'
 import LoadingSpinner from './LoadingSpinner.vue'
-import PhoneNumberField from './PhoneNumberField.vue'
+import SimpleAddressInput from './SimpleAddressInput.vue'
+import SimplePhoneInput from './SimplePhoneInput.vue'
 import StripeVerificationModal from './StripeVerificationModal.vue'
 
 interface GuestFormData {
