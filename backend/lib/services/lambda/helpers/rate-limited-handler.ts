@@ -25,7 +25,9 @@ export const rateLimitedHandler = (
   return async (event, context, callback) => {
     // if no authed user then by ip
     const startOfAccessKey = event.requestContext.authorizer?.claims.email ?? event.requestContext.identity.sourceIp
-    const accessKey = `${startOfAccessKey}:${handler.name}`
+    // Use Lambda function name from context for reliable identification
+    const handlerName = context.functionName
+    const accessKey = `${startOfAccessKey}:${handlerName}`
     const {
       allowed,
       resetTime,
