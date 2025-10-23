@@ -282,6 +282,31 @@
         <h4 class="section-title">Notes</h4>
         <p class="receipt-notes">{{ receipt.notes }}</p>
       </section>
+
+      <!-- Shipping Label Action -->
+      <section v-if="receipt.shipping_address" class="details-section">
+        <BaseButton
+          variant="primary"
+          size="md"
+          @click="handlePrintShippingLabel"
+          style="width: 100%;"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            :style="{ marginRight: '8px' }"
+          >
+            <polyline points="6 9 6 2 18 2 18 9" />
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+            <rect x="6" y="14" width="12" height="8" />
+          </svg>
+          Print Shipping Label
+        </BaseButton>
+      </section>
     </div>
 
   </BaseModal>
@@ -292,8 +317,13 @@ import { authAPI } from '@/services/api'
 import type { ReceiptEmailContext } from '@marketplace/types'
 import { computed, ref, watch } from 'vue'
 import BaseAlert from './BaseAlert.vue'
+import BaseButton from './BaseButton.vue'
 import BaseModal from './BaseModal.vue'
 import LoadingSpinner from './LoadingSpinner.vue'
+import { useAppStore } from '@/stores/app'
+import { printShippingLabel } from '@/services/shippingLabel'
+
+const appStore = useAppStore()
 
 interface Props {
   show: boolean
@@ -353,6 +383,19 @@ watch(() => props.show, (newShow) => {
     error.value = ''
   }
 })
+
+function handlePrintShippingLabel() {
+  if (!receipt.value?.shipping_address) return
+
+  printShippingLabel({
+    orderId: receipt.value.receipt_number || 'N/A',
+    customerName: receipt.value.customer_name || 'Customer',
+    customerEmail: receipt.value.customer_email,
+    customerPhone: receipt.value.customer_phone,
+    shippingAddress: receipt.value.shipping_address,
+    returnOrganization: appStore.organization || undefined,
+  })
+}
 </script>
 
 <style scoped>

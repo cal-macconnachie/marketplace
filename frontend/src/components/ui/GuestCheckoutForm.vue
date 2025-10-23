@@ -87,7 +87,6 @@
           off-label="Ship to different address"
           :required="false"
           @update="handleFieldUpdate"
-          :disabled="isRegistered"
           tabindex="6"
         />
 
@@ -105,7 +104,6 @@
             errors.shippingAddressPostal
           "
           @update="handleFieldUpdate"
-          :disabled="isRegistered"
           tabindex="7"
         />
       </div>

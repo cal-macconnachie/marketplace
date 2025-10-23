@@ -339,7 +339,10 @@ export const collectReceiptEmailData = async (
     has_refunds: hasRefunds || undefined,
     has_disputes: hasDisputes || undefined,
     total_refund_amount: hasRefunds ? totalRefundAmount : undefined,
-    total_refund_amount_formatted: hasRefunds ? formatCurrency(totalRefundAmount, currency) : undefined
+    total_refund_amount_formatted: hasRefunds ? formatCurrency(totalRefundAmount, currency) : undefined,
+
+    // Shipping address from cart
+    shipping_address: cart.shipping_address || undefined
   }
   context.customer_ip_address = cart.ip_address || user.ip_address || undefined
 

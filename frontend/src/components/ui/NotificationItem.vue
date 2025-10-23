@@ -151,6 +151,10 @@
 import type { Notification } from '@marketplace/types'
 import { computed } from 'vue'
 import BaseButton from './BaseButton.vue'
+import { useAppStore } from '@/stores/app'
+import { printShippingLabel } from '@/services/shippingLabel'
+
+const appStore = useAppStore()
 
 interface Props {
   notification: Notification
@@ -221,66 +225,17 @@ function handleClick() {
 }
 
 function handlePrintShippingLabel() {
-  if (!props.notification.metadata?.shipping_address) return
+  const metadata = props.notification.metadata
+  if (!metadata?.shipping_address) return
 
-  // Create a printable shipping label
-  const address = props.notification.metadata.shipping_address
-  const customerName = props.notification.metadata.customer_name || 'Customer'
-  const orderId = props.notification.metadata.order_id || 'N/A'
-
-  // Create a new window with shipping label content
-  const printWindow = window.open('', '_blank', 'width=600,height=400')
-  if (!printWindow) return
-
-  // Build contact info HTML
-  const emailHtml = props.notification.metadata.customer_email
-    ? '<div>Email: ' + props.notification.metadata.customer_email + '</div>'
-    : ''
-  const phoneHtml = props.notification.metadata.customer_phone
-    ? '<div>Phone: ' + props.notification.metadata.customer_phone + '</div>'
-    : ''
-  const line2Html = address.address_line2 ? '<div>' + address.address_line2 + '</div>' : ''
-
-  const htmlContent = '<!DOCTYPE html>' +
-    '<html>' +
-    '<head>' +
-    '<title>Shipping Label - Order ' + orderId + '</title>' +
-    '<style>' +
-    'body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; }' +
-    'h1 { font-size: 24px; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }' +
-    '.section { margin: 20px 0; }' +
-    '.label { font-weight: bold; margin-bottom: 5px; }' +
-    '.address { font-size: 18px; line-height: 1.6; padding: 15px; border: 2px solid #000; margin: 10px 0; }' +
-    '@media print { body { padding: 0; } }' +
-    '</style>' +
-    '</head>' +
-    '<body>' +
-    '<h1>Shipping Label</h1>' +
-    '<div class="section">' +
-    '<div class="label">Order ID:</div>' +
-    '<div>' + orderId + '</div>' +
-    '</div>' +
-    '<div class="section">' +
-    '<div class="label">Ship To:</div>' +
-    '<div class="address">' +
-    '<div>' + customerName + '</div>' +
-    '<div>' + address.address_line1 + '</div>' +
-    line2Html +
-    '<div>' + address.city + ', ' + address.state + ' ' + address.postal_code + '</div>' +
-    '<div>' + address.country + '</div>' +
-    '</div>' +
-    '</div>' +
-    '<div class="section">' +
-    '<div class="label">Contact Information:</div>' +
-    emailHtml +
-    phoneHtml +
-    '</div>' +
-    '<script>window.onload = function() { window.print(); }<' + '/script>' +
-    '</body>' +
-    '</html>'
-
-  printWindow.document.write(htmlContent)
-  printWindow.document.close()
+  printShippingLabel({
+    orderId: metadata.order_id || 'N/A',
+    customerName: metadata.customer_name || 'Customer',
+    customerEmail: metadata.customer_email,
+    customerPhone: metadata.customer_phone,
+    shippingAddress: metadata.shipping_address,
+    returnOrganization: appStore.organization || undefined,
+  })
 }
 
 function handleViewReceipt() {

@@ -7,14 +7,15 @@
 // ENTITIES - Core business objects
 // ============================================================================
 
-export * from './entities/user'
-export * from './entities/organization'
-export * from './entities/product'
-export * from './entities/payment'
-export * from './entities/promo'
+export * from './entities/dispute'
 export * from './entities/meter'
 export * from './entities/notification'
-export * from './entities/dispute'
+export * from './entities/organization'
+export * from './entities/payment'
+export * from './entities/product'
+export * from './entities/promo'
+export * from './entities/shipping'
+export * from './entities/user'
 
 // ============================================================================
 // API TYPES - Request/Response interfaces organized by domain
@@ -62,33 +63,34 @@ export * from './api/emails/receipt'
 // INFRASTRUCTURE TYPES - CDK stack definitions
 // ============================================================================
 
-export * from './infrastructure/dynamodb'
-export * from './infrastructure/s3'
-export * from './infrastructure/cloudfront'
-export * from './infrastructure/lambda'
 export * from './infrastructure/cdk-stacks'
+export * from './infrastructure/cloudfront'
+export * from './infrastructure/dynamodb'
+export * from './infrastructure/lambda'
+export * from './infrastructure/s3'
 
 // ============================================================================
 // UTILITY TYPES - Shared utilities for frontend and backend
 // ============================================================================
 
-export * from './utils/validation'
 export * from './utils/cart'
-export * from './utils/theme'
-export * from './utils/select'
 export * from './utils/embed'
 export * from './utils/oauth'
+export * from './utils/select'
+export * from './utils/theme'
+export * from './utils/validation'
 
 // ============================================================================
 // INTERNAL TYPES - Backend-only utilities
 // Note: These are exported but marked with @internal JSDoc tags
 // ============================================================================
 
-export * from './internal/handler-utils'
-export * from './internal/query-strategies'
-export * from './internal/otp'
+export * from './internal/dynamodb-helpers'
 export * from './internal/email'
 export * from './internal/eventbridge'
-export * from './internal/tax'
+export * from './internal/handler-utils'
+export * from './internal/otp'
+export * from './internal/query-strategies'
 export * from './internal/stripe-helpers'
-export * from './internal/dynamodb-helpers'
+export * from './internal/tax'
+

@@ -1,3 +1,4 @@
+import { ShippingAddress } from '../../entities/shipping'
 
 export interface ReceiptLineItem {
   product_id: string
@@ -98,4 +99,5 @@ export interface ReceiptEmailContext {
   has_disputes?: boolean
   total_refund_amount?: number
   total_refund_amount_formatted?: string
+  shipping_address?: ShippingAddress
 }
