@@ -466,23 +466,20 @@ jobs:
         env:
           ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
         run: |
-          DOMAIN_ROOT="marketplace.csm.codes"
-          if [ "$ENV_NAME" = "dev" ]; then
-            PARENT_DOMAIN="dev.${DOMAIN_ROOT}"
-          else
-            PARENT_DOMAIN="${DOMAIN_ROOT}"
-          fi
-          echo "Waiting for A/AAAA record on ${PARENT_DOMAIN}..."
+          # Get domain configuration from constants package (single source of truth)
+          eval "$(npx tsx .github/scripts/get-domain-config.ts --env=$ENV_NAME)"
+
+          echo "Waiting for A/AAAA record on ${DOMAIN}..."
           ATTEMPTS=0
-          until nslookup "$PARENT_DOMAIN" >/dev/null 2>&1 || dig +short "$PARENT_DOMAIN" >/dev/null 2>&1; do
+          until nslookup "$DOMAIN" >/dev/null 2>&1 || dig +short "$DOMAIN" >/dev/null 2>&1; do
             ATTEMPTS=$((ATTEMPTS+1))
             if [ $ATTEMPTS -gt 60 ]; then
-              echo "Timed out waiting for ${PARENT_DOMAIN} to resolve"
+              echo "Timed out waiting for ${DOMAIN} to resolve"
               exit 1
             fi
             sleep 10
           done
-          echo "${PARENT_DOMAIN} resolves. Proceeding."
+          echo "${DOMAIN} resolves. Proceeding."
 
       - name: CDK Deploy Cognito Domain Stack
         working-directory: backend
@@ -744,12 +741,8 @@ jobs:
         run: |
           ENV_NAME="${{ needs.detect-changes.outputs.env-name }}"
 
-          # Bucket name pattern differs for prod (no env prefix)
-          if [ "$ENV_NAME" = "prod" ]; then
-            BUCKET_PARAM_NAME="/marketplace/${ENV_NAME}/s3/marketplace-csm-codes"
-          else
-            BUCKET_PARAM_NAME="/marketplace/${ENV_NAME}/s3/${ENV_NAME}-marketplace-csm-codes"
-          fi
+          # Get domain configuration from constants package (single source of truth)
+          eval "$(npx tsx .github/scripts/get-domain-config.ts --env=$ENV_NAME)"
 
           BUCKET_NAME=$(aws ssm get-parameter \
             --name "$BUCKET_PARAM_NAME" \
