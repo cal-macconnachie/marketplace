@@ -1,21 +1,26 @@
 name: Backend Setup
-description: Common setup for backend jobs (Node, Yarn, cached deps, AWS creds, CDK env)
+description: Common setup for backend jobs (Node, Yarn, deps, AWS creds, CDK env)
 runs:
   using: composite
   steps:
-    - name: Download shared dependencies
-      uses: actions/download-artifact@v4
-      with:
-        name: shared-dependencies
-
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node-version }}
 
-    - name: Enable Yarn
+    - name: Ensure Yarn is installed
       shell: bash
       run: corepack enable
+
+    - name: Install dependencies
+      shell: bash
+      run: yarn install --immutable
+
+    - name: Build shared packages
+      shell: bash
+      env:
+        ENV_NAME: ${{ inputs.env-name }}
+      run: yarn workspace @marketplace/constants build
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4

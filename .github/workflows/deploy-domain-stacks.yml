@@ -68,6 +68,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Log API stage trigger
+        run: |
+          echo "API stage triggered due to: public=${{ needs.detect-stack-changes.outputs.public-changed }}, payments=${{ needs.detect-stack-changes.outputs.payments-changed }}, products=${{ needs.detect-stack-changes.outputs.products-changed }}, internal-api=${{ needs.detect-stack-changes.outputs.internal-api-changed }}"
+
       - name: Check for changes
         uses: dorny/paths-filter@v3
         id: filter
@@ -83,57 +87,10 @@ jobs:
         id: env
         run: echo "env-name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
 
-  # Build shared dependencies once (only if backend changes detected)
-  build-shared:
-    runs-on: ubuntu-latest
-    needs: detect-changes
-    if: needs.detect-changes.outputs.backend == 'true' || needs.detect-changes.outputs.frontend == 'true'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Enable Yarn
-        run: corepack enable
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build constants package
-        run: yarn workspace @marketplace/constants build
-
-      - name: Build TypeScript pattern extractor
-        run: |
-          if [ -f backend/node_modules/typescript/bin/tsc ]; then
-            node backend/node_modules/typescript/bin/tsc -p backend/scripts/tsconfig.json
-          else
-            (cd backend && yarn node ./node_modules/typescript/bin/tsc -p scripts/tsconfig.json)
-          fi
-
-      - name: Cache node_modules and built packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: shared-dependencies
-          path: |
-            node_modules/
-            backend/node_modules/
-            frontend/node_modules/
-            constants/
-            types/
-            backend/scripts/dist/
-            package.json
-            .yarnrc.yml
-          retention-days: 1
-          compression-level: 6
-
   # Detect specific backend stack changes
   detect-stack-changes:
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-shared]
+    needs: detect-changes
     if: needs.detect-changes.outputs.backend == 'true'
     outputs:
       infra-changed: ${{ steps.check.outputs.infra-changed }}
@@ -150,15 +107,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download shared dependencies
-        uses: actions/download-artifact@v4
-        with:
-          name: shared-dependencies
-
-      - name: Setup Node.js
+      - name: Setup Node.js for pattern extraction
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      - name: Enable Yarn
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
 
       - name: Check which stacks changed
         id: check
@@ -213,7 +171,12 @@ jobs:
             SHARED_LAMBDA_CHANGED=true
           fi
 
-          # Use pre-built TypeScript pattern extractor from build-shared artifact
+          # Build the TS extractor and generate patterns (pure TS). Avoid relying on yarn scripts.
+          if [ -f backend/node_modules/typescript/bin/tsc ]; then
+            node backend/node_modules/typescript/bin/tsc -p backend/scripts/tsconfig.json
+          else
+            (cd backend && yarn node ./node_modules/typescript/bin/tsc -p scripts/tsconfig.json)
+          fi
           STACK_VARS=$(node backend/scripts/dist/extract-handler-paths.js --bash-vars 2>/dev/null || true)
 
           # Eval the generated variables into this shell
@@ -765,22 +728,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download shared dependencies
-        uses: actions/download-artifact@v4
+      - name: Backend setup
+        uses: ./.github/actions/backend-setup
         with:
-          name: shared-dependencies
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Enable Yarn
-        run: corepack enable
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
+          env-name: ${{ needs.detect-changes.outputs.env-name }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
@@ -826,6 +777,11 @@ jobs:
           echo "cognito-region=$COGNITO_REGION" >> $GITHUB_OUTPUT
           echo "cognito-user-pool-id=$COGNITO_USER_POOL_ID" >> $GITHUB_OUTPUT
           echo "cognito-client-id=$COGNITO_CLIENT_ID" >> $GITHUB_OUTPUT
+
+      - name: Build shared packages
+        env:
+          ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
+        run: yarn workspace @marketplace/constants build
 
       - name: Clean frontend dist directory
         working-directory: frontend
