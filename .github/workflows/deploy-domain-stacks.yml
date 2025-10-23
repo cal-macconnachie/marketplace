@@ -85,10 +85,14 @@ jobs:
         with:
           name: shared-dependencies
           path: |
+            node_modules/
             backend/node_modules/
+            frontend/node_modules/
             constants/
             types/
             backend/scripts/dist/
+            package.json
+            .yarnrc.yml
           retention-days: 1
           compression-level: 6
 
