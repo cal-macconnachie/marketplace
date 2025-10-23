@@ -1093,17 +1093,17 @@ const handleCheckout = async () => {
         paymentMethodId: selectedPaymentMethod.value.id,
         productKeys,
         // promoCode and couponId can be added later when promo functionality is implemented
-        ...(requiresShipping.value && shippingAddress.value ? {
+        ...(requiresShipping.value ? {
           shippingAddress: {
             full_name: appStore.user.given_name && appStore.user.family_name
               ? `${appStore.user.given_name} ${appStore.user.family_name}`
               : appStore.fullName || '',
-            address_line1: shippingAddress.value.line1,
-            address_line2: shippingAddress.value.line2,
-            city: shippingAddress.value.city,
-            state: shippingAddress.value.state,
-            postal_code: shippingAddress.value.postalCode,
-            country: shippingAddress.value.country,
+            address_line1: shippingAddress.value?.line1 || appStore.user.address?.line_1 || '',
+            address_line2: shippingAddress.value?.line2 || appStore.user.address?.line_2,
+            city: shippingAddress.value?.city || appStore.user.address?.city || '',
+            state: shippingAddress.value?.state || appStore.user.address?.state || '',
+            postal_code: shippingAddress.value?.postalCode || appStore.user.address?.postal_code || '',
+            country: shippingAddress.value?.country || appStore.user.address?.country || '',
           }
         } : {})
       }
@@ -1142,15 +1142,15 @@ const handleCheckout = async () => {
         paymentMethodId: guestFormData.value.paymentMethod.id,
         productKeys,
         // promoCode and couponId can be added later when promo functionality is implemented
-        ...(requiresShipping.value && shippingAddress.value ? {
+        ...(requiresShipping.value ? {
           shippingAddress: {
             full_name: `${guestFormData.value.firstName} ${guestFormData.value.lastName}`,
-            address_line1: shippingAddress.value.line1,
-            address_line2: shippingAddress.value.line2,
-            city: shippingAddress.value.city,
-            state: shippingAddress.value.state,
-            postal_code: shippingAddress.value.postalCode,
-            country: shippingAddress.value.country,
+            address_line1: shippingAddress.value?.line1 || guestFormData.value.address.line1,
+            address_line2: shippingAddress.value?.line2 || guestFormData.value.address.line2,
+            city: shippingAddress.value?.city || guestFormData.value.address.city,
+            state: shippingAddress.value?.state || guestFormData.value.address.state,
+            postal_code: shippingAddress.value?.postalCode || guestFormData.value.address.postalCode,
+            country: shippingAddress.value?.country || guestFormData.value.address.country,
           }
         } : {})
       })

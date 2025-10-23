@@ -174,6 +174,7 @@ export const USER_NOTIFICATION_TYPES: UserNotificationTypeConfig = {
   },
   dispute_created: {
     label: 'Disputes Created',
+    requiresStripeAccount: true
   },
   refund_failed: {
     label: 'Refunds Failed',
