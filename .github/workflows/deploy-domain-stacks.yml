@@ -39,8 +39,8 @@ on:
         required: false
         type: boolean
         default: false
-      full-backend:
-        description: 'Full Backend'
+      force-events:
+        description: 'Events'
         required: false
         type: boolean
         default: false
@@ -55,7 +55,7 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      backend: ${{ steps.filter.outputs.backend || github.event.inputs.force-infra == 'true' || github.event.inputs.force-public == 'true' || github.event.inputs.force-payments == 'true' || github.event.inputs.force-products == 'true' || github.event.inputs.force-internal-api == 'true' || github.event.inputs.full-backend == 'true' }}
+      backend: ${{ steps.filter.outputs.backend || github.event.inputs.force-infra == 'true' || github.event.inputs.force-public == 'true' || github.event.inputs.force-payments == 'true' || github.event.inputs.force-products == 'true' || github.event.inputs.force-internal-api == 'true' || github.event.inputs.force-events == 'true' }}
       frontend: ${{ steps.filter.outputs.frontend || github.event.inputs.force-frontend == 'true' }}
       env-name: ${{ steps.env.outputs.env-name }}
       force-infra: ${{ github.event.inputs.force-infra == 'true' }}
@@ -63,7 +63,7 @@ jobs:
       force-payments: ${{ github.event.inputs.force-payments == 'true' }}
       force-products: ${{ github.event.inputs.force-products == 'true' }}
       force-internal-api: ${{ github.event.inputs.force-internal-api == 'true' }}
-      full-backend: ${{ github.event.inputs.full-backend == 'true' }}
+      force-events: ${{ github.event.inputs.force-events == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -243,7 +243,7 @@ jobs:
           if [ "${{ needs.detect-changes.outputs.force-payments }}" = "true" ]; then PAYMENTS_CHANGED=true; fi
           if [ "${{ needs.detect-changes.outputs.force-products }}" = "true" ]; then PRODUCTS_CHANGED=true; fi
           if [ "${{ needs.detect-changes.outputs.force-internal-api }}" = "true" ]; then INTERNAL_API_CHANGED=true; fi
-          if [ "${{ needs.detect-changes.outputs.full-backend }}" = "true" ]; then EVENTS_CHANGED=true; fi
+          if [ "${{ needs.detect-changes.outputs.force-events }}" = "true" ]; then EVENTS_CHANGED=true; fi
           if [ "${{ needs.detect-changes.outputs.force-certificates }}" = "true" ]; then CERTIFICATES_CHANGED=true; fi
           if [ "${{ needs.detect-changes.outputs.force-cognito-domain }}" = "true" ]; then COGNITO_DOMAIN_CHANGED=true; fi
 
@@ -663,7 +663,7 @@ jobs:
 
       - name: CDK Deploy Events Stack
         working-directory: backend
-        run: yarn cdk deploy MarketplaceEvents-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-events.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.full-backend == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
+        run: yarn cdk deploy MarketplaceEvents-${{ needs.detect-changes.outputs.env-name }} --app "npx ts-node --prefer-ts-exts bin/marketplace-events.ts" --require-approval never -c envName=${{ needs.detect-changes.outputs.env-name }} ${{ needs.detect-changes.outputs.force-events == 'true' && format('-c forceRedeploy={0}', github.run_number) || '' }}
 
   # Single API stage redeploy after all domain jobs (runs even if earlier jobs were skipped)
   deploy-api-stage:
@@ -777,11 +777,6 @@ jobs:
           echo "cognito-region=$COGNITO_REGION" >> $GITHUB_OUTPUT
           echo "cognito-user-pool-id=$COGNITO_USER_POOL_ID" >> $GITHUB_OUTPUT
           echo "cognito-client-id=$COGNITO_CLIENT_ID" >> $GITHUB_OUTPUT
-
-      - name: Build shared packages
-        env:
-          ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
-        run: yarn workspace @marketplace/constants build
 
       - name: Clean frontend dist directory
         working-directory: frontend
