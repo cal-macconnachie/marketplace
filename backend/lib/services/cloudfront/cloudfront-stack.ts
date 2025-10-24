@@ -92,7 +92,7 @@ function handler(event) {
   ` : ''}
 
   if (!authHeader || !authHeader.startsWith('Basic ')) {
-    return unauthorized();
+    return unauthorized('no-auth');
   }
 
   try {
@@ -101,11 +101,11 @@ function handler(event) {
     var colonIndex = decoded.indexOf(':');
 
     if (colonIndex === -1) {
-      return unauthorized();
+      return unauthorized('no-colon');
     }
 
-    var username = decoded.substring(0, colonIndex);
-    var password = decoded.substring(colonIndex + 1);
+    var username = decoded.split(':')[0];
+    var password = decoded.split(':')[1];
 
     var kvs = event.context.kvs;
     var storedPassword = kvs.get(username);
@@ -116,16 +116,17 @@ function handler(event) {
   } catch (e) {
   }
 
-  return unauthorized();
+  return unauthorized('fallthrough');
 }
 
-function unauthorized() {
+function unauthorized(reason) {
   return {
     statusCode: 401,
     statusDescription: 'Unauthorized',
     headers: {
       'www-authenticate': { value: 'Basic realm="Protected Site"' },
-      'content-type': { value: 'text/html' }
+      'content-type': { value: 'text/html' },
+      'x-auth-reason': { value: reason || 'Unknown' }
     },
     body: '<h1>401 Unauthorized</h1><p>Authentication required.</p>'
   };
