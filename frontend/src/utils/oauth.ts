@@ -5,7 +5,6 @@ import type { CognitoConfig } from '@marketplace/types'
  * Get Cognito configuration from environment variables
  */
 export function getCognitoConfig(): CognitoConfig {
-  // Use custom Cognito domain: auth.{env}.{domain} for dev, auth.{domain} for prod
   const cognitoDomain = `https://auth.${domain}`
 
   return {
@@ -182,20 +181,4 @@ export async function exchangeCodeForTokens(code: string): Promise<{
   }
 
   return response.json()
-}
-
-/**
- * Redirect to Cognito logout endpoint
- * Use this when backend logout fails to ensure complete logout through Cognito
- */
-export function redirectToCognitoLogout(logoutUri?: string): void {
-  const config = getCognitoConfig()
-  const logoutUrl = logoutUri || `${window.location.origin}/auth`
-
-  const params = new URLSearchParams({
-    client_id: config.clientId,
-    logout_uri: logoutUrl,
-  })
-
-  window.location.href = `${config.domain}/logout?${params.toString()}`
 }

@@ -131,7 +131,7 @@ apiClient.interceptors.response.use(
         clearAllAuthTokens()
         // Use window.location instead of router.push to ensure navigation works
         // even if router is not yet initialized or in a different context
-        window.location.href = '/auth'
+        window.location.href = '/'
         return Promise.reject(error)
       }
     }

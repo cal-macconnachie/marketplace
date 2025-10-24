@@ -623,7 +623,7 @@ export const useAppStore = defineStore('app', {
           // If refresh fails, clear auth and redirect
           this.clearAuth()
           this.stopTokenRefresh()
-          window.location.href = '/auth'
+          window.location.href = '/'
         }
       }, 5 * 60 * 1000) // Check every 5 minutes
     },
