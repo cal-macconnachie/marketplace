@@ -359,7 +359,7 @@ jobs:
     if: |
       always() &&
       needs.detect-changes.outputs.backend == 'true' &&
-      needs.detect-stack-changes.outputs.infra-changed == 'true' &&
+      (needs.detect-stack-changes.outputs.infra-changed == 'true' || needs.detect-stack-changes.outputs.networking-changed == 'true') &&
       (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
     env:
       ENV_NAME: ${{ needs.detect-changes.outputs.env-name }}
