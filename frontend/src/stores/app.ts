@@ -20,6 +20,8 @@ interface ProductFormData {
   category: string
   price: number
   is_public: boolean
+  quantity_limit?: number
+  quantity?: number
   usageType: 'licensed' | 'metered'
   billingPeriod: {
     interval: 'month' | 'day' | 'week' | 'year'
@@ -86,6 +88,7 @@ export const useAppStore = defineStore('app', {
       showImages: false,
       showMarketingFeatures: false,
       requiresShipping: false,
+      limitedQuantity: false,
     },
   }),
 
@@ -661,6 +664,8 @@ export const useAppStore = defineStore('app', {
       category: string
       price: number
       is_public?: boolean
+      quantity_limit?: number
+      quantity?: number
       key?: {
         group_id: string
         id: string
@@ -684,6 +689,8 @@ export const useAppStore = defineStore('app', {
         ...data,
         type: data.type === 'one_time' ? 'one_time' : 'recurring',
         is_public: data.is_public ?? false,
+        quantity_limit: data.quantity_limit,
+        quantity: data.quantity,
         usageType: data.usageType || 'licensed',
         billingPeriod: data.billingPeriod || {
           interval: 'month' as 'day' | 'week' | 'month' | 'year',
@@ -717,6 +724,8 @@ export const useAppStore = defineStore('app', {
         category: '',
         price: 0,
         is_public: false,
+        quantity_limit: undefined,
+        quantity: undefined,
         usageType: 'licensed',
         billingPeriod: {
           interval: 'month',
@@ -735,12 +744,13 @@ export const useAppStore = defineStore('app', {
       this.productFormToggleStates.showImages = false
       this.productFormToggleStates.showMarketingFeatures = false
       this.productFormToggleStates.requiresShipping = false
+      this.productFormToggleStates.limitedQuantity = false
       this.productFormData.error = undefined
       this.productFormData.key = undefined
     },
 
     setProductFormToggleState(
-      field: 'showImages' | 'showMarketingFeatures' | 'requiresShipping',
+      field: keyof typeof this.productFormToggleStates,
       value: boolean,
     ) {
       this.productFormToggleStates[field] = value

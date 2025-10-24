@@ -1,10 +1,10 @@
 import { AttributeValue } from '@aws-sdk/client-dynamodb'
 import { unmarshall } from '@aws-sdk/util-dynamodb'
+import { productsTableName } from '@marketplace/constants'
+import { Product } from '@marketplace/types'
 import { DynamoDBStreamEvent } from 'aws-lambda'
 import Stripe from 'stripe'
-import { Product } from '@marketplace/types'
 import { update } from '../helpers/dynamo-helpers/update'
-import { productsTableName } from '@marketplace/constants'
 
 let stripe: Stripe | undefined
 
@@ -101,21 +101,24 @@ const archiveStripePrice = async (stripe: Stripe, priceId: string, accountId: st
     // Don't throw - archiving old price is not critical
   }
 }
+const fieldsToRemove = [
+  'group_id',
+  'id',
+  'persist_update',
+  'default_price_data',
+  'price_id',
+  'error',
+  'last_processed_at',
+  'price_version',
+  'account_id',
+  'organization_id',
+  'is_public',
+  'quantity_limit',
+  'quantity'
+] as const
 
 // Helper function to prepare product data for Stripe API
 const prepareProductDataForCreate = (record: Product): Stripe.ProductCreateParams => {
-  const fieldsToRemove = [
-    'group_id',
-    'persist_update',
-    'default_price_data',
-    'price_id',
-    'error',
-    'last_processed_at',
-    'price_version',
-    'account_id',
-    'organization_id',
-    'is_public',
-  ] as const
   const productData = { ...record } satisfies Stripe.ProductCreateParams
   // Preserve existing metadata and add organization_id
   productData.metadata = {
@@ -135,19 +138,6 @@ const prepareProductDataForCreate = (record: Product): Stripe.ProductCreateParam
 
 // Helper function to prepare product data for update
 const prepareProductDataForUpdate = (record: Product): Stripe.ProductUpdateParams => {
-  const fieldsToRemove = [
-    'group_id',
-    'id',
-    'persist_update',
-    'default_price_data',
-    'price_id',
-    'error',
-    'last_processed_at',
-    'price_version',
-    'account_id',
-    'organization_id',
-    'is_public',
-  ] as const
   const productData = { ...record } as Record<string, unknown>
   // Preserve existing metadata and add organization_id
   productData.metadata = {
@@ -204,10 +194,6 @@ export const handler = async (event: DynamoDBStreamEvent) => {
     }
     if (stripe == null) {
       stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-    }
-    
-    if (productsTableName == null || productsTableName === '') {
-      throw new Error('PRODUCTS_TABLE environment variable is not set')
     }
     
     const records: Array<{

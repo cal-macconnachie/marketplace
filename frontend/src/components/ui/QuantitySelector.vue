@@ -1,6 +1,7 @@
 <template>
   <div :class="['quantity-input-wrapper', `quantity-input-wrapper--${size}`]">
     <button
+      type="button"
       @click="quantity--"
       :disabled="quantity <= min"
       :class="['quantity-btn', 'quantity-btn--minus', `quantity-btn--${size}`]"
@@ -18,6 +19,7 @@
       :class="['quantity-input', `quantity-input--${size}`]"
     />
     <button
+      type="button"
       @click="quantity++"
       :disabled="quantity >= max"
       :class="['quantity-btn', 'quantity-btn--plus', `quantity-btn--${size}`]"

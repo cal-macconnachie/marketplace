@@ -199,9 +199,13 @@
                             ?.recurring?.usage_type !== 'metered'
                         "
                       >
-                        <QuantitySeletor
+                        <QuantitySelector
                           :min="1"
-                          :max="99"
+                          :max="
+                            productHash[`${item.groupId}:${item.productId}`]
+                              ? getMaxPurchaseQuantity(productHash[`${item.groupId}:${item.productId}`])
+                              : 99
+                          "
                           v-model.number="item.quantity"
                           size="xs"
                           @update:model-value="updateCartItemQuantity(item)"
@@ -280,6 +284,7 @@
 import { publicApi } from '@/services/api'
 import { useAppStore } from '@/stores/app'
 import { cartService } from '@/utils/cart'
+import { getMaxPurchaseQuantity } from '@/utils/product'
 import type { CartItem, Product } from '@marketplace/types'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -291,7 +296,7 @@ import LoadingSpinner from './ui/LoadingSpinner.vue'
 import PriceDisplay from './ui/PriceDisplay.vue'
 import ProductCard from './ui/ProductCard.vue'
 import ProductsList from './ui/ProductsList.vue'
-import QuantitySeletor from './ui/QuantitySeletor.vue'
+import QuantitySelector from './ui/QuantitySelector.vue'
 import ThemeToggle from './ui/ThemeToggle.vue'
 import UserAvatar from './ui/UserAvatar.vue'
 

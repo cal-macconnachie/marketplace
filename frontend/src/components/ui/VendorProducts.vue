@@ -315,12 +315,24 @@
           onLabel=""
           offLabel=""
         />
+        <EditableToggle
+          label="Limited Quantity"
+          :value="app.productFormToggleStates.limitedQuantity"
+          @update="
+            app.setProductFormToggleState(
+              'limitedQuantity',
+              !app.productFormToggleStates.limitedQuantity,
+            )
+          "
+          field="limitedQuantity"
+          onLabel=""
+          offLabel=""
+        />
       </div>
 
       <!-- Images Section -->
-      <div class="form-section">
+      <div v-if="app.productFormToggleStates.showImages" class="form-section">
         <ImageUploader
-          v-if="app.productFormToggleStates.showImages"
           v-model="app.productFormData.images"
           :on-upload="handleImageUpload"
           @update:modelValue="
@@ -332,12 +344,39 @@
       </div>
 
       <!-- Marketing Features Section -->
-      <div class="form-section">
+      <div v-if="app.productFormToggleStates.showMarketingFeatures" class="form-section">
         <StringListEditor
-          v-if="app.productFormToggleStates.showMarketingFeatures"
           v-model="marketingFeaturesStrings"
           add-button-text="Add Marketing Feature"
         />
+      </div>
+      <div v-if="app.productFormToggleStates.limitedQuantity" class="form-section">
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="field-label">Quantity Available</label>
+            <QuantitySelector
+              v-model="quantityModel"
+              :min="0"
+              :max="9999"
+              size="md"
+            />
+            <span v-if="validationErrors.quantity" class="field-error">{{
+              validationErrors.quantity
+            }}</span>
+          </div>
+          <div class="form-field">
+            <label class="field-label">Per Customer Limit</label>
+            <QuantitySelector
+              v-model="quantityLimitModel"
+              :min="1"
+              :max="quantityModel"
+              size="md"
+            />
+            <span v-if="validationErrors.quantityLimit" class="field-error">{{
+              validationErrors.quantityLimit
+            }}</span>
+          </div>
+        </div>
       </div>
     </form>
     <div
@@ -402,7 +441,7 @@ import {
 } from '@/services/api'
 import { useAppStore } from '@/stores/app'
 import { domain, taxCodes } from '@marketplace/constants'
-import type { CreatePresignedUploadUrlRequest, Product } from '@marketplace/types'
+import type { CreatePresignedUploadUrlRequest, Product, UpdateRequest } from '@marketplace/types'
 import { v4 } from 'uuid'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import BaseButton from './BaseButton.vue'
@@ -412,6 +451,7 @@ import EditableToggle from './EditableToggle.vue'
 import ImageUploader from './ImageUploader.vue'
 import LoadingSpinner from './LoadingSpinner.vue'
 import ProductsList from './ProductsList.vue'
+import QuantitySelector from './QuantitySelector.vue'
 import StringListEditor from './StringListEditor.vue'
 
 const app = useAppStore()
@@ -470,6 +510,29 @@ const marketingFeaturesStrings = computed({
   get: () => app.productFormData.marketingFeatures.map((f) => f.name),
   set: (value: string[]) => {
     app.productFormData.marketingFeatures = value.map((name) => ({ name }))
+  },
+})
+
+// Computed properties for quantity fields
+const quantityLimitModel = computed({
+  get: () => app.productFormData.quantity_limit ?? quantityModel.value,
+  set: (value: number) => {
+    app.updateProductFormField('quantity_limit', value)
+    // Clear validation error when value changes
+    if (validationErrors.value.quantityLimit) {
+      delete validationErrors.value.quantityLimit
+    }
+  },
+})
+
+const quantityModel = computed({
+  get: () => app.productFormData.quantity || 0,
+  set: (value: number) => {
+    app.updateProductFormField('quantity', value)
+    // Clear validation error when value changes
+    if (validationErrors.value.quantity) {
+      delete validationErrors.value.quantity
+    }
   },
 })
 
@@ -879,7 +942,7 @@ const handleSubmit = async () => {
       : undefined
 
     // Build product object matching API Product interface
-    const product: Product = {
+    const product: UpdateRequest<Product> = {
       group_id: `${app.user?.organization_id}.${app.productFormData.category}`,
       id: v4(),
       organization_id: app.user?.organization_id || '',
@@ -905,13 +968,13 @@ const handleSubmit = async () => {
       metadata: existingProduct?.metadata ? { ...existingProduct.metadata } : {},
     }
     if (app.productFormToggleStates.requiresShipping) {
-      if (!product.metadata) {
+      if (!product.metadata || typeof product.metadata === 'string') {
         product.metadata = {}
       }
       product.metadata.shipping_required = 'true'
     } else {
       // Remove shipping_required if toggle is off
-      if (product.metadata?.shipping_required) {
+      if (product.metadata && typeof product.metadata !== 'string' && product.metadata.shipping_required) {
         delete product.metadata.shipping_required
       }
     }
@@ -921,11 +984,26 @@ const handleSubmit = async () => {
       app.productFormData.usageType === 'metered' &&
       app.productFormData.meterConfig.unit
     ) {
-      if (!product.metadata) {
+      if (!product.metadata || typeof product.metadata === 'string') {
         product.metadata = {}
       }
       product.metadata.meter_unit = app.productFormData.meterConfig.unit
     }
+
+    // Handle quantity fields - if toggle is off, set to empty strings to remove from DB
+    if (!app.productFormToggleStates.limitedQuantity) {
+      product.quantity = ''
+      product.quantity_limit = ''
+    } else {
+      // Only include quantity fields if toggle is on
+      if (app.productFormData.quantity != null) {
+        product.quantity = app.productFormData.quantity
+      }
+      if (app.productFormData.quantity_limit != null) {
+        product.quantity_limit = app.productFormData.quantity_limit
+      }
+    }
+
     if (app.productFormData.key) {
       product.id = app.productFormData.key.id
       product.group_id = app.productFormData.key.group_id
@@ -1192,5 +1270,21 @@ onUnmounted(() => {
   .empty-state-description {
     font-size: var(--text-sm);
   }
+}
+
+/* Field label and error styles for QuantitySelector */
+.field-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.field-error {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: rgb(239, 68, 68);
+  margin-top: var(--space-2);
 }
 </style>

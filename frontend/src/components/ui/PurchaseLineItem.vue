@@ -371,7 +371,7 @@ import BaseButton from './BaseButton.vue'
 import CartDrawer from './CartDrawer.vue'
 import DisputeDrawer from './DisputeDrawer.vue'
 import LoadingSpinner from './LoadingSpinner.vue'
-import QuantitySelector from './QuantitySeletor.vue'
+import QuantitySelector from './QuantitySelector.vue'
 
 const { purchase, viewerType = 'purchaser' } = defineProps<{
   purchase: Purchase

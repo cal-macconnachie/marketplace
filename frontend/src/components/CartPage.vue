@@ -6,14 +6,9 @@
         <div v-if="source" class="source-badge">From: {{ sourceHostname }}</div>
       </header>
 
-      <!-- Loading State -->
-      <div v-if="productsLoading" class="loading-state">
-        <LoadingSpinner size="64" />
-      </div>
-
       <!-- Error State -->
       <BaseAlert
-        v-else-if="error"
+        v-if="error"
         variant="error"
         title="Cart Error"
         :message="error"
@@ -93,8 +88,12 @@
               <!-- Payment Method Section -->
               <div class="payment-section">
                 <!-- Loading payment methods (show when authenticated and either loading OR haven't loaded yet) -->
+
+              <div v-if="productsLoading" class="loading-state">
+                <LoadingSpinner size="24" />
+              </div>
                 <div
-                  v-if="
+                  v-else-if="
                     appStore.isAuthenticated &&
                     (appStore.paymentMethodsLoading ||
                       (!appStore.hasPaymentMethods &&
@@ -282,7 +281,12 @@
                       <line x1="14" y1="11" x2="14" y2="17"></line>
                     </svg>
                   </button>
+
+                  <div v-if="productsLoading" class="loading-state">
+                    <LoadingSpinner size="24" />
+                  </div>
                   <ProductCard
+                    v-else
                     :product="productHash[`${item.groupId}:${item.productId}`]"
                     :compact="true"
                     :quantity="item.quantity"
@@ -297,9 +301,9 @@
                             ?.recurring?.usage_type !== 'metered'
                         "
                       >
-                        <QuantitySeletor
+                        <QuantitySelector
                           :min="1"
-                          :max="99"
+                          :max="getMaxPurchaseQuantity(productHash[`${item.groupId}:${item.productId}`])"
                           v-model.number="item.quantity"
                           size="xs"
                         />
@@ -311,7 +315,11 @@
             </div>
             <div class="cart-summary">
               <!-- One-time payments -->
-              <template v-if="Object.keys(subtotalsByTypeAndCurrency.oneTime).length > 0">
+
+              <div v-if="productsLoading" class="loading-state">
+                <LoadingSpinner size="24" />
+              </div>
+              <template v-else-if="Object.keys(subtotalsByTypeAndCurrency.oneTime).length > 0">
                 <div class="payment-type-section">
                   <div
                     v-for="(amount, currency) in subtotalsByTypeAndCurrency.oneTime"
@@ -352,7 +360,11 @@
               </template>
 
               <!-- Total Due Now -->
-              <template v-if="Object.keys(totalDueNow).length > 0">
+
+              <div v-if="productsLoading" class="loading-state">
+                <LoadingSpinner size="24" />
+              </div>
+              <template v-else-if="Object.keys(totalDueNow).length > 0">
                 <div class="summary-row summary-row-top">
                   <span class="summary-label">Subtotal:</span>
                   <span class="summary-value">
@@ -455,12 +467,13 @@
 </template>
 <script lang="ts" setup>
 import {
-  authAPI,
-  publicApi,
+    authAPI,
+    publicApi,
 } from '@/services/api'
 import { useAppStore } from '@/stores/app'
 import { cartService } from '@/utils/cart'
 import { poll } from '@/utils/polling'
+import { getMaxPurchaseQuantity } from '@/utils/product'
 import type { CartItem, Organization, PaymentMethod, Product, TaxCalculationItem } from '@marketplace/types'
 import { loadStripe, type Stripe } from '@stripe/stripe-js'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -478,7 +491,7 @@ import PaymentMethodList from './ui/PaymentMethodList.vue'
 import PriceDisplay from './ui/PriceDisplay.vue'
 import ProductCard from './ui/ProductCard.vue'
 import PurchaseCompleteScreen from './ui/PurchaseCompleteScreen.vue'
-import QuantitySeletor from './ui/QuantitySeletor.vue'
+import QuantitySelector from './ui/QuantitySelector.vue'
 import StripeVerificationModal from './ui/StripeVerificationModal.vue'
 
 const route = useRoute()

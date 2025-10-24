@@ -133,26 +133,31 @@
           />
         </div>
         <div class="add-to-cart-section">
-          <QuantitySeletor
-            v-if="productInCart && !isMeteredProduct"
-            :min="0"
-            :max="99"
-            v-model.number="quantity"
-          />
-          <button
-            v-if="productInCart"
-            @click="openCart"
-            class="view-cart-btn"
-            aria-label="View Cart"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
-              />
-            </svg>
-            Checkout
-          </button>
-          <button v-else @click="initProductInCart" class="add-to-cart-btn">Add to Cart</button>
+          <div v-if="product && isProductSoldOut(product)" class="sold-out-badge">
+            Sold Out
+          </div>
+          <template v-else>
+            <QuantitySelector
+              v-if="productInCart && !isMeteredProduct && product"
+              :min="0"
+              :max="getMaxPurchaseQuantity(product)"
+              v-model.number="quantity"
+            />
+            <button
+              v-if="productInCart"
+              @click="openCart"
+              class="view-cart-btn"
+              aria-label="View Cart"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+                />
+              </svg>
+              Checkout
+            </button>
+            <button v-else @click="initProductInCart" class="add-to-cart-btn">Add to Cart</button>
+          </template>
         </div>
       </div>
     </div>
@@ -166,12 +171,13 @@
 <script setup lang="ts">
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import { publicApi } from '@/services/api'
+import { getMaxPurchaseQuantity, isProductSoldOut } from '@/utils/product'
 import type { Product } from '@marketplace/types'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import ImageCarousel from './ui/ImageCarousel.vue'
 import PriceDisplay from './ui/PriceDisplay.vue'
-import QuantitySeletor from './ui/QuantitySeletor.vue'
+import QuantitySelector from './ui/QuantitySelector.vue'
 
 const route = useRoute()
 const groupId = ref(
@@ -315,6 +321,9 @@ const sendHeightToParent = () => {
 }
 
 const initProductInCart = () => {
+  // Don't allow adding sold out products to cart
+  if (product.value && isProductSoldOut(product.value)) return
+
   productInCart.value = true
   quantity.value = 1
 }
@@ -351,6 +360,9 @@ watch(quantity, (newQuantity, oldQuantity) => {
 
 const addToCart = () => {
   if (groupId.value && productId.value && product.value) {
+    // Don't allow adding sold out products to cart
+    if (isProductSoldOut(product.value)) return
+
     try {
       const cart = getCart()
       const itemKey = `${groupId.value}_${productId.value}`
@@ -633,6 +645,18 @@ onMounted(async () => {
   align-items: center;
   min-height: 44px;
   position: relative;
+}
+
+.sold-out-badge {
+  background: var(--color-error-bg, rgba(220, 38, 38, 0.1));
+  color: var(--color-error, #dc2626);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  border: 1px solid var(--color-error, #dc2626);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .add-to-cart-btn {

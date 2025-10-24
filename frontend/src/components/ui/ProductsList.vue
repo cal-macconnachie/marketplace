@@ -76,29 +76,34 @@
               </BaseButton>
             </div>
             <div v-else-if="purchasable" class="product-action-hint">
-              <span class="action-text">
-                {{
-                  product.default_price_data.recurring &&
-                  product.default_price_data.recurring.usage_type === 'metered'
-                    ? 'Click for Metered Usage'
-                    : product.default_price_data.recurring
-                      ? 'Click to Subscribe'
-                      : 'Click to Purchase'
-                }}
+              <span v-if="isProductSoldOut(product)" class="action-text sold-out">
+                Sold Out
               </span>
-              <svg
-                class="action-arrow"
-                width="16"
-                height="16"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                  clip-rule="evenodd"
-                />
-              </svg>
+              <template v-else>
+                <span class="action-text">
+                  {{
+                    product.default_price_data.recurring &&
+                    product.default_price_data.recurring.usage_type === 'metered'
+                      ? 'Click for Metered Usage'
+                      : product.default_price_data.recurring
+                        ? 'Click to Subscribe'
+                        : 'Click to Purchase'
+                  }}
+                </span>
+                <svg
+                  class="action-arrow"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </template>
             </div>
           </template>
         </ProductCard>
@@ -465,7 +470,7 @@
               id="quantity-selector"
               v-model="dialogQuantity"
               :min="1"
-              :max="99"
+              :max="getMaxPurchaseQuantity(selectedProduct)"
               size="md"
               @update:model-value="updateDialogQuantity"
             />
@@ -491,6 +496,7 @@
 </template>
 <script setup lang="ts">
 import { generateEmbedCode } from '@/utils/embedScript'
+import { getMaxPurchaseQuantity, isProductSoldOut } from '@/utils/product'
 import type { Product } from '@marketplace/types'
 import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import BaseAlert from './BaseAlert.vue'
@@ -500,7 +506,7 @@ import ImageCarousel from './ImageCarousel.vue'
 import PriceDisplay from './PriceDisplay.vue'
 import ProductBadge from './ProductBadge.vue'
 import ProductCard from './ProductCard.vue'
-import QuantitySelector from './QuantitySeletor.vue'
+import QuantitySelector from './QuantitySelector.vue'
 
 interface Props {
   products?: Product[]
@@ -644,6 +650,9 @@ const initializeCartQuantities = () => {
 const handlePurchaseClick = (product: Product) => {
   emit('click', product)
   if (!purchasable) return
+
+  // Don't allow purchasing sold out products
+  if (isProductSoldOut(product)) return
 
   // Open dialog for product selection
   selectedProduct.value = product
@@ -1015,6 +1024,11 @@ onUnmounted(() => {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
+}
+
+.action-text.sold-out {
+  color: var(--color-error, #dc2626);
+  font-weight: var(--font-weight-semibold);
 }
 
 .action-arrow {
