@@ -1,4 +1,6 @@
-import { domain } from '@marketplace/constants'
+import {
+  domain, environment
+} from '@marketplace/constants'
 import { CloudFrontDistributionDefinition } from '@marketplace/types'
 
 export const cloudFrontDefinitions: CloudFrontDistributionDefinition[] = [
@@ -46,7 +48,7 @@ export const cloudFrontDefinitions: CloudFrontDistributionDefinition[] = [
     comment: 'CloudFront distribution for marketplace static website',
     domainName: domain,
     hostedZoneName: domain, // Share the same zone as images
-    requireBasicAuth: true,
+    requireBasicAuth: environment === 'dev',
     origins: [
       {
         domainName: '', // Will be set dynamically from S3 bucket website endpoint

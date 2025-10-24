@@ -16,6 +16,7 @@ import {
   ErrorResponse,
   FunctionCode,
   FunctionEventType,
+  KeyValueStore,
   OriginProtocolPolicy,
   OriginSslPolicy,
   PriceClass,
@@ -55,44 +56,87 @@ export class CloudFrontConstruct extends Construct {
       hostedZones
     } = props || {}
 
-    // Create basic auth CloudFront Function for dev environment
+    // Create basic auth CloudFront Function and KeyValueStore for dev environment
     let basicAuthFunction: CloudFrontFunction | undefined
+    let authKeyValueStore: KeyValueStore | undefined
     if (envName === 'dev') {
-      const authUsername = process.env.CLOUDFRONT_AUTH_USERNAME || 'dev'
-      const authPassword = process.env.CLOUDFRONT_AUTH_PASSWORD || 'dev123'
+      const authUsername = process.env.CLOUDFRONT_AUTH_USERNAME
+      const authPassword = process.env.CLOUDFRONT_AUTH_PASSWORD
 
-      // Pre-compute the expected auth header since btoa may not be available
-      const expectedAuth = 'Basic ' + Buffer.from(`${authUsername}:${authPassword}`).toString('base64')
+      // Pre-compute the expected super admin auth header
+      let superAdminAuth: string | undefined
+      if (authUsername && authPassword) {
+        superAdminAuth = 'Basic ' + Buffer.from(`${authUsername}:${authPassword}`).toString('base64')
+      }
+
+      // Create KeyValueStore for additional dev users
+      authKeyValueStore = new KeyValueStore(this, 'DevAuthKeyValueStore', {
+        keyValueStoreName: `dev-auth-kvs-${envName}`,
+        comment: 'Key-Value Store for dev user credentials'
+      })
 
       // Inline CloudFront Function code (must be ES5 compatible)
+      // Checks super admin credentials first, then falls back to KeyValueStore
       const functionCode = `
 function handler(event) {
   var request = event.request;
   var headers = request.headers;
 
   var authHeader = headers.authorization ? headers.authorization.value : null;
-  var expectedAuth = '${expectedAuth}';
+  ${superAdminAuth != null ? `
+  var superAdminAuth = '${superAdminAuth}';
 
-  if (!authHeader || authHeader !== expectedAuth) {
-    return {
-      statusCode: 401,
-      statusDescription: 'Unauthorized',
-      headers: {
-        'www-authenticate': { value: 'Basic realm="Protected Site"' },
-        'content-type': { value: 'text/html' }
-      },
-      body: '<h1>401 Unauthorized</h1><p>Authentication required.</p>'
-    };
+  if (authHeader === superAdminAuth) {
+    return request;
+  }
+  ` : ''}
+
+  if (!authHeader || !authHeader.startsWith('Basic ')) {
+    return unauthorized();
   }
 
-  return request;
+  try {
+    var credentials = authHeader.substring(6);
+    var decoded = atob(credentials);
+    var colonIndex = decoded.indexOf(':');
+
+    if (colonIndex === -1) {
+      return unauthorized();
+    }
+
+    var username = decoded.substring(0, colonIndex);
+    var password = decoded.substring(colonIndex + 1);
+
+    var kvs = event.context.kvs;
+    var storedPassword = kvs.get(username);
+
+    if (storedPassword && storedPassword === password) {
+      return request;
+    }
+  } catch (e) {
+  }
+
+  return unauthorized();
+}
+
+function unauthorized() {
+  return {
+    statusCode: 401,
+    statusDescription: 'Unauthorized',
+    headers: {
+      'www-authenticate': { value: 'Basic realm="Protected Site"' },
+      'content-type': { value: 'text/html' }
+    },
+    body: '<h1>401 Unauthorized</h1><p>Authentication required.</p>'
+  };
 }
       `.trim()
 
       basicAuthFunction = new CloudFrontFunction(this, 'BasicAuthCloudfrontFunction', {
         code: FunctionCode.fromInline(functionCode),
         functionName: `basic-auth-${envName}`,
-        comment: 'CloudFront Function for basic authentication'
+        comment: 'CloudFront Function for basic authentication with KVS support',
+        keyValueStore: authKeyValueStore
       })
     }
 
@@ -195,7 +239,7 @@ function handler(event) {
 
       // Prepare CloudFront Functions for basic auth in dev environment
       const functionAssociations = []
-      if (envName === 'dev' && def.requireBasicAuth && basicAuthFunction) {
+      if (def.requireBasicAuth && basicAuthFunction) {
         functionAssociations.push({
           function: basicAuthFunction,
           eventType: FunctionEventType.VIEWER_REQUEST
