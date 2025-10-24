@@ -12,6 +12,7 @@ import {
   CachePolicy,
   CacheQueryStringBehavior,
   Function as CloudFrontFunction,
+  FunctionRuntime,
   Distribution,
   ErrorResponse,
   FunctionCode,
@@ -78,17 +79,22 @@ export class CloudFrontConstruct extends Construct {
       // Get the KVS ID to inject into the function code
       const kvsId = authKeyValueStore.keyValueStoreId
 
-      // Inline CloudFront Function code (must be ES5 compatible)
+      // Inline CloudFront Function code (ES2020+ with CloudFront runtime 2.0)
       // Checks super admin credentials first, then falls back to KeyValueStore
       const functionCode = `
+import cf from 'cloudfront';
+
+const kvsId = '${kvsId}';
+const kvsHandle = cf.kvs(kvsId);
+${superAdminAuth != null ? `const superAdminAuth = '${superAdminAuth}';` : ''}
+
 function handler(event) {
-  var request = event.request;
-  var headers = request.headers;
+  const request = event.request;
+  const headers = request.headers;
 
-  var authHeader = headers.authorization ? headers.authorization.value : null;
+  const authHeader = headers.authorization ? headers.authorization.value : null;
   ${superAdminAuth != null ? `
-  var superAdminAuth = '${superAdminAuth}';
-
+  // Check super admin credentials first
   if (authHeader === superAdminAuth) {
     return request;
   }
@@ -99,20 +105,19 @@ function handler(event) {
   }
 
   try {
-    var credentials = authHeader.substring(6);
-    var decoded = atob(credentials);
-    var colonIndex = decoded.indexOf(':');
+    const credentials = authHeader.substring(6);
+    const decoded = atob(credentials);
+    const colonIndex = decoded.indexOf(':');
 
     if (colonIndex === -1) {
       return unauthorized('no-colon');
     }
 
-    var username = decoded.split(':')[0];
-    var password = decoded.split(':')[1];
+    const username = decoded.split(':')[0];
+    const password = decoded.split(':')[1];
 
-    // Access the KeyValueStore using the global kvs() function
-    var kvsHandle = kvs('${kvsId}');
-    var storedPassword = kvsHandle.get(username);
+    // Check KeyValueStore for this username
+    const storedPassword = kvsHandle.get(username);
 
     if (storedPassword && storedPassword === password) {
       return request;
@@ -142,6 +147,7 @@ function unauthorized(reason) {
         code: FunctionCode.fromInline(functionCode),
         functionName: `basic-auth-${envName}`,
         comment: 'CloudFront Function for basic authentication with KVS support',
+        runtime: FunctionRuntime.JS_2_0,
         keyValueStore: authKeyValueStore
       })
     }
