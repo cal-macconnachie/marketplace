@@ -188,4 +188,24 @@ watch(
     grid-template-columns: 1fr;
   }
 }
+
+/* Autofill input overrides */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+textarea:-webkit-autofill:active,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus,
+select:-webkit-autofill:active {
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: var(--color-text-primary) !important;
+  background-color: var(--color-bg-primary) !important;
+  box-shadow: 0 0 0 1000px var(--color-bg-primary) inset !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+}
 </style>

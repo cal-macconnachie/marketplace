@@ -256,7 +256,7 @@
                   v-if="index === 0 || item.organizationId !== cartItems[index - 1]?.organizationId"
                   class="org-headline"
                 >
-                  {{ orgHash[item.organizationId]?.name || item.organizationId }}
+                  {{ orgHash[item.organizationId]?.name }}
                   <hr />
                 </div>
                 <div class="cart-item-wrapper">
@@ -467,8 +467,8 @@
 </template>
 <script lang="ts" setup>
 import {
-    authAPI,
-    publicApi,
+  authAPI,
+  publicApi,
 } from '@/services/api'
 import { useAppStore } from '@/stores/app'
 import { cartService } from '@/utils/cart'
