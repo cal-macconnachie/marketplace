@@ -77,6 +77,8 @@ jobs:
         id: filter
         if: github.event_name == 'push'
         with:
+          base: ${{ github.event.before }}
+          ref: ${{ github.sha }}
           filters: |
             backend:
               - 'backend/**'
