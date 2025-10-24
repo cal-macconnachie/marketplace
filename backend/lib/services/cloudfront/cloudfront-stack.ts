@@ -12,11 +12,11 @@ import {
   CachePolicy,
   CacheQueryStringBehavior,
   Function as CloudFrontFunction,
-  FunctionRuntime,
   Distribution,
   ErrorResponse,
   FunctionCode,
   FunctionEventType,
+  FunctionRuntime,
   KeyValueStore,
   OriginProtocolPolicy,
   OriginSslPolicy,
@@ -77,18 +77,16 @@ export class CloudFrontConstruct extends Construct {
       })
 
       // Get the KVS ID to inject into the function code
-      const kvsId = authKeyValueStore.keyValueStoreId
 
       // Inline CloudFront Function code (ES2020+ with CloudFront runtime 2.0)
       // Checks super admin credentials first, then falls back to KeyValueStore
       const functionCode = `
 import cf from 'cloudfront';
 
-const kvsId = '${kvsId}';
-const kvsHandle = cf.kvs(kvsId);
+const kvsHandle = cf.kvs();
 ${superAdminAuth != null ? `const superAdminAuth = '${superAdminAuth}';` : ''}
 
-function handler(event) {
+async function handler(event) {
   const request = event.request;
   const headers = request.headers;
 
@@ -117,11 +115,17 @@ function handler(event) {
     const password = decoded.split(':')[1];
 
     // Check KeyValueStore for this username
-    const storedPassword = kvsHandle.get(username);
+    const storedPassword = await kvsHandle.get(username);
 
-    if (storedPassword && storedPassword === password) {
-      return request;
+    if (!storedPassword) {
+      return unauthorized('user-not-in-kvs:' + username);
     }
+
+    if (storedPassword !== password) {
+      return unauthorized('password-mismatch');
+    }
+
+    return request;
   } catch (e) {
     return unauthorized('kvs-error: ' + e.message);
   }
