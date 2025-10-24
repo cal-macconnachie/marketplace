@@ -47,6 +47,7 @@
   --color-bg-primary: #ffffff;
   --color-bg-secondary: #f8fafc;
   --color-bg-muted: #f1f5f9;
+  --color-bg-inverse-muted: #1e293b;
   --color-bg-overlay: rgba(15, 23, 42, 0.8);
 
   --color-border: #e2e8f0;
@@ -150,6 +151,7 @@
   --color-bg-primary: #1e293b;
   --color-bg-secondary: #0f172a;
   --color-bg-muted: #334155;
+  --color-bg-inverse-muted: #0f172a;
   --color-bg-overlay: rgba(0, 0, 0, 0.8);
 
   --color-border: #334155;

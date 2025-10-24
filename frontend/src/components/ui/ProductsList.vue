@@ -7,6 +7,7 @@
           v-for="product in products"
           :key="product.id"
           :product="product"
+          :quantity="product.quantity"
           class="carousel-item"
           @click="handlePurchaseClick(product)"
         >
@@ -153,6 +154,7 @@
         :shareable="shareable"
         :compact="viewMode === 'compact'"
         :image-focused="viewMode === 'image'"
+        :quantity="product.quantity"
         class="grid-item"
         @click="handlePurchaseClick(product)"
       >
@@ -231,6 +233,7 @@
         :product="product"
         :editable="editable"
         :shareable="shareable"
+        :quantity="product.quantity"
         class="list-item"
         @click="handlePurchaseClick(product)"
       >
@@ -340,11 +343,16 @@
             <!-- Product Info -->
             <div class="product-header-info">
               <h3 id="modal-title" class="product-name">{{ selectedProduct?.name }}</h3>
-              <ProductBadge
-                v-if="selectedProduct"
-                :price-data="selectedProduct.default_price_data"
-                class="product-badge-modal"
-              />
+              <div class="product-badges">
+                <ProductBadge
+                  v-if="selectedProduct"
+                  :price-data="selectedProduct.default_price_data"
+                  class="product-badge-modal"
+                />
+                <span v-if="selectedProduct && isProductSoldOut(selectedProduct)" class="sold-out-badge">
+                  SOLD OUT
+                </span>
+              </div>
             </div>
           </div>
 
@@ -463,8 +471,15 @@
               </div>
             </div>
           </div>
-          <!-- Quantity Selector -->
-          <div v-if="selectedProduct && !isMeteredProduct(selectedProduct)" class="quantity-section">
+          <!-- Quantity Selector (hidden for sold out products) -->
+          <div
+            v-if="
+              selectedProduct &&
+              !isMeteredProduct(selectedProduct) &&
+              !isProductSoldOut(selectedProduct)
+            "
+            class="quantity-section"
+          >
             <label class="quantity-label" for="quantity-selector">Quantity:</label>
             <QuantitySelector
               id="quantity-selector"
@@ -480,17 +495,29 @@
     </template>
 
     <template #footer>
-      <BaseButton
-        v-if="selectedProduct && !productQuantities[selectedProduct.id]"
-        variant="primary"
-        size="lg"
-        @click="confirmAddToCart"
+      <!-- Show "Sold Out" message if product is sold out -->
+      <BaseAlert
+        v-if="selectedProduct && isProductSoldOut(selectedProduct)"
+        variant="error"
+        :show="true"
       >
-        Add to Cart
-      </BaseButton>
-      <BaseButton v-else variant="danger" size="lg" @click="removeProductFromCart">
-        Remove from Cart
-      </BaseButton>
+        <strong>This product is currently sold out.</strong> You cannot add it to your cart at
+        this time.
+      </BaseAlert>
+      <!-- Show normal cart buttons if product is not sold out -->
+      <template v-else>
+        <BaseButton
+          v-if="selectedProduct && !productQuantities[selectedProduct.id]"
+          variant="primary"
+          size="lg"
+          @click="confirmAddToCart"
+        >
+          Add to Cart
+        </BaseButton>
+        <BaseButton v-else variant="danger" size="lg" @click="removeProductFromCart">
+          Remove from Cart
+        </BaseButton>
+      </template>
     </template>
   </BaseModal>
 </template>
@@ -651,10 +678,7 @@ const handlePurchaseClick = (product: Product) => {
   emit('click', product)
   if (!purchasable) return
 
-  // Don't allow purchasing sold out products
-  if (isProductSoldOut(product)) return
-
-  // Open dialog for product selection
+  // Open dialog for product selection (even for sold out products)
   selectedProduct.value = product
   dialogQuantity.value = productQuantities.value[product.id] || 1
   showConfirmDialog.value = true
@@ -1144,8 +1168,28 @@ onUnmounted(() => {
   line-height: var(--line-height-tight);
 }
 
+.product-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
 .product-badge-modal {
   align-self: flex-start;
+}
+
+.sold-out-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-error, #dc2626);
+  color: white;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-full);
 }
 
 /* Product Description Section */

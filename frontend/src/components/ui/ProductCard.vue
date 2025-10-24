@@ -43,6 +43,11 @@
         class="overlay-price"
       />
     </div>
+
+    <!-- Sold Out Overlay (Full Card) -->
+    <div v-if="isSoldOut" class="sold-out-overlay sold-out-overlay--full-card">
+      <div class="sold-out-text">SOLD OUT</div>
+    </div>
   </div>
   <BaseCard
     v-else-if="compact"
@@ -51,6 +56,11 @@
     padding="auto"
     @click="$emit('click', product)"
   >
+    <!-- Sold Out Overlay (Full Card) -->
+    <div v-if="isSoldOut" class="sold-out-overlay sold-out-overlay--full-card">
+      <div class="sold-out-text sold-out-text--compact">SOLD OUT</div>
+    </div>
+
     <div class="product-content product-content--compact">
       <!-- Product image (compact) -->
       <div v-if="product.images && product.images.length > 0" class="product-image-compact">
@@ -102,6 +112,11 @@
     variant="outlined"
     @click="$emit('click', product)"
   >
+    <!-- Sold Out Overlay (Full Card) -->
+    <div v-if="isSoldOut" class="sold-out-overlay sold-out-overlay--full-card">
+      <div class="sold-out-text">SOLD OUT</div>
+    </div>
+
     <div class="product-content">
       <!-- Product Images -->
       <div v-if="product.images && product.images.length > 0" class="product-images">
@@ -165,11 +180,12 @@
 </template>
 
 <script setup lang="ts">
+import type { Product } from '@marketplace/types'
+import { computed } from 'vue'
 import BaseCard from './BaseCard.vue'
+import ImageCarousel from './ImageCarousel.vue'
 import PriceDisplay from './PriceDisplay.vue'
 import ProductBadge from './ProductBadge.vue'
-import ImageCarousel from './ImageCarousel.vue'
-import type { Product } from '@marketplace/types'
 interface Props {
   product: Product
   compact?: boolean
@@ -182,6 +198,10 @@ const props = defineProps<Props>()
 defineEmits<{
   click: [product: Product]
 }>()
+
+const isSoldOut = computed(() => {
+  return props.quantity !== undefined && props.quantity === 0
+})
 </script>
 
 <style scoped>
@@ -650,5 +670,53 @@ defineEmits<{
   .product-title--image-focused {
     font-size: var(--font-size-xs);
   }
+}
+
+/* Sold Out Overlay Styles */
+.sold-out-overlay--full-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-bg-inverse-muted);
+  opacity: 0.8;
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  border-radius: var(--radius-lg);
+  transition: opacity 0.3s ease;
+}
+
+.sold-out-overlay--full-card:hover {
+  opacity: 0;
+}
+
+.sold-out-text {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.sold-out-text--compact {
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.05em;
+}
+
+/* Ensure cards have relative positioning for absolute overlay */
+.product-card {
+  position: relative;
+}
+
+.product-card--compact {
+  position: relative;
+}
+
+.product-card--image-focused {
+  position: relative;
 }
 </style>
