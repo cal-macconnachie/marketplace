@@ -75,6 +75,9 @@ export class CloudFrontConstruct extends Construct {
         comment: 'Key-Value Store for dev user credentials'
       })
 
+      // Get the KVS ID to inject into the function code
+      const kvsId = authKeyValueStore.keyValueStoreId
+
       // Inline CloudFront Function code (must be ES5 compatible)
       // Checks super admin credentials first, then falls back to KeyValueStore
       const functionCode = `
@@ -107,13 +110,15 @@ function handler(event) {
     var username = decoded.split(':')[0];
     var password = decoded.split(':')[1];
 
-    var kvs = event.context.kvs;
-    var storedPassword = kvs.get(username);
+    // Access the KeyValueStore using the global kvs() function
+    var kvsHandle = kvs('${kvsId}');
+    var storedPassword = kvsHandle.get(username);
 
     if (storedPassword && storedPassword === password) {
       return request;
     }
   } catch (e) {
+    return unauthorized('kvs-error: ' + e.message);
   }
 
   return unauthorized('fallthrough');
