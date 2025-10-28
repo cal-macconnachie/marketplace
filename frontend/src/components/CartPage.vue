@@ -26,7 +26,7 @@
       <!-- Cart Content -->
       <div v-else class="cart-layout">
         <!-- Empty Cart -->
-        <div v-if="cartItems.length === 0" class="empty-cart">
+        <div v-if="cartItems.length === 0 && !productsLoading" class="empty-cart">
           <div class="empty-icon">
             <div class="empty-icon__scene">
               <div class="empty-icon__ground"></div>
@@ -2124,8 +2124,73 @@ onMounted(async () => {
   }
 
   .empty-icon__scene {
-    width: 180px;
+    width: 280px;
     height: 120px;
+  }
+
+  .empty-icon__blocker {
+    width: clamp(48px, 18%, 80px);
+  }
+
+  .empty-icon__cart {
+    animation: cart-motion-mobile 4.6s linear infinite;
+  }
+
+  @keyframes cart-motion-mobile {
+    0% {
+      left: 0;
+      transform: translateY(0) rotate(-6deg) scale(0.98);
+    }
+
+    12% {
+      left: calc((100% - 64px) * 0.087);
+      transform: translateY(-2px) rotate(-10deg) scale(0.99);
+    }
+
+    24% {
+      left: calc((100% - 64px) * 0.209);
+      transform: translateY(-6px) rotate(-16deg) scale(0.99);
+    }
+
+    32% {
+      left: calc((100% - 64px) * 0.313);
+      transform: translateY(-12px) rotate(-18deg) scale(1);
+    }
+
+    42% {
+      left: calc((100% - 64px) * 0.457);
+      transform: translateY(-24px) rotate(-12deg) scale(1.01);
+    }
+
+    52% {
+      left: calc((100% - 64px) * 0.6);
+      transform: translateY(-36px) rotate(-2deg) scale(1.02);
+    }
+
+    60% {
+      left: calc((100% - 64px) * 0.696);
+      transform: translateY(-42px) rotate(6deg) scale(1.02);
+    }
+
+    70% {
+      left: calc((100% - 64px) * 0.783);
+      transform: translateY(-28px) rotate(10deg) scale(1.01);
+    }
+
+    80% {
+      left: calc((100% - 64px) * 0.861);
+      transform: translateY(-12px) rotate(6deg) scale(1);
+    }
+
+    88% {
+      left: calc((100% - 64px) * 0.913);
+      transform: translateY(-3px) rotate(2deg) scale(0.99);
+    }
+
+    100% {
+      left: calc(100% - 64px);
+      transform: translateY(0) rotate(-4deg) scale(0.98);
+    }
   }
 
   .loading-state {
