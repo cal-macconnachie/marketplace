@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <div
-      v-if="show"
+      v-if="isVisible"
       class="modal-overlay"
       :class="overlayClasses"
       :style="overlayStyle"
@@ -98,6 +98,22 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
+/**
+ * ARCHITECTURE NOTE - Animated Drawer Close
+ *
+ * This component uses an internal `isVisible` state that controls the v-if directive,
+ * separate from the parent-controlled `show` prop. This architecture ensures that
+ * closing animations can complete before the component is unmounted.
+ *
+ * Flow:
+ * 1. Opening: Parent sets show=true → watcher immediately sets isVisible=true → component mounts & animates in
+ * 2. Closing: User clicks overlay/button → handleClose() → plays animation → sets isVisible=false → emits to parent
+ * 3. Parent closing: Parent sets show=false → watcher calls handleClose() → same animation flow as #2
+ *
+ * Key point: Component stays mounted (isVisible=true) during entire close animation,
+ * allowing CSS transitions to complete. Only after animation does isVisible become false.
+ */
+
 interface Props {
   show: boolean
   title?: string
@@ -134,6 +150,7 @@ const emit = defineEmits<{
 }>()
 
 const isClosing = ref(false)
+const isVisible = ref(false)
 const modalContainerRef = ref<HTMLElement | null>(null)
 
 // Drag state
@@ -214,6 +231,9 @@ const handleHandleClick = (event: MouseEvent) => {
 }
 
 const handleClose = () => {
+  // Prevent closing if disabled or already closing/closed
+  if (props.disableClose || isClosing.value || !isVisible.value) return
+
   if (props.variant === 'drawer') {
     // Clean up any inline styles from dragging before starting CSS animation
     if (modalContainerRef.value) {
@@ -236,17 +256,17 @@ const handleClose = () => {
       .trim()
 
     // Parse the duration (e.g., "500ms" -> 500)
-    const durationMs = parseInt(transitionDuration)
+    const durationMs = parseInt(transitionDuration) || 300
 
+    // Wait for animation to complete before actually hiding
     setTimeout(() => {
+      isClosing.value = false
+      isVisible.value = false
       emit('close')
       emit('update:show', false)
-      // Reset isClosing after a small delay to let the component unmount with animation classes still applied
-      setTimeout(() => {
-        isClosing.value = false
-      }, 50)
     }, durationMs)
   } else {
+    isVisible.value = false
     emit('close')
     emit('update:show', false)
   }
@@ -367,6 +387,7 @@ const handleDragEnd = () => {
     }
 
     if (shouldClose) {
+      isVisible.value = false
       emit('close')
       emit('update:show', false)
     }
@@ -376,9 +397,26 @@ const handleDragEnd = () => {
 // Store scroll position
 const scrollPosition = ref(0)
 
-// Lock body scroll when modal is open and clean up inline styles
+// Sync isVisible with show prop, handling opening immediately but closing with animation
 watch(
   () => props.show,
+  (shouldShow) => {
+    if (shouldShow) {
+      // Opening: show immediately
+      isVisible.value = true
+    } else if (isVisible.value) {
+      // Closing: trigger close animation (will set isVisible=false after animation)
+      // Only if we're currently visible (prevents double-close)
+      if (!isClosing.value) {
+        handleClose()
+      }
+    }
+  },
+)
+
+// Lock body scroll when modal is open and clean up inline styles
+watch(
+  () => isVisible.value,
   (isOpen) => {
     if (isOpen) {
       // Save current scroll position
@@ -428,14 +466,14 @@ watch(
 
 // Handle ESC key globally
 const handleGlobalEscape = (event: KeyboardEvent) => {
-  if (event.key === 'Escape' && props.show) {
+  if (event.key === 'Escape' && isVisible.value) {
     handleEscape()
   }
 }
 
 // Add/remove drag listeners when modal opens/closes
 watch(
-  () => props.show,
+  () => isVisible.value,
   (isOpen) => {
     if (isOpen && props.variant === 'drawer') {
       // Wait for next tick to ensure modalContainerRef is populated
