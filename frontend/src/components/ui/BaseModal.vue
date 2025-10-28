@@ -239,9 +239,12 @@ const handleClose = () => {
     const durationMs = parseInt(transitionDuration)
 
     setTimeout(() => {
-      isClosing.value = false
       emit('close')
       emit('update:show', false)
+      // Reset isClosing after a small delay to let the component unmount with animation classes still applied
+      setTimeout(() => {
+        isClosing.value = false
+      }, 50)
     }, durationMs)
   } else {
     emit('close')
@@ -309,10 +312,14 @@ const handleDragMove = (event: TouchEvent | MouseEvent) => {
 const handleDragEnd = () => {
   if (!isDragging.value || props.variant !== 'drawer' || !modalContainerRef.value) return
 
-  // Record the time when drag ended
-  lastDragEndTime.value = Date.now()
-
   const dragDistance = Math.max(0, dragCurrentY.value - dragStartY.value)
+
+  // Only record drag end time if there was actual drag movement (> 5px)
+  // This prevents simple taps from blocking the click handler
+  if (dragDistance > 5) {
+    lastDragEndTime.value = Date.now()
+  }
+
   const dragDuration = Date.now() - dragStartTime.value
   const velocity = dragDistance / dragDuration // pixels per millisecond
 
@@ -544,6 +551,10 @@ body.modal-open {
 
 .modal-overlay--no-blur {
   backdrop-filter: none;
+}
+
+.modal-overlay--closing {
+  animation: fadeOut var(--transition-slow) ease-out forwards;
 }
 
 /* Modal Container */
