@@ -1,9 +1,10 @@
-import {
-  DynamoDBStreamEvent, DynamoDBRecord 
-} from 'aws-lambda'
 import { unmarshall } from '@aws-sdk/util-dynamodb'
-import { putEvents } from '../helpers/eventbridge/put-events'
 import { Cart } from '@marketplace/types'
+import {
+  DynamoDBRecord,
+  DynamoDBStreamEvent
+} from 'aws-lambda'
+import { putEvents } from '../helpers/eventbridge/put-events'
 
 // Helper function to get all purchases for a cart
 
@@ -79,7 +80,6 @@ const processRecord = async (record: DynamoDBRecord) => {
     const successfulItems = Object.keys(newCart.purchases).filter(purchaseId => newCart.purchases[purchaseId] === 'completed')
 
     if (allItemsProcessed && successfulItems.length > 0) {
-      console.log(`All items processed for cart ${newCart.id}. ${successfulItems.length} successful, ${Object.keys(newCart.purchases).length - successfulItems.length} failed.`)
       // Send receipt event for successful purchases only
       await putEvents({
         events: [
@@ -93,8 +93,6 @@ const processRecord = async (record: DynamoDBRecord) => {
           }
         ]
       })
-
-      console.log(`Receipt sent for cart ${newCart.id}`)
     } else if (allItemsProcessed && successfulItems.length === 0) {
       console.log(`All items failed for cart ${newCart.id}, marking as completed without sending receipt`)
     }

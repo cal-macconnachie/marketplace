@@ -36,15 +36,6 @@ export function getMaxPurchaseQuantity(product: Product, defaultMax = 99): numbe
   // Return the minimum of all applicable limits
   const result = Math.min(...limits)
 
-  // Debug logging
-  console.log('[getMaxPurchaseQuantity]', {
-    productName: product.name,
-    quantity_limit: product.quantity_limit,
-    quantity: product.quantity,
-    limits,
-    result
-  })
-
   return result
 }
 

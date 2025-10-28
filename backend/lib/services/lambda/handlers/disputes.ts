@@ -22,8 +22,6 @@ export const disputes = async (event: DynamoDBStreamEvent) => {
 
       // Check if status changed to 'accepted'
       if (oldDispute.status !== 'accepted' && newDispute.status === 'accepted') {
-        console.log(`Dispute ${newDispute.id} was accepted - processing refunds`)
-
         try {
           // Process refunds for all purchases in the dispute
           const refundResult = await processDisputeRefund({
@@ -58,8 +56,6 @@ export const disputes = async (event: DynamoDBStreamEvent) => {
             }
           })
 
-          console.log(`Successfully processed ${refundResult.refundIds.length} refunds for dispute ${newDispute.id}`)
-
         } catch (error) {
           console.error(`Failed to process refunds for dispute ${newDispute.id}:`, error)
 
@@ -86,8 +82,6 @@ export const disputes = async (event: DynamoDBStreamEvent) => {
 
       // Check if status changed to 'rejected'
       if (oldDispute.status !== 'rejected' && newDispute.status === 'rejected') {
-        console.log(`Dispute ${newDispute.id} was rejected - updating purchase statuses`)
-
         try {
           // Update all purchases with rejected dispute status
           await updatePurchaseDisputeStatus({
@@ -95,8 +89,6 @@ export const disputes = async (event: DynamoDBStreamEvent) => {
             userId: newDispute.buyer_user_id,
             disputeStatus: 'rejected'
           })
-
-          console.log(`Successfully updated ${newDispute.purchase_ids.length} purchases with rejected dispute status`)
         } catch (error) {
           console.error(`Failed to update purchases for rejected dispute ${newDispute.id}:`, error)
         }
@@ -104,8 +96,6 @@ export const disputes = async (event: DynamoDBStreamEvent) => {
 
       // Check if status changed to 'escalated'
       if (oldDispute.status !== 'escalated' && newDispute.status === 'escalated') {
-        console.log(`Dispute ${newDispute.id} was escalated - updating purchase statuses`)
-
         try {
           // Update all purchases with escalated dispute status
           await updatePurchaseDisputeStatus({
@@ -113,8 +103,6 @@ export const disputes = async (event: DynamoDBStreamEvent) => {
             userId: newDispute.buyer_user_id,
             disputeStatus: 'escalated'
           })
-
-          console.log(`Successfully updated ${newDispute.purchase_ids.length} purchases with escalated dispute status`)
         } catch (error) {
           console.error(`Failed to update purchases for escalated dispute ${newDispute.id}:`, error)
         }
@@ -122,8 +110,6 @@ export const disputes = async (event: DynamoDBStreamEvent) => {
 
       // Check if status changed to 'resolved'
       if (oldDispute.status !== 'resolved' && newDispute.status === 'resolved') {
-        console.log(`Dispute ${newDispute.id} was resolved - updating purchase statuses`)
-
         try {
           // Update all purchases with resolved dispute status
           await updatePurchaseDisputeStatus({
@@ -131,8 +117,6 @@ export const disputes = async (event: DynamoDBStreamEvent) => {
             userId: newDispute.buyer_user_id,
             disputeStatus: 'resolved'
           })
-
-          console.log(`Successfully updated ${newDispute.purchase_ids.length} purchases with resolved dispute status`)
         } catch (error) {
           console.error(`Failed to update purchases for resolved dispute ${newDispute.id}:`, error)
         }
@@ -143,8 +127,6 @@ export const disputes = async (event: DynamoDBStreamEvent) => {
     if (record.eventName === 'INSERT' && record.dynamodb?.NewImage) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const newDispute = unmarshall(record.dynamodb.NewImage as any) as Dispute
-      console.log(`New dispute created: ${newDispute.id} for ${newDispute.purchase_ids.length} purchases, amount: ${newDispute.total_dispute_amount}`)
-
       // Set initial dispute status on purchases
       try {
         await updatePurchaseDisputeStatus({

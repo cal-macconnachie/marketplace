@@ -605,7 +605,6 @@ export const useAppStore = defineStore('app', {
 
           // If token expires in less than 10 minutes, refresh it
           if (timeUntilExpiry < 10 * 60 * 1000) {
-            console.log('Token expiring soon, refreshing...')
             const refreshToken = getAuthToken('REFRESH_TOKEN')
             if (refreshToken) {
               const response = await authAPI.refresh(refreshToken)
@@ -618,7 +617,6 @@ export const useAppStore = defineStore('app', {
               if (response.refreshToken) {
                 setAuthToken('REFRESH_TOKEN', response.refreshToken)
               }
-              console.log('Token refreshed successfully')
             }
           }
         } catch (error) {

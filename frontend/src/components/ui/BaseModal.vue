@@ -23,7 +23,7 @@
         <div
           v-if="variant === 'drawer'"
           class="drawer-handle"
-          @click.stop="handleClose"
+          @click.stop="handleHandleClick"
           role="button"
           tabindex="0"
           @keydown.enter="handleClose"
@@ -142,7 +142,7 @@ const isAnimating = ref(false)
 const dragStartY = ref(0)
 const dragCurrentY = ref(0)
 const dragStartTime = ref(0)
-const hasUserDragged = ref(false)
+const lastDragEndTime = ref(0)
 
 const overlayClasses = computed(() => [
   `modal-overlay--${props.variant === 'drawer' ? 'bottom' : props.position}`,
@@ -200,12 +200,20 @@ const handleEscape = () => {
   }
 }
 
-const handleClose = () => {
-  // Don't close if user just finished dragging (prevents click after drag on desktop)
-  if (hasUserDragged.value) {
+// Handle click on drawer handle - prevent close if drag just ended
+const handleHandleClick = (event: MouseEvent) => {
+  // Check if a drag just ended (within 200ms)
+  const timeSinceLastDrag = Date.now() - lastDragEndTime.value
+  if (timeSinceLastDrag < 200) {
+    event.preventDefault()
+    event.stopPropagation()
     return
   }
 
+  handleClose()
+}
+
+const handleClose = () => {
   if (props.variant === 'drawer') {
     // Clean up any inline styles from dragging before starting CSS animation
     if (modalContainerRef.value) {
@@ -268,7 +276,6 @@ const handleDragStart = (event: TouchEvent | MouseEvent) => {
   modalContainerRef.value.style.transform = ''
 
   isDragging.value = true
-  hasUserDragged.value = false // Reset at start of new drag
   dragStartTime.value = Date.now()
 
   if (event instanceof TouchEvent) {
@@ -291,11 +298,6 @@ const handleDragMove = (event: TouchEvent | MouseEvent) => {
 
   const dragDistance = dragCurrentY.value - dragStartY.value
 
-  // Mark that user has dragged if moved more than 5px
-  if (Math.abs(dragDistance) > 5) {
-    hasUserDragged.value = true
-  }
-
   // Prevent scrolling while dragging down and apply transform
   if (dragDistance > 0) {
     event.preventDefault()
@@ -306,6 +308,9 @@ const handleDragMove = (event: TouchEvent | MouseEvent) => {
 
 const handleDragEnd = () => {
   if (!isDragging.value || props.variant !== 'drawer' || !modalContainerRef.value) return
+
+  // Record the time when drag ended
+  lastDragEndTime.value = Date.now()
 
   const dragDistance = Math.max(0, dragCurrentY.value - dragStartY.value)
   const dragDuration = Date.now() - dragStartTime.value
@@ -341,11 +346,6 @@ const handleDragEnd = () => {
   // Animate to target position using CSS variable for timing
   container.style.transition = `transform ${durationMs}ms cubic-bezier(0.4, 0, 0.2, 1)`
   container.style.transform = `translateY(${targetPosition}px)`
-
-  // Reset the drag flag after a delay to prevent click events
-  setTimeout(() => {
-    hasUserDragged.value = false
-  }, 300)
 
   // Clean up after animation completes
   setTimeout(() => {
@@ -406,7 +406,7 @@ watch(
       // Clean up drag state and inline styles
       isDragging.value = false
       isAnimating.value = false
-      hasUserDragged.value = false
+      lastDragEndTime.value = 0
       dragStartY.value = 0
       dragCurrentY.value = 0
       dragStartTime.value = 0
@@ -485,7 +485,7 @@ onUnmounted(() => {
   document.body.style.top = ''
   isDragging.value = false
   isAnimating.value = false
-  hasUserDragged.value = false
+  lastDragEndTime.value = 0
 
   // Restore scroll position if modal was open when unmounted
   if (scrollPosition.value > 0) {
