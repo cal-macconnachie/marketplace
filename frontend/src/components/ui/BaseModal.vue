@@ -142,6 +142,7 @@ const isAnimating = ref(false)
 const dragStartY = ref(0)
 const dragCurrentY = ref(0)
 const dragStartTime = ref(0)
+const hasUserDragged = ref(false)
 
 const overlayClasses = computed(() => [
   `modal-overlay--${props.variant === 'drawer' ? 'bottom' : props.position}`,
@@ -200,7 +201,25 @@ const handleEscape = () => {
 }
 
 const handleClose = () => {
+  // Don't close if user just finished dragging (prevents click after drag on desktop)
+  if (hasUserDragged.value) {
+    return
+  }
+
   if (props.variant === 'drawer') {
+    // Clean up any inline styles from dragging before starting CSS animation
+    if (modalContainerRef.value) {
+      modalContainerRef.value.style.transition = ''
+      modalContainerRef.value.style.transform = ''
+    }
+
+    // Reset drag state
+    isDragging.value = false
+    isAnimating.value = false
+    dragStartY.value = 0
+    dragCurrentY.value = 0
+    dragStartTime.value = 0
+
     isClosing.value = true
 
     // Read the transition duration from CSS variable
@@ -224,10 +243,10 @@ const handleClose = () => {
 
 // Drag handlers for drawer
 const handleDragStart = (event: TouchEvent | MouseEvent) => {
-  if (props.variant !== 'drawer' || props.disableClose) return
+  if (props.variant !== 'drawer' || props.disableClose || !modalContainerRef.value) return
 
   // Check if the drawer body is scrolled - only allow drag if at the top
-  const modalBody = modalContainerRef.value?.querySelector('.modal-body')
+  const modalBody = modalContainerRef.value.querySelector('.modal-body')
   if (modalBody && modalBody.scrollTop > 0) {
     return // Don't start drag if content is scrolled
   }
@@ -244,7 +263,12 @@ const handleDragStart = (event: TouchEvent | MouseEvent) => {
     return
   }
 
+  // Clean up any lingering inline styles before starting new drag
+  modalContainerRef.value.style.transition = ''
+  modalContainerRef.value.style.transform = ''
+
   isDragging.value = true
+  hasUserDragged.value = false // Reset at start of new drag
   dragStartTime.value = Date.now()
 
   if (event instanceof TouchEvent) {
@@ -266,6 +290,11 @@ const handleDragMove = (event: TouchEvent | MouseEvent) => {
   }
 
   const dragDistance = dragCurrentY.value - dragStartY.value
+
+  // Mark that user has dragged if moved more than 5px
+  if (Math.abs(dragDistance) > 5) {
+    hasUserDragged.value = true
+  }
 
   // Prevent scrolling while dragging down and apply transform
   if (dragDistance > 0) {
@@ -313,6 +342,11 @@ const handleDragEnd = () => {
   container.style.transition = `transform ${durationMs}ms cubic-bezier(0.4, 0, 0.2, 1)`
   container.style.transform = `translateY(${targetPosition}px)`
 
+  // Reset the drag flag after a delay to prevent click events
+  setTimeout(() => {
+    hasUserDragged.value = false
+  }, 300)
+
   // Clean up after animation completes
   setTimeout(() => {
     isAnimating.value = false
@@ -335,7 +369,7 @@ const handleDragEnd = () => {
 // Store scroll position
 const scrollPosition = ref(0)
 
-// Lock body scroll when modal is open
+// Lock body scroll when modal is open and clean up inline styles
 watch(
   () => props.show,
   (isOpen) => {
@@ -348,6 +382,17 @@ watch(
 
       // Set the top position to maintain visual position
       document.body.style.top = `-${scrollPosition.value}px`
+
+      // Clean up any lingering inline styles from previous interactions
+      // Use setTimeout to ensure ref is populated
+      if (props.variant === 'drawer') {
+        setTimeout(() => {
+          if (modalContainerRef.value) {
+            modalContainerRef.value.style.transition = ''
+            modalContainerRef.value.style.transform = ''
+          }
+        }, 0)
+      }
     } else {
       // Remove the class to restore scroll
       document.body.classList.remove('modal-open')
@@ -357,6 +402,19 @@ watch(
 
       // Restore scroll position
       window.scrollTo(0, scrollPosition.value)
+
+      // Clean up drag state and inline styles
+      isDragging.value = false
+      isAnimating.value = false
+      hasUserDragged.value = false
+      dragStartY.value = 0
+      dragCurrentY.value = 0
+      dragStartTime.value = 0
+
+      if (modalContainerRef.value && props.variant === 'drawer') {
+        modalContainerRef.value.style.transition = ''
+        modalContainerRef.value.style.transform = ''
+      }
     }
   },
 )
@@ -422,9 +480,13 @@ onUnmounted(() => {
   document.removeEventListener('mousemove', handleDragMove as EventListener)
   document.removeEventListener('mouseup', handleDragEnd)
 
-  // Clean up scroll lock
+  // Clean up scroll lock and drag state
   document.body.classList.remove('modal-open')
   document.body.style.top = ''
+  isDragging.value = false
+  isAnimating.value = false
+  hasUserDragged.value = false
+
   // Restore scroll position if modal was open when unmounted
   if (scrollPosition.value > 0) {
     window.scrollTo(0, scrollPosition.value)
@@ -533,9 +595,6 @@ body.modal-open {
   user-select: none;
   -webkit-user-select: none;
   cursor: grabbing;
-}
-
-.modal-overlay--closing {
 }
 
 /* Drawer Content Wrapper - constrains content to size prop */
