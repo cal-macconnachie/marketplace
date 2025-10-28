@@ -4,6 +4,7 @@
       v-if="show"
       class="modal-overlay"
       :class="overlayClasses"
+      :style="overlayStyle"
       @click="handleOverlayClick"
       @keyup.esc="handleEscape"
       tabindex="-1"
@@ -135,6 +136,13 @@ const emit = defineEmits<{
 const isClosing = ref(false)
 const modalContainerRef = ref<HTMLElement | null>(null)
 
+// Drag state
+const isDragging = ref(false)
+const isAnimating = ref(false)
+const dragStartY = ref(0)
+const dragCurrentY = ref(0)
+const dragStartTime = ref(0)
+
 const overlayClasses = computed(() => [
   `modal-overlay--${props.variant === 'drawer' ? 'bottom' : props.position}`,
   {
@@ -143,6 +151,12 @@ const overlayClasses = computed(() => [
   },
 ])
 
+const overlayStyle = computed(() => {
+  const style: Record<string, string | number> = {}
+
+  return style
+})
+
 const modalClasses = computed(() => [
   props.variant !== 'drawer' ? `modal-container--${props.size}` : null,
   `modal-container--${props.variant === 'drawer' ? 'drawer' : props.position}`,
@@ -150,6 +164,7 @@ const modalClasses = computed(() => [
     'modal-container--no-padding': props.noPadding,
     'modal-container--hide-scrollbar': props.hideScrollbar,
     'modal-container--closing': isClosing.value,
+    'modal-container--dragging': isDragging.value,
   },
 ])
 
@@ -158,17 +173,18 @@ const bodyClasses = computed(() => ({
 }))
 
 const modalStyle = computed(() => {
+  const style: Record<string, string | number> = {}
+
   if (props.size === 'full') {
-    return {
-      width: '100vw',
-      height: '100dvh',
-      maxWidth: '100vw',
-      maxHeight: '100dvh',
-      margin: 0,
-      borderRadius: 0,
-    }
+    style.width = '100vw'
+    style.height = '100dvh'
+    style.maxWidth = '100vw'
+    style.maxHeight = '100dvh'
+    style.margin = '0'
+    style.borderRadius = '0'
   }
-  return {}
+
+  return style
 })
 
 const handleOverlayClick = () => {
@@ -186,15 +202,134 @@ const handleEscape = () => {
 const handleClose = () => {
   if (props.variant === 'drawer') {
     isClosing.value = true
+
+    // Read the transition duration from CSS variable
+    const transitionDuration = getComputedStyle(document.documentElement)
+      .getPropertyValue('--transition-slow')
+      .trim()
+
+    // Parse the duration (e.g., "500ms" -> 500)
+    const durationMs = parseInt(transitionDuration)
+
     setTimeout(() => {
       isClosing.value = false
       emit('close')
       emit('update:show', false)
-    }, 300) // Match animation duration
+    }, durationMs)
   } else {
     emit('close')
     emit('update:show', false)
   }
+}
+
+// Drag handlers for drawer
+const handleDragStart = (event: TouchEvent | MouseEvent) => {
+  if (props.variant !== 'drawer' || props.disableClose) return
+
+  // Check if the drawer body is scrolled - only allow drag if at the top
+  const modalBody = modalContainerRef.value?.querySelector('.modal-body')
+  if (modalBody && modalBody.scrollTop > 0) {
+    return // Don't start drag if content is scrolled
+  }
+
+  // Check if drag started from the handle or from the top of content
+  const target = event.target as HTMLElement
+  const isHandle =
+    target.classList.contains('drawer-handle') ||
+    target.classList.contains('drawer-handle-bar') ||
+    target.closest('.drawer-handle')
+
+  // Allow drag from handle always, or from content when at top
+  if (!isHandle && modalBody && modalBody.scrollTop > 0) {
+    return
+  }
+
+  isDragging.value = true
+  dragStartTime.value = Date.now()
+
+  if (event instanceof TouchEvent) {
+    dragStartY.value = event.touches[0].clientY
+    dragCurrentY.value = event.touches[0].clientY
+  } else {
+    dragStartY.value = event.clientY
+    dragCurrentY.value = event.clientY
+  }
+}
+
+const handleDragMove = (event: TouchEvent | MouseEvent) => {
+  if (!isDragging.value || props.variant !== 'drawer' || !modalContainerRef.value) return
+
+  if (event instanceof TouchEvent) {
+    dragCurrentY.value = event.touches[0].clientY
+  } else {
+    dragCurrentY.value = event.clientY
+  }
+
+  const dragDistance = dragCurrentY.value - dragStartY.value
+
+  // Prevent scrolling while dragging down and apply transform
+  if (dragDistance > 0) {
+    event.preventDefault()
+    modalContainerRef.value.style.transform = `translateY(${dragDistance}px)`
+    modalContainerRef.value.style.transition = 'none'
+  }
+}
+
+const handleDragEnd = () => {
+  if (!isDragging.value || props.variant !== 'drawer' || !modalContainerRef.value) return
+
+  const dragDistance = Math.max(0, dragCurrentY.value - dragStartY.value)
+  const dragDuration = Date.now() - dragStartTime.value
+  const velocity = dragDistance / dragDuration // pixels per millisecond
+
+  // Determine if drawer should close based on distance or velocity
+  const containerHeight = modalContainerRef.value.offsetHeight
+  const distanceThreshold = Math.max(150, containerHeight * 0.3)
+  const velocityThreshold = 0.5
+
+  const shouldClose = dragDistance > distanceThreshold || velocity > velocityThreshold
+
+  // Stop dragging and start animating
+  isDragging.value = false
+  isAnimating.value = true
+
+  const container = modalContainerRef.value
+  const targetPosition = shouldClose ? containerHeight + containerHeight * 0.1 : 0
+
+  // Get transition duration from CSS tokens
+  const transitionDuration = getComputedStyle(document.documentElement)
+    .getPropertyValue('--transition-slow')
+    .trim()
+  const durationMs = parseInt(transitionDuration) || 300
+
+  // Set starting position (current drag distance) with no transition
+  container.style.transition = 'none'
+  container.style.transform = `translateY(${dragDistance}px)`
+
+  // Force reflow to apply the starting position
+  void container.offsetHeight
+
+  // Animate to target position using CSS variable for timing
+  container.style.transition = `transform ${durationMs}ms cubic-bezier(0.4, 0, 0.2, 1)`
+  container.style.transform = `translateY(${targetPosition}px)`
+
+  // Clean up after animation completes
+  setTimeout(() => {
+    isAnimating.value = false
+    dragStartY.value = 0
+    dragCurrentY.value = 0
+    dragStartTime.value = 0
+
+    if (modalContainerRef.value) {
+      modalContainerRef.value.style.transition = ''
+      modalContainerRef.value.style.transform = ''
+    }
+
+    if (shouldClose) {
+      emit('close')
+      emit('update:show', false)
+    }
+  }, durationMs)
 }
 
 // Store scroll position
@@ -233,12 +368,60 @@ const handleGlobalEscape = (event: KeyboardEvent) => {
   }
 }
 
+// Add/remove drag listeners when modal opens/closes
+watch(
+  () => props.show,
+  (isOpen) => {
+    if (isOpen && props.variant === 'drawer') {
+      // Wait for next tick to ensure modalContainerRef is populated
+      setTimeout(() => {
+        if (modalContainerRef.value) {
+          const container = modalContainerRef.value
+
+          // Touch events
+          container.addEventListener('touchstart', handleDragStart as EventListener, {
+            passive: false,
+          })
+          container.addEventListener('touchmove', handleDragMove as EventListener, { passive: false })
+          container.addEventListener('touchend', handleDragEnd)
+
+          // Mouse events for desktop testing
+          container.addEventListener('mousedown', handleDragStart as EventListener)
+          document.addEventListener('mousemove', handleDragMove as EventListener)
+          document.addEventListener('mouseup', handleDragEnd)
+        }
+      }, 0)
+    } else if (!isOpen && modalContainerRef.value) {
+      // Remove listeners when closing
+      const container = modalContainerRef.value
+      container.removeEventListener('touchstart', handleDragStart as EventListener)
+      container.removeEventListener('touchmove', handleDragMove as EventListener)
+      container.removeEventListener('touchend', handleDragEnd)
+      container.removeEventListener('mousedown', handleDragStart as EventListener)
+      document.removeEventListener('mousemove', handleDragMove as EventListener)
+      document.removeEventListener('mouseup', handleDragEnd)
+    }
+  },
+)
+
 onMounted(() => {
   document.addEventListener('keydown', handleGlobalEscape)
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalEscape)
+
+  // Remove drag event listeners
+  if (modalContainerRef.value) {
+    const container = modalContainerRef.value
+    container.removeEventListener('touchstart', handleDragStart as EventListener)
+    container.removeEventListener('touchmove', handleDragMove as EventListener)
+    container.removeEventListener('touchend', handleDragEnd)
+    container.removeEventListener('mousedown', handleDragStart as EventListener)
+  }
+  document.removeEventListener('mousemove', handleDragMove as EventListener)
+  document.removeEventListener('mouseup', handleDragEnd)
+
   // Clean up scroll lock
   document.body.classList.remove('modal-open')
   document.body.style.top = ''
@@ -334,20 +517,25 @@ body.modal-open {
   max-height: 90dvh;
   max-width: 100vw;
   width: 100vw;
-  animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  animation: slideUp var(--transition-slow);
   transform-origin: bottom center;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: height var(--transition-slow) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .modal-container--drawer.modal-container--closing {
-  animation: slideDown 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  animation: slideDown var(--transition-slow);
+}
+
+.modal-container--drawer.modal-container--dragging {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grabbing;
 }
 
 .modal-overlay--closing {
-  animation: fadeOut 0.3s ease-out;
 }
 
 /* Drawer Content Wrapper - constrains content to size prop */
@@ -446,7 +634,7 @@ body.modal-open {
   background: var(--color-text-muted, #d1d5db);
   border-radius: 100px;
   opacity: 0.5;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--transition-slow) ease;
 }
 
 /* Close Button */
@@ -463,7 +651,7 @@ body.modal-open {
   color: var(--color-text-secondary);
   cursor: pointer;
   border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
+  transition: all var(--transition-slow);
   z-index: 10;
 }
 
@@ -553,22 +741,18 @@ body.modal-open {
 
 @keyframes slideUp {
   from {
-    opacity: 0;
     transform: translateY(100%);
   }
   to {
-    opacity: 1;
     transform: translateY(0);
   }
 }
 
 @keyframes slideDown {
   from {
-    opacity: 1;
     transform: translateY(0);
   }
   to {
-    opacity: 0;
     transform: translateY(100%);
   }
 }

@@ -137,7 +137,7 @@ onMounted(() => {
 .callback-card {
   width: 100%;
   max-width: var(--size-md);
-  animation: slideUp 0.3s ease-out;
+  animation: slideUp var(--transition-slow);
 }
 
 .callback-content {
