@@ -1284,9 +1284,6 @@ const pollUntilCartReady = async (
     },
     maxAttempts: 20,
     initialDelay: 2000,
-    onAttempt: (attempt, data) => {
-      console.log(`Cart status poll attempt ${attempt}:`, data)
-    },
   })
 
   // If we're waiting for verification when polling ends, that's not a failure
@@ -1326,7 +1323,6 @@ const handlePaymentVerificationSuccess = async () => {
       userId: paymentVerificationUserId.value,
       cartId: paymentVerificationCartId.value,
     }
-    console.log('PaymentIntent verification successful, continuing to poll for completion')
 
     // Clear verification state
     paymentVerificationClientSecret.value = null
