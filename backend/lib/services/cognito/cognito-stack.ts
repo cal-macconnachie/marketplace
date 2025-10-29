@@ -91,17 +91,14 @@ export class CognitoStack extends Construct {
       })
     }
 
-    const callbackUrls = envName === 'dev' ? [
+    const callbackUrls = [
       'http://localhost:5173/auth/callback',
       `https://${domain}/auth/callback`
-    ] : [`https://${domain}/auth/callback`]
+    ]
 
-    const logoutUrls = envName === 'dev' ? [
+    const logoutUrls = [
       'http://localhost:5173',
       'http://localhost:5173/auth',
-      `https://${domain}/auth`,
-      `https://${domain}`
-    ] : [
       `https://${domain}/auth`,
       `https://${domain}`
     ]
