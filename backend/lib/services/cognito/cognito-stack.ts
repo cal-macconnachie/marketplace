@@ -91,6 +91,28 @@ export class CognitoStack extends Construct {
       })
     }
 
+    const callbackUrls = envName === 'dev' ? [
+      'http://localhost:5173/auth/callback',
+      `https://${domain}/auth/callback`
+    ] : [`https://${domain}/auth/callback`]
+
+    const logoutUrls = envName === 'dev' ? [
+      'http://localhost:5173',
+      'http://localhost:5173/auth',
+      `https://${domain}/auth`,
+      `https://${domain}`
+    ] : [
+      `https://${domain}/auth`,
+      `https://${domain}`
+    ]
+
+    // if domain is subdomain also include root domain in both callback and logout urls
+    if (domain.split('.').length > 2) {
+      const rootDomain = domain.split('.').slice(1).join('.')
+      callbackUrls.push(`https://${rootDomain}/auth/callback`)
+      logoutUrls.push(`https://${rootDomain}/auth`, `https://${rootDomain}`)
+    }
+
     this.userPoolClient = new cognito.UserPoolClient(this, `UserPoolClient-${envName}`, {
       userPool: this.userPool,
       generateSecret: false,
@@ -106,19 +128,8 @@ export class CognitoStack extends Construct {
           cognito.OAuthScope.EMAIL,
           cognito.OAuthScope.PROFILE,
         ],
-        callbackUrls: envName === 'dev' ? [
-          'http://localhost:5173/auth/callback',
-          `https://${domain}/auth/callback`
-        ] : [`https://${domain}/auth/callback`],
-        logoutUrls: envName === 'dev' ? [
-          'http://localhost:5173',
-          'http://localhost:5173/auth',
-          `https://${domain}/auth`,
-          `https://${domain}`
-        ] : [
-          `https://${domain}/auth`,
-          `https://${domain}`
-        ],
+        callbackUrls,
+        logoutUrls
       },
       authFlows: {
         userPassword: true, userSrp: true
