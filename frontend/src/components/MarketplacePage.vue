@@ -143,6 +143,17 @@
       <span class="cart-fab-badge">{{ cartItemCount }}</span>
     </button>
 
+    <!-- Privacy Policy Link -->
+    <a
+      href="https://privacy-policy.csm.codes/"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="privacy-link"
+      title="Privacy Policy"
+    >
+      Privacy Policy
+    </a>
+
     <!-- Cart Management Modal -->
     <BaseModal v-model:show="showCartModal" size="lg" :hide-scrollbar="false">
       <template #default>
@@ -822,6 +833,25 @@ watch(products, (newProducts) => {
   max-width: 500px;
 }
 
+/* Privacy Policy Link */
+.privacy-link {
+  position: fixed;
+  bottom: var(--space-4);
+  left: var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+  z-index: 100;
+  opacity: 0.7;
+}
+
+.privacy-link:hover {
+  color: var(--color-text-primary);
+  opacity: 1;
+  text-decoration: underline;
+}
+
 /* Floating Cart Button */
 .cart-fab {
   position: fixed;
@@ -1079,6 +1109,12 @@ watch(products, (newProducts) => {
   .cart-fab-badge {
     min-width: 20px;
     height: 20px;
+  }
+
+  .privacy-link {
+    bottom: var(--space-3);
+    left: var(--space-3);
+    font-size: 10px;
   }
 
   .cart-modal-content {
