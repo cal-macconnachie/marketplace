@@ -3,7 +3,6 @@ import { LambdaEndpointDefinition } from '@marketplace/types'
 /**
  * Event-driven Lambda functions (DynamoDB Streams and EventBridge)
  * Stack: MarketplaceEventsStack
- * Count: 9 Lambda functions
  * Note: These functions DO NOT need API Gateway - they are event-driven only
  */
 export const eventsEndpoints: LambdaEndpointDefinition[] = [

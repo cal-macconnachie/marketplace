@@ -7278,6 +7278,7 @@ __metadata:
     pinia: "npm:^3.0.3"
     prettier: "npm:3.6.2"
     terser: "npm:^5.44.0"
+    ts-node: "npm:^10.9.2"
     typescript: "npm:~5.8.0"
     uuid: "npm:^11.1.0"
     vite: "npm:^7.0.6"
