@@ -4,14 +4,13 @@ import {
 import {
   Organization, PlatformFee
 } from '@marketplace/types'
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import Stripe from 'stripe'
+import {
+  APIGatewayProxyEvent, APIGatewayProxyResult
+} from 'aws-lambda'
+import { get } from '../../helpers/dynamo-helpers/get'
 import { query } from '../../helpers/dynamo-helpers/query'
-import { read } from '../../helpers/dynamo-helpers/read'
 import { update } from '../../helpers/dynamo-helpers/update'
 import { getStripeClient } from '../../helpers/stripe/stripe-client'
-
-const MONTHLY_FEE_AMOUNT = 300 // $3.00 in cents
 
 interface OutstandingFeesInfo {
   fees: PlatformFee[]
@@ -72,7 +71,7 @@ export const createFeePaymentCheckout = async (
     }
 
     // Get organization
-    const org = await read<Organization>({
+    const org = await get<Organization>({
       tableName: organizationsTableName!,
       key: { id: organizationId }
     })
@@ -90,7 +89,9 @@ export const createFeePaymentCheckout = async (
     }
 
     // Get outstanding fees
-    const { fees, totalAmount, periods } = await getOutstandingFees(organizationId)
+    const {
+      fees, totalAmount, periods 
+    } = await getOutstandingFees(organizationId)
 
     if (totalAmount === 0) {
       return {
@@ -219,7 +220,7 @@ export const handleFeePaymentSuccess = async (
 
     // Mark all fees as paid
     for (const feeId of feeIds) {
-      const fee = await read<PlatformFee>({
+      const fee = await get<PlatformFee>({
         tableName: platformFeesTableName!,
         key: { id: feeId }
       })
@@ -241,7 +242,7 @@ export const handleFeePaymentSuccess = async (
     }
 
     // If account was suspended, reactivate it
-    const org = await read<Organization>({
+    const org = await get<Organization>({
       tableName: organizationsTableName!,
       key: { id: organizationId }
     })
