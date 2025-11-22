@@ -7,7 +7,7 @@ export type TableName =
   'users' |
   'products' |
   'payment-methods' |
-  'promos' | 
+  'promos' |
   'organizations' |
   'purchases' |
   'tax-calculations' |
@@ -16,7 +16,8 @@ export type TableName =
   'purchase-carts' |
   'purchased-products' |
   'notifications' |
-  'disputes'
+  'disputes' |
+  'platform-fees'
 
 export interface DdbTableDefinition {
   tableName: TableName

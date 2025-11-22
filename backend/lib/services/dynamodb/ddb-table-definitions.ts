@@ -434,5 +434,56 @@ export const ddbTableDefinitions: Array<DdbTableDefinition> = [
     ],
     billingMode: 'PAY_PER_REQUEST',
     stream: 'NEW_AND_OLD_IMAGES'
+  },
+  {
+    tableName: 'platform-fees',
+    partitionKey: {
+      name: 'id',
+      type: 'S'
+    },
+    sortKey: {
+      name: 'created_at',
+      type: 'S'
+    },
+    globalSecondaryIndexes: [
+      {
+        indexName: 'organization_id-index',
+        partitionKey: {
+          name: 'organization_id',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'fee_period',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      },
+      {
+        indexName: 'fee_period-index',
+        partitionKey: {
+          name: 'fee_period',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'created_at',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      },
+      {
+        indexName: 'status-index',
+        partitionKey: {
+          name: 'status',
+          type: 'S'
+        },
+        sortKey: {
+          name: 'created_at',
+          type: 'S'
+        },
+        projectionType: 'ALL'
+      }
+    ],
+    billingMode: 'PAY_PER_REQUEST',
+    stream: 'NEW_AND_OLD_IMAGES'
   }
 ]

@@ -254,5 +254,31 @@ export const publicEndpoints: LambdaEndpointDefinition[] = [
       auth: 'none',
       cors: true
     }
+  },
+
+  // Platform Fee Payment Endpoints (2 lambdas)
+  {
+    name: 'createFeePaymentCheckout',
+    handler: 'stripe/settle-outstanding-fees.createFeePaymentCheckout',
+    description: 'Create Stripe Checkout session for paying outstanding platform fees',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'public/fees/create-payment-checkout',
+      method: 'POST',
+      auth: 'none',
+      cors: true
+    }
+  },
+  {
+    name: 'handleFeePaymentSuccess',
+    handler: 'stripe/settle-outstanding-fees.handleFeePaymentSuccess',
+    description: 'Handle successful platform fee payment from Stripe Checkout',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'public/fees/payment-success',
+      method: 'POST',
+      auth: 'none',
+      cors: true
+    }
   }
 ]

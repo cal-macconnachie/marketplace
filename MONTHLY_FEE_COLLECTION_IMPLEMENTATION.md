@@ -8,11 +8,11 @@ This guide provides step-by-step instructions for implementing a monthly $3 main
 
 1. [Prerequisites](#prerequisites)
 2. [Architecture](#architecture)
-3. [Step 1: Create DynamoDB Table](#step-1-create-dynamodb-table)
+3. [Step 1: Create DynamoDB Table](#step-1-create-dynamodb-table) ### DONE
 4. [Step 2: Add Scheduled Lambda Endpoint](#step-2-add-scheduled-lambda-endpoint)
 5. [Step 3: Create Lambda Handler](#step-3-create-lambda-handler)
 6. [Step 4: Testing](#step-4-testing)
-7. [Step 5: Monitoring & Notifications](#step-5-monitoring--notifications)
+7. [Step 5: Monitoring & Notifications](#step-5-monitoring--notifications) ### DONE (Email helpers added)
 8. [Step 6: Deploy](#step-6-deploy)
 9. [Additional Considerations](#additional-considerations)
 
@@ -505,24 +505,75 @@ This deploys the scheduled Lambda function.
 - ✅ Notify existing connected accounts of upcoming charges (30-day notice)
 - ✅ Provide clear fee breakdown in seller dashboard
 
-### 2. Grace Period Implementation
+### 2. Grace Period & Account Suspension
 
-Add logic to handle insufficient funds gracefully:
+Account suspension is automatically implemented:
 
 ```typescript
-// Track consecutive failures
-if (status === 'insufficient_funds') {
-  const failureCount = await getConsecutiveFailures(org.id)
+// Check for consecutive failures and suspend if needed
+const consecutiveFailures = await getConsecutiveFailures(org.id)
 
-  if (failureCount >= 3) {
-    // Suspend account after 3 months of non-payment
-    await suspendAccount(org)
-    await notifySeller(org, 'account_suspended')
-  }
+// Suspend account after 2 or more consecutive failures
+if (consecutiveFailures >= 1) {
+  await suspendOrganization(org)
+  await notifySeller(org, 'suspended', undefined, availableBalance, consecutiveFailures + 1)
 }
 ```
 
-### 3. Fee Refunds
+**Suspension Timeline**:
+- Month 1 failure: Organization receives warning email with "Pay Now" button
+- Month 2 failure: Account automatically suspended, organization receives suspension notice
+- Payment: Organization can pay outstanding fees via Stripe Checkout link
+- After payment: Account automatically reactivated
+
+### 3. Settling Outstanding Fees
+
+Organizations can settle their outstanding fees through a self-service payment flow:
+
+**Implementation**:
+
+**File**: `backend/lib/services/lambda/handlers/stripe/settle-outstanding-fees.ts`
+
+This provides two endpoints:
+
+1. **Create Payment Checkout** (`POST /public/fees/create-payment-checkout`):
+   - Calculates total outstanding fees for an organization
+   - Creates a Stripe Checkout session
+   - Returns checkout URL for the organization to complete payment
+
+2. **Handle Payment Success** (`POST /public/fees/payment-success`):
+   - Verifies payment completion via Stripe session ID
+   - Marks all outstanding fees as paid in DynamoDB
+   - Automatically reactivates suspended accounts
+
+**Frontend Integration**:
+
+Create a page at `/settle-fees` that:
+```typescript
+// When user clicks "Pay Now" button in email
+const response = await fetch('/public/fees/create-payment-checkout', {
+  method: 'POST',
+  body: JSON.stringify({ organizationId })
+})
+const { checkoutUrl } = await response.json()
+// Redirect to Stripe Checkout
+window.location.href = checkoutUrl
+```
+
+**Email Template**:
+
+The insufficient funds email (`platform-fee-insufficient-funds.hbs`) includes a "Pay Outstanding Fees Now" button that links to the settlement page.
+
+**Success Flow**:
+1. User clicks "Pay Now" in warning email
+2. Frontend calls `/public/fees/create-payment-checkout`
+3. User redirected to Stripe Checkout
+4. After payment, Stripe redirects to success URL
+5. Success page calls `/public/fees/payment-success`
+6. All unpaid fees marked as paid
+7. If account was suspended, it's automatically reactivated
+
+### 4. Fee Refunds
 
 Create a manual refund handler for customer service:
 
@@ -535,7 +586,7 @@ export const refundPlatformFee = async (feeId: string) => {
 }
 ```
 
-### 4. Alternative Fee Structures
+### 5. Alternative Fee Structures
 
 If you want to charge per-transaction instead:
 
@@ -551,7 +602,7 @@ const paymentIntent = await stripe.paymentIntents.create({
 })
 ```
 
-### 5. Reporting Dashboard
+### 6. Reporting Dashboard
 
 Create admin endpoint to view fee collection stats:
 

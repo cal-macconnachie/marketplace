@@ -245,6 +245,17 @@ export class DomainLambdaConstruct extends Construct {
 
       // DynamoDB stream event sources are attached by the Events stack via a dedicated helper.
 
+      // Attach EventBridge schedule
+      if (def.scheduleEvent) {
+        const events = cdk.aws_events
+        const eventsTargets = cdk.aws_events_targets
+        const rule = new events.Rule(this, `${def.name}ScheduleRule`, {
+          schedule: events.Schedule.expression(def.scheduleEvent.rate),
+          enabled: def.scheduleEvent.enabled ?? true
+        })
+        rule.addTarget(new eventsTargets.LambdaFunction(fn))
+      }
+
       // Attach EventBridge event source
       if (def.eventBridgeEvent) {
         const events = cdk.aws_events

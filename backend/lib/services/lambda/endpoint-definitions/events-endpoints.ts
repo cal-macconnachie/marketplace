@@ -92,6 +92,36 @@ export const eventsEndpoints: LambdaEndpointDefinition[] = [
     ]
   },
 
+  // Scheduled Event Handlers (1 lambda)
+  {
+    name: 'monthlyAccountFees',
+    handler: 'stripe/collect-monthly-fees.collectMonthlyFees',
+    description: 'Collect monthly $3 maintenance fees from all active connected accounts',
+    environment: [
+      'STRIPE_SECRET_KEY',
+      'EMAIL_LAMBDA_ARN',
+      'EMAIL_AWS_REGION',
+      'EMAIL_ASSUME_ROLE_ARN',
+      'ADMIN_EMAIL'
+    ],
+    bundleTemplate: [
+      'platform-fee-success.hbs',
+      'platform-fee-insufficient-funds.hbs',
+      'platform-fee-admin-summary.hbs'
+    ],
+    scheduleEvent: {
+      rate: 'cron(0 2 1 * ? *)', // 1st of month at 2 AM UTC
+      enabled: true,
+    },
+    iamPolicies: [
+      {
+        actions: ['sts:AssumeRole'],
+        resources: ['arn:aws:iam::472312425428:role/cross-dev-lambdaInvokeFrom-629891807011']
+      }
+    ],
+    timeout: 300 // 5 minutes (may process many accounts)
+  },
+
   // DynamoDB Stream Handlers (6 lambdas) - Note: 'products' conflicts with products-stack, renamed to 'productsStream'
   {
     name: 'productsStream',

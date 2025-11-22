@@ -662,6 +662,31 @@ export const publicApi = {
     })
     return response.data
   },
+
+  async createFeePaymentCheckout(organizationId: string): Promise<{
+    success: boolean
+    checkoutUrl?: string
+    sessionId?: string
+    totalAmount?: number
+    periods?: string[]
+    message?: string
+  }> {
+    const response = await apiClient.post('/public/fees/create-payment-checkout', {
+      organizationId,
+    })
+    return response.data
+  },
+
+  async handleFeePaymentSuccess(sessionId: string): Promise<{
+    success: boolean
+    message: string
+    feesPaid: number
+  }> {
+    const response = await apiClient.post('/public/fees/payment-success', {
+      sessionId,
+    })
+    return response.data
+  },
 }
 
 export { apiClient, imageClient }

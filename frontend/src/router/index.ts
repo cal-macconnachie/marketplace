@@ -43,6 +43,22 @@ const routes = [
     path: '/receipts/:cartId/:userId',
     name: 'Receipt',
     component: () => import('@/components/ReceiptPage.vue'),
+  },
+  {
+    path: '/settle-fees',
+    name: 'SettleFees',
+    component: () => import('@/components/SettleFeesPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/platform-fee-payment-success',
+    name: 'PlatformFeePaymentSuccess',
+    component: () => import('@/components/PlatformFeePaymentSuccessPage.vue'),
+  },
+  {
+    path: '/platform-fee-payment-cancelled',
+    name: 'PlatformFeePaymentCancelled',
+    component: () => import('@/components/PlatformFeePaymentCancelledPage.vue'),
   }
 ]
 

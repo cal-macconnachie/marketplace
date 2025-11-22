@@ -52,6 +52,11 @@ export interface LambdaEndpointDefinition {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     pattern?: Record<string, any> // Optional event pattern for filtering events
   }
+
+  scheduleEvent?: {
+    rate: string // e.g. 'rate(5 minutes)' or 'cron(0 12 * * ? *)'
+    enabled?: boolean
+  }
   streaming?: boolean // Enable Lambda response streaming for this endpoint
   /**
    * If set, these template files will be bundled with the Lambda function and available at runtime.

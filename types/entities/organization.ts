@@ -46,6 +46,14 @@ export interface Organization {
   /** Whether the account can receive payouts */
   payouts_enabled?: boolean
 
+  // Account suspension
+  /** Whether the account is suspended */
+  account_suspended?: boolean
+  /** ISO timestamp when account was suspended */
+  suspended_at?: string
+  /** Reason for suspension */
+  suspended_reason?: string
+
   // Tax configuration
   /** Whether Stripe Tax is enabled for this account */
   tax_enabled?: boolean

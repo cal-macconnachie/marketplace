@@ -40,6 +40,7 @@ export const purchaseCartsTableName = `purchase-carts-${ENV_NAME}` as const;
 export const purchasedProductsTableName = `purchased-products-${ENV_NAME}` as const;
 export const notificationsTableName = `notifications-${ENV_NAME}` as const;
 export const disputesTableName = `disputes-${ENV_NAME}` as const;
+export const platformFeesTableName = `platform-fees-${ENV_NAME}` as const;
 
 /**
  * Primary domain for the marketplace application

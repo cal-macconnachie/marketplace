@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Monthly Platform Fee Collected</title>
+    <style>
+      html, body { margin: 0 !important; padding: 0 !important; height: 100% !important; width: 100% !important; }
+      * { -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
+      div[style*="margin: 16px 0"] { margin: 0 !important; }
+      img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+      a { text-decoration: none; color: inherit; }
+
+      .wrapper { width: 100%; background: #f6f7fb; }
+      .container { width: 100%; max-width: 600px; margin: 0 auto; background: #ffffff; }
+      .px-24 { padding-left: 24px; padding-right: 24px; }
+      .py-16 { padding-top: 16px; padding-bottom: 16px; }
+      .py-24 { padding-top: 24px; padding-bottom: 24px; }
+      .pt-8 { padding-top: 8px; }
+      .pb-8 { padding-bottom: 8px; }
+      .pb-16 { padding-bottom: 16px; }
+
+      .muted { color: #6b7280; font-size: 12px; line-height: 18px; }
+      .small { font-size: 12px; }
+      .text-right { text-align: right; }
+      .text-center { text-align: center; }
+      .hr { height: 1px; line-height: 1px; background: #e5e7eb; border: none; margin: 0; }
+
+      .brand { font: 600 18px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color: #111827; text-align: center; }
+      .h1 { font: 700 20px/1.3 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color: #111827; margin: 0; }
+      .body { font: 400 14px/20px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color: #111827; }
+      .detail-row { margin: 8px 0; }
+      .label { color: #6b7280; display: inline-block; min-width: 120px; }
+
+      @media (prefers-color-scheme: dark) {
+        .wrapper { background: #0b0f15 !important; }
+        .container { background: #111827 !important; }
+        .brand, .h1, .body { color: #f9fafb !important; }
+        .muted, .label { color: #9ca3af !important; }
+        .hr { background: #374151 !important; }
+      }
+      @media screen and (max-width: 600px) {
+        .px-24 { padding-left: 16px !important; padding-right: 16px !important; }
+      }
+    </style>
+  </head>
+  <body class="body" style="background:#f6f7fb;">
+    <table role="presentation" class="wrapper" cellpadding="0" cellspacing="0" width="100%" style="width:100%;background:#f6f7fb;">
+      <tr>
+        <td align="center">
+          <table role="presentation" class="container" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;background:#ffffff;">
+            <!-- Header -->
+            <tr>
+              <td class="px-24 py-16">
+                <div class="brand">{{brand}}</div>
+              </td>
+            </tr>
+            <tr><td><hr class="hr" /></td></tr>
+
+            <!-- Title -->
+            <tr>
+              <td class="px-24 py-16">
+                <h1 class="h1">Monthly Platform Fee Collected</h1>
+                <div class="body" style="margin-top:8px;">Your monthly platform maintenance fee has been collected successfully.</div>
+              </td>
+            </tr>
+
+            <!-- Details -->
+            <tr>
+              <td class="px-24 py-16">
+                <div class="detail-row">
+                  <span class="label">Organization:</span>
+                  <span class="body">{{organization_name}}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="label">Amount:</span>
+                  <span class="body">{{amount_formatted}}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="label">Period:</span>
+                  <span class="body">{{fee_period}}</span>
+                </div>
+                {{#if transfer_id}}
+                <div class="detail-row">
+                  <span class="label">Transfer ID:</span>
+                  <span class="body muted small">{{transfer_id}}</span>
+                </div>
+                {{/if}}
+              </td>
+            </tr>
+
+            <tr><td><hr class="hr" /></td></tr>
+
+            <!-- Footer -->
+            <tr>
+              <td class="px-24 py-16 text-center muted small">
+                Questions? Contact our support team for assistance.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
