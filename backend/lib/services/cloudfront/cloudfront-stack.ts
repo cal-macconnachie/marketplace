@@ -57,6 +57,27 @@ export class CloudFrontConstruct extends Construct {
       hostedZones
     } = props || {}
 
+    // Create response headers function for Apple verification file
+    const responseHeadersFunction = new CloudFrontFunction(this, 'ResponseHeadersFunction', {
+      code: FunctionCode.fromInline(`
+function handler(event) {
+  var response = event.response;
+  var request = event.request;
+  var uri = request.uri;
+
+  // Set Content-Type for Apple verification file without extension
+  if (uri === '/.well-known/apple-developer-merchantid-domain-association') {
+    response.headers['content-type'] = { value: 'text/plain' };
+  }
+
+  return response;
+}
+      `.trim()),
+      functionName: `response-headers-${envName}`,
+      comment: 'Sets correct Content-Type for Apple domain verification',
+      runtime: FunctionRuntime.JS_2_0
+    })
+
     // Create basic auth CloudFront Function and KeyValueStore for dev environment
     let basicAuthFunction: CloudFrontFunction | undefined
     let authKeyValueStore: KeyValueStore | undefined
@@ -259,6 +280,14 @@ function unauthorized(reason) {
         functionAssociations.push({
           function: basicAuthFunction,
           eventType: FunctionEventType.VIEWER_REQUEST
+        })
+      }
+
+      // Add response headers function for marketplace distribution (Apple verification)
+      if (def.name === 'marketplace-distribution') {
+        functionAssociations.push({
+          function: responseHeadersFunction,
+          eventType: FunctionEventType.VIEWER_RESPONSE
         })
       }
 
