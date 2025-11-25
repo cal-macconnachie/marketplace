@@ -93,7 +93,8 @@ export class CognitoStack extends Construct {
 
     const callbackUrls = [
       'http://localhost:5173/auth/callback',
-      `https://${domain}/auth/callback`
+      `https://${domain}/auth/callback`,
+      'https://calendar.csm.codes/auth/callback'
     ]
 
     const logoutUrls = [
