@@ -94,14 +94,18 @@ export class CognitoStack extends Construct {
     const callbackUrls = [
       'http://localhost:5173/auth/callback',
       `https://${domain}/auth/callback`,
-      'https://calendar.csm.codes/auth/callback'
+      'https://calendar.csm.codes/auth/callback',
+      'https://oauth.cals-api.com/auth/callback',
+      'http://localhost:8080/auth/callback'
     ]
 
     const logoutUrls = [
       'http://localhost:5173',
       'http://localhost:5173/auth',
       `https://${domain}/auth`,
-      `https://${domain}`
+      `https://${domain}`,
+      'https://oauth.cals-api.com',
+      'http://localhost:8080'
     ]
 
     // if domain is subdomain also include root domain in both callback and logout urls
