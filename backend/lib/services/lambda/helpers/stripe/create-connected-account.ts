@@ -192,6 +192,13 @@ export const createConnectedAccount = async ({
       },
       country: address.country,
       email: user.email,
+      settings: {
+        payouts: {
+          schedule: {
+            interval: 'manual'
+          }
+        }
+      },
       metadata: {
         user_id: userId,
         account_type: businessType,
@@ -553,7 +560,7 @@ export const createConnectedAccount = async ({
     }
 
     const account = await stripe.accounts.create(params)
-    
+
     // Enable comprehensive Stripe Tax configuration for the connected account
     let taxEnabled = false
     try {

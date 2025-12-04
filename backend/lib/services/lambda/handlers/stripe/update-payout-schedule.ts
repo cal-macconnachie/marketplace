@@ -93,7 +93,8 @@ export const updatePayoutScheduleHandler = async (event: APIGatewayProxyEvent) =
     }
 
     // Add optional parameters based on interval
-    if (delay_days !== undefined) {
+    // Note: delay_days cannot be provided when interval is 'manual'
+    if (delay_days !== undefined && interval !== 'manual') {
       schedule.delay_days = delay_days
     }
 
