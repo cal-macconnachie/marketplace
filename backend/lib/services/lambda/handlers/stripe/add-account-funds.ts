@@ -123,7 +123,6 @@ export const addAccountFundsHandler = async (event: APIGatewayProxyEvent) => {
           if (defaultPaymentMethodId) {
             const defaultPaymentMethod = await stripe.paymentMethods.retrieve(
               defaultPaymentMethodId,
-              { stripeAccount: organization.stripe_account_id }
             )
 
             // Only use if it's a card (universal support)
