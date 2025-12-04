@@ -101,13 +101,56 @@ export const addAccountFundsHandler = async (event: APIGatewayProxyEvent) => {
 
     const stripe = getStripeClient()
 
-    // Create a PaymentIntent on the connected account using their bank account
-    // This will debit the bank account and add funds to the connected account's Stripe balance
-    // Supports both US (us_bank_account) and Canadian (acss_debit) bank accounts
+    // Retrieve the bank account payment method to check its type
+    const bankPaymentMethod = await stripe.paymentMethods.retrieve(
+      organization.stripe_bank_account_id,
+      { stripeAccount: organization.stripe_account_id }
+    )
+
+    let paymentMethodToUse = organization.stripe_bank_account_id
+    let paymentMethodTypes: string[] = []
+
+    // Check if it's a Canadian bank account
+    if (bankPaymentMethod.type === 'acss_debit') {
+      console.log('Canadian bank account detected, looking for alternative payment method...')
+
+      // Try to find an alternative payment method (like a card) on file
+      const paymentMethods = await stripe.paymentMethods.list(
+        { type: 'card', limit: 10 },
+        { stripeAccount: organization.stripe_account_id }
+      )
+
+      if (paymentMethods.data.length > 0) {
+        // Use the first available card
+        paymentMethodToUse = paymentMethods.data[0].id
+        paymentMethodTypes = ['card']
+        console.log(`Using card payment method ${paymentMethodToUse} for Canadian account`)
+      } else {
+        // No alternative payment method found
+        return {
+          statusCode: 400,
+          body: JSON.stringify({
+            error: 'Canadian bank accounts cannot be used for automatic top-ups. Please add a credit/debit card or use manual bank transfer to your Stripe balance.',
+            errorCode: 'CANADIAN_BANK_ACCOUNT_NOT_SUPPORTED'
+          }),
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': true,
+            'Content-Type': 'application/json'
+          }
+        }
+      }
+    } else {
+      // US bank account
+      paymentMethodTypes = ['us_bank_account']
+    }
+
+    // Create a PaymentIntent on the connected account
+    // This will debit the payment method and add funds to the connected account's Stripe balance
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency,
-      payment_method: organization.stripe_bank_account_id,
+      payment_method: paymentMethodToUse,
       confirm: true,
       description: `Account top-up for ${organization.name || 'organization'}`,
       metadata: {
@@ -115,7 +158,7 @@ export const addAccountFundsHandler = async (event: APIGatewayProxyEvent) => {
         type: 'account_topup',
         requested_by: userEmail
       },
-      payment_method_types: ['us_bank_account', 'acss_debit']
+      payment_method_types: paymentMethodTypes
     }, {
       stripeAccount: organization.stripe_account_id
     })
