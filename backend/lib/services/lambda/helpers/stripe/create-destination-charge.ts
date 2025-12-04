@@ -19,7 +19,8 @@ export const createDestinationCharge = async ({
   user,
   destinationAccountId,
   cartId,
-  purchaseIds
+  purchaseIds,
+  fullAmountToDestination = false
 }: {
   amount: number
   currency: string
@@ -28,6 +29,7 @@ export const createDestinationCharge = async ({
   destinationAccountId: string
   cartId?: string
   purchaseIds?: string[]
+  fullAmountToDestination?: boolean
 }) => {
   const stripe = getStripeClient()
 
@@ -54,21 +56,39 @@ export const createDestinationCharge = async ({
   }
   metadata.user_id = user.id
 
+  // Calculate platform fee and adjust amount if needed
+  let chargeAmount = amount
+  let platformFee: number
+
+  if (fullAmountToDestination) {
+    // When fullAmountToDestination is true, the amount parameter represents
+    // what the destination should receive. We need to add the platform fee
+    // to the charge amount so the destination gets the full amount after fees.
+    platformFee = await calculatePlatformFee({
+      amount,
+      organizationId: user.organization_id
+    })
+    chargeAmount = amount + platformFee
+  } else {
+    // Default behavior: amount is the total charge, fee is deducted from it
+    platformFee = await calculatePlatformFee({
+      amount,
+      organizationId: user.organization_id
+    })
+  }
+
   try {
     // Create and confirm payment intent in one call
     // Treat all charges as on-session to allow 3DS authentication
     const paymentIntent = await stripe.paymentIntents.create({
-      amount,
+      amount: chargeAmount,
       currency,
       customer: user.stripe_id,
       payment_method: paymentMethodId,
       transfer_data: {
         destination: destinationAccountId
       },
-      application_fee_amount: await calculatePlatformFee({
-        amount,
-        organizationId: user.organization_id
-      }),
+      application_fee_amount: platformFee,
       on_behalf_of: destinationAccountId,
       automatic_payment_methods: {
         enabled: true,

@@ -1,8 +1,8 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { getOrganizationById } from '../../helpers/organizations/get-organization-by-id'
+import { createDestinationCharge } from '../../helpers/stripe/create-destination-charge'
 import { getStripeClient } from '../../helpers/stripe/stripe-client'
 import { getUserByEmail } from '../../helpers/users/get-user-by-email'
-import { createDestinationCharge } from '../../helpers/stripe/create-destination-charge'
 
 interface AddFundsRequest {
   amount: number // Amount in cents
@@ -202,7 +202,8 @@ export const addAccountFundsHandler = async (event: APIGatewayProxyEvent) => {
         currency,
         paymentMethodId: paymentMethodToUse,
         user,
-        destinationAccountId: organization.stripe_account_id
+        destinationAccountId: organization.stripe_account_id,
+        fullAmountToDestination: true
       })
     } else {
       // Charge bank account directly on CONNECTED ACCOUNT
