@@ -448,7 +448,12 @@ async function loadPayoutSchedule() {
     payoutSchedule.value = schedule
     // Update form with current values
     if (schedule.schedule) {
-      payoutScheduleForm.value = { ...schedule.schedule }
+      payoutScheduleForm.value = {
+        interval: schedule.schedule.interval,
+        delay_days: schedule.schedule.delay_days,
+        weekly_anchor: schedule.schedule.weekly_anchor as 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday' | undefined,
+        monthly_anchor: schedule.schedule.monthly_anchor
+      }
     }
   } catch (err) {
     console.error('Failed to load payout schedule:', err)
