@@ -3,7 +3,7 @@ import { LambdaEndpointDefinition } from '@marketplace/types'
 /**
  * Payment methods, Stripe operations, and purchase management
  * Stack: MarketplacePaymentsStack
- * Count: 13 Lambda functions
+ * Count: 17 Lambda functions
  */
 export const paymentsEndpoints: LambdaEndpointDefinition[] = [
   // Payment Methods (3 lambdas)
@@ -50,7 +50,7 @@ export const paymentsEndpoints: LambdaEndpointDefinition[] = [
     }
   },
 
-  // Stripe Connect Operations (5 lambdas)
+  // Stripe Connect Operations (9 lambdas)
   {
     name: 'createConnectedAccount',
     handler: 'stripe/create-connected-account.createConnectedAccountHandler',
@@ -100,6 +100,54 @@ export const paymentsEndpoints: LambdaEndpointDefinition[] = [
     environment: ['STRIPE_SECRET_KEY'],
     apiGw: {
       path: 'stripe/log-meter-event',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'getAccountBalance',
+    handler: 'stripe/get-account-balance.getAccountBalanceHandler',
+    description: 'Get Stripe account balance for connected account',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'stripe/account-balance',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'addAccountFunds',
+    handler: 'stripe/add-account-funds.addAccountFundsHandler',
+    description: 'Add funds to connected account balance',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'stripe/add-funds',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'getPayoutSchedule',
+    handler: 'stripe/get-payout-schedule.getPayoutScheduleHandler',
+    description: 'Get payout schedule for connected account',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'stripe/payout-schedule',
+      method: 'GET',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
+    name: 'updatePayoutSchedule',
+    handler: 'stripe/update-payout-schedule.updatePayoutScheduleHandler',
+    description: 'Update payout schedule for connected account',
+    environment: ['STRIPE_SECRET_KEY'],
+    apiGw: {
+      path: 'stripe/payout-schedule',
       method: 'POST',
       auth: 'cognito',
       cors: true

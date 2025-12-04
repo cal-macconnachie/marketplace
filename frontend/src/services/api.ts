@@ -364,6 +364,61 @@ export const authAPI = {
     return response.data
   },
 
+  async getAccountBalance(): Promise<{
+    available: Array<{ amount: number; currency: string }>
+    pending: Array<{ amount: number; currency: string }>
+    instant_available?: Array<{ amount: number; currency: string }>
+  }> {
+    const response = await apiClient.post('/stripe/account-balance')
+    return response.data
+  },
+
+  async addAccountFunds(data: {
+    amount: number
+    currency?: string
+  }): Promise<{
+    success: boolean
+    transfer_id: string
+    amount: number
+    currency: string
+    created: number
+  }> {
+    const response = await apiClient.post('/stripe/add-funds', data)
+    return response.data
+  },
+
+  async getPayoutSchedule(): Promise<{
+    schedule: {
+      interval: 'manual' | 'daily' | 'weekly' | 'monthly'
+      delay_days?: number
+      weekly_anchor?: string
+      monthly_anchor?: number
+    }
+    statement_descriptor?: string
+    debit_negative_balances?: boolean
+  }> {
+    const response = await apiClient.get('/stripe/payout-schedule')
+    return response.data
+  },
+
+  async updatePayoutSchedule(data: {
+    interval: 'manual' | 'daily' | 'weekly' | 'monthly'
+    delay_days?: number
+    weekly_anchor?: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'
+    monthly_anchor?: number
+  }): Promise<{
+    success: boolean
+    schedule: {
+      interval: string
+      delay_days?: number
+      weekly_anchor?: string
+      monthly_anchor?: number
+    }
+  }> {
+    const response = await apiClient.post('/stripe/payout-schedule', data)
+    return response.data
+  },
+
   async createMeter(data: CreateMeterRequest): Promise<CreateMeterResponse> {
     const response = await apiClient.post('/meters', data)
     return response.data
