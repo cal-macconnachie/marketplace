@@ -1,5 +1,42 @@
 <template>
   <div class="seller-account">
+    <!-- Notification Toast -->
+    <transition name="notification">
+      <div
+        v-if="notification.show"
+        :class="['notification-toast', notification.type]"
+      >
+        <div class="notification-content">
+          <svg
+            v-if="notification.type === 'success'"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
+          </svg>
+          <svg
+            v-else
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="15" y1="9" x2="9" y2="15" />
+            <line x1="9" y1="9" x2="15" y2="15" />
+          </svg>
+          <span>{{ notification.message }}</span>
+        </div>
+      </div>
+    </transition>
+
     <div v-if="organization" class="account-summary">
       <!-- Account Header -->
       <div class="account-header">
@@ -145,7 +182,7 @@
             <span class="schedule-label">Frequency:</span>
             <span class="schedule-value">{{ payoutSchedule.schedule.interval }}</span>
           </div>
-          <div v-if="payoutSchedule.schedule.delay_days !== undefined" class="schedule-item">
+          <div v-if="payoutSchedule.schedule.delay_days !== undefined && payoutSchedule.schedule.interval !== 'manual'" class="schedule-item">
             <span class="schedule-label">Delay:</span>
             <span class="schedule-value">{{ payoutSchedule.schedule.delay_days }} days</span>
           </div>
@@ -341,6 +378,19 @@ const showPayoutScheduleModal = ref(false)
 const isAddingFunds = ref(false)
 const isUpdatingPayoutSchedule = ref(false)
 
+// Notification state
+const notification = ref<{
+  show: boolean
+  message: string
+  type: 'success' | 'error'
+}>({
+  show: false,
+  message: '',
+  type: 'success'
+})
+
+let notificationTimeout: ReturnType<typeof setTimeout> | null = null
+
 // Account balance state
 const accountBalance = ref<{
   available: Array<{ amount: number; currency: string }>
@@ -400,6 +450,25 @@ const payoutScheduleForm = ref<{
 // Helper function to format currency
 function formatCurrency(amount: number, currency: string): string {
   return `${(amount / 100).toFixed(2)} ${currency.toUpperCase()}`
+}
+
+// Helper function to show notifications
+function showNotification(message: string, type: 'success' | 'error' = 'success') {
+  // Clear any existing timeout
+  if (notificationTimeout) {
+    clearTimeout(notificationTimeout)
+  }
+
+  notification.value = {
+    show: true,
+    message,
+    type
+  }
+
+  // Auto-dismiss after 3 seconds
+  notificationTimeout = setTimeout(() => {
+    notification.value.show = false
+  }, 3000)
 }
 
 // Load account balance
@@ -493,7 +562,7 @@ async function refreshOrganization() {
 async function handleAddFunds() {
   if (!organization.value?.stripe_account_id) return
   if (addFundsForm.value.amount <= 0) {
-    alert('Please enter a valid amount')
+    showNotification('Please enter a valid amount', 'error')
     return
   }
 
@@ -509,10 +578,10 @@ async function handleAddFunds() {
     showAddFundsModal.value = false
     await loadAccountBalance()
 
-    alert('Funds added successfully!')
+    showNotification('Funds added successfully!', 'success')
   } catch (err) {
     console.error('Failed to add funds:', err)
-    alert('Failed to add funds. Please try again.')
+    showNotification('Failed to add funds. Please try again.', 'error')
   } finally {
     isAddingFunds.value = false
   }
@@ -531,10 +600,10 @@ async function handleUpdatePayoutSchedule() {
     showPayoutScheduleModal.value = false
     await loadPayoutSchedule()
 
-    alert('Payout schedule updated successfully!')
+    showNotification('Payout schedule updated successfully!', 'success')
   } catch (err) {
     console.error('Failed to update payout schedule:', err)
-    alert('Failed to update payout schedule. Please try again.')
+    showNotification('Failed to update payout schedule. Please try again.', 'error')
   } finally {
     isUpdatingPayoutSchedule.value = false
   }
@@ -552,6 +621,75 @@ onMounted(() => {
 <style scoped>
 .seller-account {
   width: 100%;
+  position: relative;
+}
+
+/* Notification Toast */
+.notification-toast {
+  position: fixed;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: 9999;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  max-width: 400px;
+  animation: slideIn var(--transition-slow) ease-out;
+}
+
+.notification-toast.success {
+  background: var(--color-success);
+  color: var(--color-text-inverse);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.notification-toast.error {
+  background: var(--color-error);
+  color: var(--color-text-inverse);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.notification-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.notification-content svg {
+  flex-shrink: 0;
+}
+
+/* Notification transitions */
+.notification-enter-active {
+  animation: slideIn var(--transition-slow) ease-out;
+}
+
+.notification-leave-active {
+  animation: slideOut var(--transition-slow) ease-in;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
 }
 
 .account-summary {
