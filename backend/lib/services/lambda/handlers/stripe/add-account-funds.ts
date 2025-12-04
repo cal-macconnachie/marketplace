@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 import { getOrganizationById } from '../../helpers/organizations/get-organization-by-id'
 import { getStripeClient } from '../../helpers/stripe/stripe-client'
+import { getUserByEmail } from '../../helpers/users/get-user-by-email'
 
 interface AddFundsRequest {
   amount: number // Amount in cents
@@ -25,7 +25,9 @@ export const addAccountFundsHandler = async (event: APIGatewayProxyEvent) => {
 
     // Parse request body
     const body: AddFundsRequest = JSON.parse(event.body || '{}')
-    const { amount, currency = 'usd' } = body
+    const {
+      amount, currency = 'usd' 
+    } = body
 
     if (!amount || amount <= 0) {
       return {
@@ -101,37 +103,82 @@ export const addAccountFundsHandler = async (event: APIGatewayProxyEvent) => {
 
     const stripe = getStripeClient()
 
-    // Retrieve the bank account payment method to check its type
-    const bankPaymentMethod = await stripe.paymentMethods.retrieve(
-      organization.stripe_bank_account_id,
-      { stripeAccount: organization.stripe_account_id }
-    )
-
-    let paymentMethodToUse = organization.stripe_bank_account_id
+    let paymentMethodToUse: string | null = null
     let paymentMethodTypes: string[] = []
 
-    // Check if it's a Canadian bank account
-    if (bankPaymentMethod.type === 'acss_debit') {
-      console.log('Canadian bank account detected, looking for alternative payment method...')
+    // First, try to get the user's default payment method from their Stripe customer
+    if (user.stripe_customer_id) {
+      try {
+        const customer = await stripe.customers.retrieve(
+          user.stripe_customer_id,
+          { stripeAccount: organization.stripe_account_id }
+        )
 
-      // Try to find an alternative payment method (like a card) on file
-      const paymentMethods = await stripe.paymentMethods.list(
-        { type: 'card', limit: 10 },
+        // Check if customer has a default payment method
+        if (customer && !customer.deleted) {
+          const defaultPaymentMethodId =
+            typeof customer.invoice_settings?.default_payment_method === 'string'
+              ? customer.invoice_settings.default_payment_method
+              : customer.invoice_settings?.default_payment_method?.id
+
+          if (defaultPaymentMethodId) {
+            const defaultPaymentMethod = await stripe.paymentMethods.retrieve(
+              defaultPaymentMethodId,
+              { stripeAccount: organization.stripe_account_id }
+            )
+
+            // Only use if it's a card (universal support)
+            if (defaultPaymentMethod.type === 'card') {
+              paymentMethodToUse = defaultPaymentMethodId
+              paymentMethodTypes = ['card']
+              console.log(`Using customer's default card payment method ${paymentMethodToUse}`)
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to retrieve customer or default payment method:', error)
+        // Continue to fallback logic
+      }
+    }
+
+    // Fallback: Look for any card payment methods if no default found
+    if (!paymentMethodToUse) {
+      const cardPaymentMethods = await stripe.paymentMethods.list(
+        {
+          type: 'card', limit: 10
+        },
         { stripeAccount: organization.stripe_account_id }
       )
 
-      if (paymentMethods.data.length > 0) {
-        // Use the first available card
-        paymentMethodToUse = paymentMethods.data[0].id
+      if (cardPaymentMethods.data.length > 0) {
+        // Use first available card payment method
+        paymentMethodToUse = cardPaymentMethods.data[0].id
         paymentMethodTypes = ['card']
-        console.log(`Using card payment method ${paymentMethodToUse} for Canadian account`)
+        console.log(`Using first available card payment method ${paymentMethodToUse}`)
+      }
+    }
+
+    // Final fallback: Check if we have a US bank account we can use
+    if (!paymentMethodToUse) {
+      // No card found, check if we have a US bank account we can use
+      const bankPaymentMethod = await stripe.paymentMethods.retrieve(
+        organization.stripe_bank_account_id,
+        { stripeAccount: organization.stripe_account_id }
+      )
+
+      // Only use bank account if it's explicitly a US bank account
+      if (bankPaymentMethod.type === 'us_bank_account') {
+        paymentMethodToUse = organization.stripe_bank_account_id
+        paymentMethodTypes = ['us_bank_account']
+        console.log(`Using US bank account ${paymentMethodToUse}`)
       } else {
-        // No alternative payment method found
+        // Not a US bank account and no card available
         return {
           statusCode: 400,
           body: JSON.stringify({
-            error: 'Canadian bank accounts cannot be used for automatic top-ups. Please add a credit/debit card or use manual bank transfer to your Stripe balance.',
-            errorCode: 'CANADIAN_BANK_ACCOUNT_NOT_SUPPORTED'
+            error: 'No supported payment method found. Please add a credit/debit card for automatic top-ups, or use manual bank transfer to your Stripe balance.',
+            errorCode: 'NO_SUPPORTED_PAYMENT_METHOD',
+            bankAccountType: bankPaymentMethod.type
           }),
           headers: {
             'Access-Control-Allow-Origin': '*',
@@ -140,9 +187,6 @@ export const addAccountFundsHandler = async (event: APIGatewayProxyEvent) => {
           }
         }
       }
-    } else {
-      // US bank account
-      paymentMethodTypes = ['us_bank_account']
     }
 
     // Create a PaymentIntent on the connected account
