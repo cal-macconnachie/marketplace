@@ -107,10 +107,10 @@ export const addAccountFundsHandler = async (event: APIGatewayProxyEvent) => {
     let paymentMethodTypes: string[] = []
 
     // First, try to get the user's default payment method from their Stripe customer
-    if (user.stripe_customer_id) {
+    if (user.stripe_id) {
       try {
         const customer = await stripe.customers.retrieve(
-          user.stripe_customer_id,
+          user.stripe_id,
           { stripeAccount: organization.stripe_account_id }
         )
 
