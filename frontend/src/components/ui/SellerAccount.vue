@@ -7,22 +7,6 @@
           <h5 class="account-name">{{ organization.name }}</h5>
           <div class="account-email">{{ organization.business_profile?.support_email || organization.email }}</div>
         </div>
-        <div class="account-status">
-          <div class="status-indicator completed">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="m9 12 2 2 4-4" />
-              <circle cx="12" cy="12" r="10" />
-            </svg>
-            Verified
-          </div>
-        </div>
       </div>
 
       <!-- Capabilities Grid -->
@@ -120,13 +104,13 @@
           <div class="balance-item">
             <div class="balance-label">Available</div>
             <div class="balance-amount">
-              {{ formatCurrency(accountBalance.available[0]?.amount || 0, accountBalance.available[0]?.currency || 'usd') }}
+              {{ formatCurrency(accountBalance.available[0]?.amount || 0, accountBalance.available[0]?.currency || accountCurrency) }}
             </div>
           </div>
           <div class="balance-item">
             <div class="balance-label">Pending</div>
             <div class="balance-amount">
-              {{ formatCurrency(accountBalance.pending[0]?.amount || 0, accountBalance.pending[0]?.currency || 'usd') }}
+              {{ formatCurrency(accountBalance.pending[0]?.amount || 0, accountBalance.pending[0]?.currency || accountCurrency) }}
             </div>
           </div>
         </div>
@@ -228,150 +212,125 @@
       <p>No seller account found</p>
     </div>
 
-    <!-- Add Funds Modal -->
-    <div v-if="showAddFundsModal" class="modal-overlay" @click="showAddFundsModal = false">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h5 class="modal-title">Add Funds to Account</h5>
-          <button class="modal-close" @click="showAddFundsModal = false">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6L6 18" />
-              <path d="M6 6l12 12" />
-            </svg>
-          </button>
+    <!-- Add Funds Drawer -->
+    <BaseModal
+      :show="showAddFundsModal"
+      variant="drawer"
+      title="Add Funds to Account"
+      size="md"
+      @close="showAddFundsModal = false"
+    >
+      <div class="drawer-form">
+        <div class="currency-display">
+          <div class="currency-label">Currency</div>
+          <div class="currency-value">{{ accountCurrency }}</div>
         </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label for="amount">Amount (cents)</label>
-            <input
-              id="amount"
-              v-model.number="addFundsForm.amount"
-              type="number"
-              min="1"
-              step="100"
-              class="form-input"
-              placeholder="300"
-            />
-            <div class="form-hint">
-              Enter amount in cents (e.g., 300 = $3.00)
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="currency">Currency</label>
-            <select id="currency" v-model="addFundsForm.currency" class="form-select">
-              <option value="usd">USD</option>
-              <option value="eur">EUR</option>
-              <option value="gbp">GBP</option>
-            </select>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <BaseButton variant="ghost" @click="showAddFundsModal = false">
-            Cancel
-          </BaseButton>
-          <BaseButton
-            variant="primary"
-            :loading="isAddingFunds"
-            :disabled="isAddingFunds || addFundsForm.amount <= 0"
-            @click="handleAddFunds"
-          >
-            Add Funds
-          </BaseButton>
-        </div>
-      </div>
-    </div>
 
-    <!-- Payout Schedule Modal -->
-    <div v-if="showPayoutScheduleModal" class="modal-overlay" @click="showPayoutScheduleModal = false">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h5 class="modal-title">Update Payout Schedule</h5>
-          <button class="modal-close" @click="showPayoutScheduleModal = false">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6L6 18" />
-              <path d="M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label for="interval">Payout Frequency</label>
-            <select id="interval" v-model="payoutScheduleForm.interval" class="form-select">
-              <option value="manual">Manual</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-            </select>
-          </div>
-          <div v-if="payoutScheduleForm.interval !== 'manual'" class="form-group">
-            <label for="delay_days">Delay (days)</label>
-            <input
-              id="delay_days"
-              v-model.number="payoutScheduleForm.delay_days"
-              type="number"
-              min="0"
-              max="30"
-              class="form-input"
-              placeholder="2"
-            />
-            <div class="form-hint">
-              Number of days to delay payouts (0-30)
-            </div>
-          </div>
-          <div v-if="payoutScheduleForm.interval === 'weekly'" class="form-group">
-            <label for="weekly_anchor">Weekly Anchor Day</label>
-            <select id="weekly_anchor" v-model="payoutScheduleForm.weekly_anchor" class="form-select">
-              <option value="monday">Monday</option>
-              <option value="tuesday">Tuesday</option>
-              <option value="wednesday">Wednesday</option>
-              <option value="thursday">Thursday</option>
-              <option value="friday">Friday</option>
-              <option value="saturday">Saturday</option>
-              <option value="sunday">Sunday</option>
-            </select>
-          </div>
-          <div v-if="payoutScheduleForm.interval === 'monthly'" class="form-group">
-            <label for="monthly_anchor">Monthly Anchor Day</label>
-            <input
-              id="monthly_anchor"
-              v-model.number="payoutScheduleForm.monthly_anchor"
-              type="number"
-              min="1"
-              max="31"
-              class="form-input"
-              placeholder="1"
-            />
-            <div class="form-hint">
-              Day of month for payouts (1-31)
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <BaseButton variant="ghost" @click="showPayoutScheduleModal = false">
-            Cancel
-          </BaseButton>
-          <BaseButton
-            variant="primary"
-            :loading="isUpdatingPayoutSchedule"
-            :disabled="isUpdatingPayoutSchedule"
-            @click="handleUpdatePayoutSchedule"
-          >
-            Update Schedule
-          </BaseButton>
-        </div>
+        <BaseInput
+          v-model="addFundsAmountString"
+          label="Amount (cents)"
+          type="text"
+          placeholder="300"
+          hint="Enter amount in cents (e.g., 300 = $3.00)"
+        />
       </div>
-    </div>
+
+      <template #footer>
+        <BaseButton variant="ghost" @click="showAddFundsModal = false">
+          Cancel
+        </BaseButton>
+        <BaseButton
+          variant="primary"
+          :loading="isAddingFunds"
+          :disabled="isAddingFunds || addFundsForm.amount <= 0"
+          @click="handleAddFunds"
+        >
+          Add {{ formatCurrency(addFundsForm.amount, accountCurrency) }}
+        </BaseButton>
+      </template>
+    </BaseModal>
+
+    <!-- Payout Schedule Drawer -->
+    <BaseModal
+      :show="showPayoutScheduleModal"
+      variant="drawer"
+      title="Update Payout Schedule"
+      size="md"
+      @close="showPayoutScheduleModal = false"
+    >
+      <div class="drawer-form">
+        <div class="form-group">
+          <label for="interval" class="form-label">Payout Frequency</label>
+          <select id="interval" v-model="payoutScheduleForm.interval" class="form-select">
+            <option value="manual">Manual</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+
+        <BaseInput
+          v-if="payoutScheduleForm.interval !== 'manual'"
+          v-model="delayDaysString"
+          label="Delay (days)"
+          type="text"
+          placeholder="2"
+          hint="Number of days to delay payouts (0-30)"
+        />
+
+        <div v-if="payoutScheduleForm.interval === 'weekly'" class="form-group">
+          <label for="weekly_anchor" class="form-label">Weekly Anchor Day</label>
+          <select id="weekly_anchor" v-model="payoutScheduleForm.weekly_anchor" class="form-select">
+            <option value="monday">Monday</option>
+            <option value="tuesday">Tuesday</option>
+            <option value="wednesday">Wednesday</option>
+            <option value="thursday">Thursday</option>
+            <option value="friday">Friday</option>
+            <option value="saturday">Saturday</option>
+            <option value="sunday">Sunday</option>
+          </select>
+        </div>
+
+        <BaseInput
+          v-if="payoutScheduleForm.interval === 'monthly'"
+          v-model="monthlyAnchorString"
+          label="Monthly Anchor Day"
+          type="text"
+          placeholder="1"
+          hint="Day of month for payouts (1-31)"
+        />
+      </div>
+
+      <template #footer>
+        <BaseButton variant="ghost" @click="showPayoutScheduleModal = false">
+          Cancel
+        </BaseButton>
+        <BaseButton
+          variant="primary"
+          :loading="isUpdatingPayoutSchedule"
+          :disabled="isUpdatingPayoutSchedule"
+          @click="handleUpdatePayoutSchedule"
+        >
+          Update Schedule
+        </BaseButton>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted } from 'vue'
-import { useAppStore } from '@/stores/app'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseModal from '@/components/ui/BaseModal.vue'
+import BaseInput from '@/components/ui/BaseInput.vue'
 import { authAPI } from '@/services/api'
+import { useAppStore } from '@/stores/app'
+import { computed, onMounted, ref, watch } from 'vue'
 
 const app = useAppStore()
 const organization = computed(() => app.organization)
+
+// Get account currency from organization
+const accountCurrency = computed(() => organization.value?.currency || 'usd')
 
 const isDashboardLinkLoading = ref(false)
 const isRefreshing = ref(false)
@@ -403,8 +362,28 @@ const payoutSchedule = ref<{
 
 // Add funds form
 const addFundsForm = ref({
-  amount: 300, // Default $3.00
-  currency: 'usd'
+  amount: 300 // Default $3.00
+})
+
+// String representations for BaseInput (v-model needs string)
+const addFundsAmountString = ref('300')
+const delayDaysString = ref('2')
+const monthlyAnchorString = ref('1')
+
+// Watch for changes and update the form values
+watch(addFundsAmountString, (val) => {
+  const num = parseInt(val) || 0
+  addFundsForm.value.amount = num
+})
+
+watch(delayDaysString, (val) => {
+  const num = parseInt(val)
+  payoutScheduleForm.value.delay_days = isNaN(num) ? undefined : num
+})
+
+watch(monthlyAnchorString, (val) => {
+  const num = parseInt(val)
+  payoutScheduleForm.value.monthly_anchor = isNaN(num) ? undefined : num
 })
 
 // Payout schedule form
@@ -453,6 +432,13 @@ async function loadPayoutSchedule() {
         delay_days: schedule.schedule.delay_days,
         weekly_anchor: schedule.schedule.weekly_anchor as 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday' | undefined,
         monthly_anchor: schedule.schedule.monthly_anchor
+      }
+      // Update string refs
+      if (schedule.schedule.delay_days !== undefined) {
+        delayDaysString.value = schedule.schedule.delay_days.toString()
+      }
+      if (schedule.schedule.monthly_anchor !== undefined) {
+        monthlyAnchorString.value = schedule.schedule.monthly_anchor.toString()
       }
     }
   } catch (err) {
@@ -516,10 +502,10 @@ async function handleAddFunds() {
   try {
     await authAPI.addAccountFunds({
       amount: addFundsForm.value.amount,
-      currency: addFundsForm.value.currency
+      currency: accountCurrency.value
     })
 
-    // Close modal and refresh balance
+    // Close drawer and refresh balance
     showAddFundsModal.value = false
     await loadAccountBalance()
 
@@ -813,76 +799,34 @@ onMounted(() => {
   text-transform: capitalize;
 }
 
-/* Modal Styles */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: var(--space-4);
-}
-
-.modal-content {
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-lg);
-  width: 100%;
-  max-width: 500px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-.modal-title {
-  margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  padding: var(--space-1);
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  transition: all 0.2s ease;
-}
-
-.modal-close:hover {
-  background: var(--color-bg-muted);
-  color: var(--color-text-primary);
-}
-
-.modal-body {
-  padding: var(--space-4);
+/* Drawer Form Styles */
+.drawer-form {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-.modal-footer {
+.currency-display {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  border-top: 1px solid var(--color-border-light);
+}
+
+.currency-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.currency-value {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+  font-family: var(--font-mono, 'Menlo', monospace);
 }
 
 .form-group {
@@ -891,13 +835,12 @@ onMounted(() => {
   gap: var(--space-2);
 }
 
-.form-group label {
+.form-label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
 }
 
-.form-input,
 .form-select {
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border-light);
@@ -908,17 +851,10 @@ onMounted(() => {
   transition: all 0.2s ease;
 }
 
-.form-input:focus,
 .form-select:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.form-hint {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  margin-top: var(--space-1);
 }
 
 /* Responsive */
