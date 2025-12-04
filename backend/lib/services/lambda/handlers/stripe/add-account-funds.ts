@@ -104,14 +104,12 @@ export const addAccountFundsHandler = async (event: APIGatewayProxyEvent) => {
     const stripe = getStripeClient()
 
     let paymentMethodToUse: string | null = null
-    let paymentMethodTypes: string[] = []
+    let useCardOnPlatform = false // Track if we're using a platform-owned card
 
-    // First, try to get the user's default payment method from their Stripe customer
+    // First, try to get the user's default payment method from their Stripe customer (PLATFORM)
     if (user.stripe_id) {
       try {
-        const customer = await stripe.customers.retrieve(
-          user.stripe_id,
-        )
+        const customer = await stripe.customers.retrieve(user.stripe_id)
 
         // Check if customer has a default payment method
         if (customer && !customer.deleted) {
@@ -122,13 +120,13 @@ export const addAccountFundsHandler = async (event: APIGatewayProxyEvent) => {
 
           if (defaultPaymentMethodId) {
             const defaultPaymentMethod = await stripe.paymentMethods.retrieve(
-              defaultPaymentMethodId,
+              defaultPaymentMethodId
             )
 
             // Only use if it's a card (universal support)
             if (defaultPaymentMethod.type === 'card') {
               paymentMethodToUse = defaultPaymentMethodId
-              paymentMethodTypes = ['card']
+              useCardOnPlatform = true
               console.log(`Using customer's default card payment method ${paymentMethodToUse}`)
             }
           }
@@ -139,71 +137,103 @@ export const addAccountFundsHandler = async (event: APIGatewayProxyEvent) => {
       }
     }
 
-    // Fallback: Look for any card payment methods if no default found
-    if (!paymentMethodToUse) {
-      const cardPaymentMethods = await stripe.paymentMethods.list(
-        {
-          type: 'card', limit: 10
-        },
-        { stripeAccount: organization.stripe_account_id }
-      )
+    // Fallback: Look for any card payment methods on PLATFORM if no default found
+    if (!paymentMethodToUse && user.stripe_id) {
+      try {
+        const cardPaymentMethods = await stripe.paymentMethods.list({
+          customer: user.stripe_id,
+          type: 'card',
+          limit: 10
+        })
 
-      if (cardPaymentMethods.data.length > 0) {
-        // Use first available card payment method
-        paymentMethodToUse = cardPaymentMethods.data[0].id
-        paymentMethodTypes = ['card']
-        console.log(`Using first available card payment method ${paymentMethodToUse}`)
+        if (cardPaymentMethods.data.length > 0) {
+          paymentMethodToUse = cardPaymentMethods.data[0].id
+          useCardOnPlatform = true
+          console.log(`Using first available card payment method ${paymentMethodToUse}`)
+        }
+      } catch (error) {
+        console.warn('Failed to list payment methods:', error)
       }
     }
 
-    // Final fallback: Check if we have a US bank account we can use
-    if (!paymentMethodToUse) {
-      // No card found, check if we have a US bank account we can use
-      const bankPaymentMethod = await stripe.paymentMethods.retrieve(
-        organization.stripe_bank_account_id,
-        { stripeAccount: organization.stripe_account_id }
-      )
+    // Final fallback: Check if we have a US bank account on CONNECTED ACCOUNT
+    if (!paymentMethodToUse && organization.stripe_bank_account_id) {
+      try {
+        const bankPaymentMethod = await stripe.paymentMethods.retrieve(
+          organization.stripe_bank_account_id,
+          { stripeAccount: organization.stripe_account_id }
+        )
 
-      // Only use bank account if it's explicitly a US bank account
-      if (bankPaymentMethod.type === 'us_bank_account') {
-        paymentMethodToUse = organization.stripe_bank_account_id
-        paymentMethodTypes = ['us_bank_account']
-        console.log(`Using US bank account ${paymentMethodToUse}`)
-      } else {
-        // Not a US bank account and no card available
-        return {
-          statusCode: 400,
-          body: JSON.stringify({
-            error: 'No supported payment method found. Please add a credit/debit card for automatic top-ups, or use manual bank transfer to your Stripe balance.',
-            errorCode: 'NO_SUPPORTED_PAYMENT_METHOD',
-            bankAccountType: bankPaymentMethod.type
-          }),
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Credentials': true,
-            'Content-Type': 'application/json'
-          }
+        // Only use bank account if it's explicitly a US bank account
+        if (bankPaymentMethod.type === 'us_bank_account') {
+          paymentMethodToUse = organization.stripe_bank_account_id
+          useCardOnPlatform = false
+          console.log(`Using US bank account ${paymentMethodToUse}`)
+        }
+      } catch (error) {
+        console.warn('Failed to retrieve bank payment method:', error)
+      }
+    }
+
+    // Error if no payment method found
+    if (!paymentMethodToUse) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'No supported payment method found. Please add a credit/debit card for automatic top-ups, or use manual bank transfer to your Stripe balance.',
+          errorCode: 'NO_SUPPORTED_PAYMENT_METHOD'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
         }
       }
     }
 
-    // Create a PaymentIntent on the connected account
-    // This will debit the payment method and add funds to the connected account's Stripe balance
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount,
-      currency,
-      payment_method: paymentMethodToUse,
-      confirm: true,
-      description: `Account top-up for ${organization.name || 'organization'}`,
-      metadata: {
-        organization_id: organization.id,
-        type: 'account_topup',
-        requested_by: userEmail
-      },
-      payment_method_types: paymentMethodTypes
-    }, {
-      stripeAccount: organization.stripe_account_id
-    })
+    let paymentIntent
+
+    if (useCardOnPlatform) {
+      // Charge card on PLATFORM and transfer to connected account
+      console.log('Charging card on platform and transferring to connected account')
+      paymentIntent = await stripe.paymentIntents.create({
+        amount,
+        currency,
+        payment_method: paymentMethodToUse,
+        customer: user.stripe_id,
+        confirm: true,
+        description: `Account top-up for ${organization.name || 'organization'}`,
+        metadata: {
+          organization_id: organization.id,
+          type: 'account_topup',
+          requested_by: userEmail
+        },
+        transfer_data: {
+          destination: organization.stripe_account_id
+        }
+      })
+    } else {
+      // Charge bank account directly on CONNECTED ACCOUNT
+      console.log('Charging bank account directly on connected account')
+      paymentIntent = await stripe.paymentIntents.create(
+        {
+          amount,
+          currency,
+          payment_method: paymentMethodToUse,
+          confirm: true,
+          description: `Account top-up for ${organization.name || 'organization'}`,
+          metadata: {
+            organization_id: organization.id,
+            type: 'account_topup',
+            requested_by: userEmail
+          },
+          payment_method_types: ['us_bank_account']
+        },
+        {
+          stripeAccount: organization.stripe_account_id
+        }
+      )
+    }
 
     console.log(`Created payment intent ${paymentIntent.id} for organization ${organization.id}`)
 
