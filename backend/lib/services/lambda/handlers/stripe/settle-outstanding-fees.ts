@@ -251,8 +251,7 @@ export const handleFeePaymentSuccess = async (
       await update<Organization>({
         tableName: organizationsTableName!,
         key: {
-          id: org.id,
-          created_at: org.created_at
+          id: org.id
         },
         updates: {
           account_suspended: false,

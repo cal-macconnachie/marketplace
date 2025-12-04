@@ -15,6 +15,13 @@
 
       <!-- Seller Dashboard (shown when onboarding completed) -->
       <template v-else>
+        <!-- Seller Account Card -->
+        <BaseCard title="Seller Account" :expandable="false">
+          <template #default>
+            <SellerAccount />
+          </template>
+        </BaseCard>
+
         <!-- Manage Products Card -->
         <BaseCard
           title="Manage Products"
@@ -48,6 +55,7 @@
 import BaseCard from '@/components/ui/BaseCard.vue'
 import DisputeManagementCard from '@/components/ui/DisputeManagementCard.vue'
 import InfinitePurchasesList from '@/components/ui/InfinitePurchasesList.vue'
+import SellerAccount from '@/components/ui/SellerAccount.vue'
 import SellerManager from '@/components/ui/SellerManager.vue'
 import VendorProducts from '@/components/ui/VendorProducts.vue'
 import { useAppStore } from '@/stores/app'
