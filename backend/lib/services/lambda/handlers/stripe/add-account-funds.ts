@@ -84,32 +84,53 @@ export const addAccountFundsHandler = async (event: APIGatewayProxyEvent) => {
       }
     }
 
-    // Create a top-up using Stripe
-    // Note: This creates a transfer from the platform to the connected account
+    // Check if organization has a linked bank account
+    if (!organization.stripe_bank_account_id) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: 'No bank account linked to this organization. Please link a bank account first.'
+        }),
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': true,
+          'Content-Type': 'application/json'
+        }
+      }
+    }
+
     const stripe = getStripeClient()
 
-    const transfer = await stripe.transfers.create({
+    // Create a PaymentIntent on the connected account using their bank account
+    // This will debit the bank account and add funds to the connected account's Stripe balance
+    // Supports both US (us_bank_account) and Canadian (acss_debit) bank accounts
+    const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency,
-      destination: organization.stripe_account_id,
+      payment_method: organization.stripe_bank_account_id,
+      confirm: true,
       description: `Account top-up for ${organization.name || 'organization'}`,
       metadata: {
         organization_id: organization.id,
         type: 'account_topup',
         requested_by: userEmail
-      }
+      },
+      payment_method_types: ['us_bank_account', 'acss_debit']
+    }, {
+      stripeAccount: organization.stripe_account_id
     })
 
-    console.log(`Created transfer ${transfer.id} for organization ${organization.id}`)
+    console.log(`Created payment intent ${paymentIntent.id} for organization ${organization.id}`)
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         success: true,
-        transfer_id: transfer.id,
-        amount: transfer.amount,
-        currency: transfer.currency,
-        created: transfer.created
+        payment_intent_id: paymentIntent.id,
+        amount: paymentIntent.amount,
+        currency: paymentIntent.currency,
+        status: paymentIntent.status,
+        created: paymentIntent.created
       }),
       headers: {
         'Access-Control-Allow-Origin': '*',
