@@ -38,12 +38,30 @@ export class DomainLambdaConstruct extends Construct {
   public readonly lambdas: Record<string, cdk.aws_lambda.Function> = {}
   public readonly imageLambdaUrl?: string
   private readonly corsEnabledResources = new Set<string>()
+  private readonly optionsHandler?: cdk.aws_lambda.Function
 
   constructor(scope: Construct, id: string, props: DomainLambdaConstructProps) {
     super(scope, id)
     const {
-      envVars, envName, endpointDefinitions, api, cognitoAuthorizer, queues 
+      envVars, envName, endpointDefinitions, api, cognitoAuthorizer, queues
     } = props
+
+    // Create a single shared OPTIONS handler for all CORS-enabled endpoints
+    if (api) {
+      this.optionsHandler = createDefaultNodejsFunction(
+        this,
+        'options-handler',
+        {
+          name: 'options-handler',
+          handler: 'handlers/options-handler.handler',
+          handlerPath: path.join(__dirname, 'handlers', 'options-handler.ts'),
+          description: 'Handles CORS preflight OPTIONS requests',
+          timeout: Duration.seconds(3),
+          memorySize: 128,
+        },
+        envName
+      )
+    }
 
     for (const def of endpointDefinitions) {
       // Prepare environment variables
@@ -297,40 +315,30 @@ export class DomainLambdaConstruct extends Construct {
         const integration = new apiGW.LambdaIntegration(fn)
 
         // Enable CORS if specified
-        // Use a mock integration that returns 200 OK with minimal headers
-        // CloudFront will add the proper dynamic CORS headers based on origin
-        if (def.apiGw.cors) {
+        // Use OPTIONS handler Lambda that returns dynamic CORS headers based on origin
+        if (def.apiGw.cors && this.optionsHandler) {
           const resourcePath = def.apiGw.path
           if (!this.corsEnabledResources.has(resourcePath)) {
-            // Create mock integration for OPTIONS that returns 200
-            const mockIntegration = new apiGW.MockIntegration({
-              integrationResponses: [
-                {
-                  statusCode: '200',
-                  responseParameters: {
-                  // Don't set CORS headers here - CloudFront will handle them dynamically
-                    'method.response.header.Content-Type': "'application/json'"
-                  },
-                  responseTemplates: {
-                    'application/json': '{"statusCode": 200}'
-                  }
-                }
-              ],
-              requestTemplates: {
-                'application/json': '{"statusCode": 200}'
-              }
+            // Create Lambda integration for OPTIONS handler
+            const optionsIntegration = new apiGW.LambdaIntegration(this.optionsHandler, {
+              proxy: true,
             })
 
-            // Add OPTIONS method with mock integration
-            resource.addMethod('OPTIONS', mockIntegration, {
+            // Add OPTIONS method with Lambda integration (no auth required for preflight)
+            resource.addMethod('OPTIONS', optionsIntegration, {
               methodResponses: [
                 {
                   statusCode: '200',
                   responseParameters: {
-                    'method.response.header.Content-Type': true
-                  }
-                }
-              ]
+                    'method.response.header.Access-Control-Allow-Origin': true,
+                    'method.response.header.Access-Control-Allow-Methods': true,
+                    'method.response.header.Access-Control-Allow-Headers': true,
+                    'method.response.header.Access-Control-Allow-Credentials': true,
+                    'method.response.header.Access-Control-Max-Age': true,
+                    'method.response.header.Content-Type': true,
+                  },
+                },
+              ],
             })
 
             this.corsEnabledResources.add(resourcePath)
