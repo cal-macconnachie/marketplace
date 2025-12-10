@@ -355,6 +355,7 @@ function handler(event) {
 
         // Create origin request policy to control what gets forwarded to API Gateway
         // IMPORTANT: Do NOT forward Host header - API Gateway needs its own domain as Host
+        // Authorization is handled via CloudFront Function (auth cookie to header)
         originRequestPolicy = new OriginRequestPolicy(this, `${def.name}-origin-request-policy`, {
           originRequestPolicyName: `${envName}-${def.name}-origin-policy`,
           comment: `Origin request policy for ${def.name} - forwards specific headers (NOT Host), all cookies and query strings`,
@@ -362,7 +363,6 @@ function handler(event) {
           headerBehavior: OriginRequestHeaderBehavior.allowList(
             'Accept',
             'Accept-Language',
-            'Authorization',
             'CloudFront-Viewer-Country',
             'Origin',
             'Referer',
