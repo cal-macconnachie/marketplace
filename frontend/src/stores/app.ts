@@ -5,7 +5,7 @@ import {
   publicApi,
   setLoggingOut
 } from '@/services/api'
-import { clearAllAuthTokens, getAuthToken, setAuthToken } from '@/utils/cookies'
+import { clearAllAuthTokens } from '@/utils/cookies'
 import { dedupedConcatInPlace } from '@/utils/dedupedConcatInPlace'
 import type { AuthResponse, CreatePaymentMethodRequest, LoginRequest, Notification, Organization, PaymentMethod, Product, Purchase, PurchasedProduct, RegisterRequest, TaxCalculationRequest, TaxCalculationResult, User } from '@marketplace/types'
 import { defineStore } from 'pinia'
@@ -62,7 +62,6 @@ export const useAppStore = defineStore('app', {
     notificationsLastKey: undefined as Record<string, unknown> | undefined,
     notificationsLoading: false,
     unreadNotificationCount: 0,
-    tokenRefreshInterval: null as number | null,
     productFormData: {
       type: '',
       name: '',
@@ -127,10 +126,8 @@ export const useAppStore = defineStore('app', {
       this.isLoading = false
       this.error = null
 
-      // Store tokens in secure cookies
-      if (response.idToken) setAuthToken('AUTH_TOKEN', response.idToken)
-      if (response.accessToken) setAuthToken('ACCESS_TOKEN', response.accessToken)
-      if (response.refreshToken) setAuthToken('REFRESH_TOKEN', response.refreshToken)
+      // Tokens are now set as httpOnly cookies by the backend
+      // No need to set them client-side
 
       // Store user data if provided (non-sensitive data can stay in localStorage)
       if (response.user) {
@@ -444,21 +441,16 @@ export const useAppStore = defineStore('app', {
         // Set flag to prevent token refresh during logout
         setLoggingOut(true)
 
-        const accessToken = getAuthToken('ACCESS_TOKEN')
-        const refreshToken = getAuthToken('REFRESH_TOKEN') ?? ''
-        const token = getAuthToken('AUTH_TOKEN')
+        // Make logout API call - tokens are read from httpOnly cookies by backend
+        const response = await authAPI.logout()
 
-        // Make logout API call if token exists
-        if (accessToken && token) {
-          const response = await authAPI.logout(accessToken, token, refreshToken)
-          // If backend returns a redirect URL, clear auth then redirect to Cognito
-          if (response && typeof response === 'object' && 'requiresRedirect' in response && response.requiresRedirect && response.redirectUrl) {
-            // Clear local auth before redirecting
-            this.clearAuth()
-            this.clearAllStoreData()
-            window.location.href = response.redirectUrl
-            return { success: true }
-          }
+        // If backend returns a redirect URL, clear auth then redirect to Cognito
+        if (response && typeof response === 'object' && 'requiresRedirect' in response && response.requiresRedirect && response.redirectUrl) {
+          // Clear local auth before redirecting
+          this.clearAuth()
+          this.clearAllStoreData()
+          window.location.href = response.redirectUrl
+          return { success: true }
         }
 
         // Clear auth for non-OAuth users or after successful logout
@@ -553,87 +545,40 @@ export const useAppStore = defineStore('app', {
 
     // Check if user is already authenticated (on app startup)
     async initializeAuth() {
-      const token = getAuthToken('AUTH_TOKEN')
-      const refreshToken = getAuthToken('REFRESH_TOKEN')
       const userData = localStorage.getItem('userData')
 
-      if (token && refreshToken) {
-        this.isAuthenticated = true
-
-        // Fast load from stored data first
-        if (userData) {
-          try {
-            this.user = JSON.parse(userData)
-          } catch {
-            console.error('Failed to parse stored user data')
-          }
-        }
-
-        // Then refetch fresh data to ensure it's up-to-date
+      // Fast load from stored data first
+      if (userData) {
         try {
-          await this.fetchCurrentUser()
-          await this.fetchOrganization()
+          this.user = JSON.parse(userData)
         } catch {
-          console.error('Failed to refresh user data, using stored data')
+          console.error('Failed to parse stored user data')
         }
+      }
 
-        // Start proactive token refresh
-        this.startTokenRefresh()
+      // Try to fetch user data - if httpOnly cookies are valid, this will succeed
+      // If cookies are invalid/expired, this will fail and user needs to login again
+      try {
+        await this.fetchCurrentUser()
+        await this.fetchOrganization()
+        this.isAuthenticated = true
+      } catch {
+        // Cookies invalid or expired, user needs to login
+        console.log('No valid session found, user needs to login')
+        this.clearAuth()
       }
     },
 
     startTokenRefresh() {
-      // Clear any existing interval
-      if (this.tokenRefreshInterval) {
-        clearInterval(this.tokenRefreshInterval)
-      }
-
-      // Check token expiry and refresh if needed every 5 minutes
-      this.tokenRefreshInterval = window.setInterval(async () => {
-        const token = getAuthToken('AUTH_TOKEN')
-        if (!token) {
-          this.stopTokenRefresh()
-          return
-        }
-
-        try {
-          // Decode JWT to check expiry
-          const payload = JSON.parse(atob(token.split('.')[1]))
-          const expiryTime = payload.exp * 1000 // Convert to milliseconds
-          const now = Date.now()
-          const timeUntilExpiry = expiryTime - now
-
-          // If token expires in less than 10 minutes, refresh it
-          if (timeUntilExpiry < 10 * 60 * 1000) {
-            const refreshToken = getAuthToken('REFRESH_TOKEN')
-            if (refreshToken) {
-              const response = await authAPI.refresh(refreshToken)
-              if (response.accessToken) {
-                setAuthToken('ACCESS_TOKEN', response.accessToken)
-              }
-              if (response.idToken) {
-                setAuthToken('AUTH_TOKEN', response.idToken)
-              }
-              if (response.refreshToken) {
-                setAuthToken('REFRESH_TOKEN', response.refreshToken)
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Token refresh check failed:', error)
-          // If refresh fails, clear auth and redirect
-          this.clearAuth()
-          this.stopTokenRefresh()
-          window.location.href = '/'
-        }
-      }, 5 * 60 * 1000) // Check every 5 minutes
+      // Token refresh is now handled automatically by the API client's response interceptor
+      // When a request returns 401/403, the interceptor automatically calls the refresh endpoint
+      // The backend reads the refresh token from httpOnly cookies and sets new tokens
+      // This method is kept for backwards compatibility but does nothing
     },
 
     stopTokenRefresh() {
-      if (this.tokenRefreshInterval) {
-        clearInterval(this.tokenRefreshInterval)
-        this.tokenRefreshInterval = null
-      }
+      // Token refresh is handled automatically by the API client
+      // This method is kept for backwards compatibility but does nothing
     },
     async refreshStripeAccount({
       organizationId,

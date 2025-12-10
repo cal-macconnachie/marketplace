@@ -82,5 +82,49 @@ export const cloudFrontDefinitions: CloudFrontDistributionDefinition[] = [
     },
     priceClass: 'PriceClass_100',
     enabled: true
+  },
+  {
+    name: 'api-gateway-distribution',
+    comment: 'CloudFront distribution for API Gateway with auth cookie support',
+    domainName: domain,
+    subdomain: 'api',
+    hostedZoneName: domain, // Share the same zone
+    requireAuthCookie: true, // Enable auth cookie to header transformation
+    origins: [
+      {
+        domainName: `api.${domain}`, // Points to API Gateway custom domain
+        originId: 'api-gateway-origin',
+        customOriginConfig: {
+          httpsPort: 443,
+          originProtocolPolicy: 'https-only',
+          originSslProtocols: ['TLSv1.2']
+        }
+      }
+    ],
+    defaultBehavior: {
+      targetOriginId: 'api-gateway-origin',
+      viewerProtocolPolicy: 'https-only',
+      allowedMethods: [
+        'GET',
+        'HEAD',
+        'OPTIONS',
+        'PUT',
+        'POST',
+        'PATCH',
+        'DELETE'
+      ],
+      cachedMethods: [
+        'GET',
+        'HEAD'
+      ],
+      compress: true,
+      ttl: {
+        defaultTtl: 0, // No caching by default for API
+        maxTtl: 0,
+        minTtl: 0
+      }
+    },
+    priceClass: 'PriceClass_100',
+    enabled: true
   }
 ]

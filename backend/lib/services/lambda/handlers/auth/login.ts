@@ -4,6 +4,9 @@ import {
 } from '@aws-sdk/client-cognito-identity-provider'
 import { User } from '@marketplace/types'
 import { APIGatewayProxyEvent } from 'aws-lambda'
+import {
+  createAuthCookieHeaders, validateAndGetCorsHeaders
+} from '../../helpers/cookie-utils'
 import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
 import { createUpdateUser } from '../../helpers/users/create-update-user'
 import { getUserByEmail } from '../../helpers/users/get-user-by-email'
@@ -19,15 +22,13 @@ export const login = rateLimitedHandler(async (event: APIGatewayProxyEvent) => {
   
   // Support both email/password and social token authentication
   if (!accessToken && (!email || !password)) {
+    const corsHeaders = validateAndGetCorsHeaders(event.headers.origin)
     return {
       statusCode: 400,
-      body: JSON.stringify({ 
-        message: 'Either email/password or accessToken is required' 
+      body: JSON.stringify({
+        message: 'Either email/password or accessToken is required'
       }),
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true,
-      }
+      headers: corsHeaders
     }
   }
 
@@ -93,29 +94,33 @@ export const login = rateLimitedHandler(async (event: APIGatewayProxyEvent) => {
     // Get user from DynamoDB
     if (user == null) user = await getUserByEmail(userEmail)
 
+    // Set tokens as httpOnly cookies
+    const cookieHeaders = createAuthCookieHeaders(
+      response.AuthenticationResult?.AccessToken || '',
+      response.AuthenticationResult?.IdToken,
+      response.AuthenticationResult?.RefreshToken
+    )
+
+    const corsHeaders = validateAndGetCorsHeaders(event.headers.origin)
+
     return {
       statusCode: 200,
       body: JSON.stringify({
         message: 'Login successful',
-        accessToken: response.AuthenticationResult?.AccessToken,
-        idToken: response.AuthenticationResult?.IdToken,
-        refreshToken: response.AuthenticationResult?.RefreshToken,
         user
       }),
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true
+      headers: corsHeaders,
+      multiValueHeaders: {
+        'Set-Cookie': cookieHeaders
       }
     }
   } catch (error) {
     console.error('Error during login:', error)
+    const corsHeaders = validateAndGetCorsHeaders(event.headers.origin)
     return {
       statusCode: 401,
       body: JSON.stringify({ error: error instanceof Error ? error.message : 'Login failed' }),
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true
-      }
+      headers: corsHeaders
     }
   }
 }, {

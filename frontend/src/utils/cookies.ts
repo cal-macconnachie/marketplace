@@ -80,47 +80,34 @@ export function hasCookie(name: string): boolean {
   return getCookie(name) !== null
 }
 
-// Token-specific cookie names
+// ============================================================================
+// AUTH TOKEN MANAGEMENT (httpOnly - Server-Side Only)
+// ============================================================================
+// NOTE: Authentication tokens (accessToken, authToken, refreshToken) are now
+// managed as httpOnly cookies by the backend for security (XSS protection).
+// These cookies are NOT accessible via JavaScript and are automatically sent
+// by the browser with each request.
+//
+// The functions below are DEPRECATED for auth token management but kept for
+// backwards compatibility with any remaining non-auth cookie usage.
+// ============================================================================
+
+// Token-specific cookie names (for reference only - managed server-side)
 export const TOKEN_COOKIE_NAMES = {
   AUTH_TOKEN: 'authToken',
   ACCESS_TOKEN: 'accessToken',
   REFRESH_TOKEN: 'refreshToken',
 } as const
 
-// Default cookie options for auth tokens
-const AUTH_TOKEN_OPTIONS: CookieOptions = {
-  maxAge: 60 * 60 * 24 * 7, // 7 days
-  secure: true,
-  sameSite: 'lax',
-  path: '/',
-}
-
-/**
- * Set an auth token in a secure cookie
- */
-export function setAuthToken(name: keyof typeof TOKEN_COOKIE_NAMES, value: string): void {
-  setCookie(TOKEN_COOKIE_NAMES[name], value, AUTH_TOKEN_OPTIONS)
-}
-
-/**
- * Get an auth token from cookies
- */
-export function getAuthToken(name: keyof typeof TOKEN_COOKIE_NAMES): string | null {
-  return getCookie(TOKEN_COOKIE_NAMES[name])
-}
-
-/**
- * Remove an auth token cookie
- */
-export function removeAuthToken(name: keyof typeof TOKEN_COOKIE_NAMES): void {
-  removeCookie(TOKEN_COOKIE_NAMES[name])
-}
-
 /**
  * Clear all auth tokens
+ * Note: This is now a no-op since auth tokens are httpOnly.
+ * Call authAPI.logout() to properly clear authentication.
  */
 export function clearAllAuthTokens(): void {
-  removeAuthToken('AUTH_TOKEN')
-  removeAuthToken('ACCESS_TOKEN')
-  removeAuthToken('REFRESH_TOKEN')
+  // Clear any legacy non-httpOnly auth cookies if they exist
+  // This helps with the migration from old system to new httpOnly system
+  removeCookie(TOKEN_COOKIE_NAMES.AUTH_TOKEN)
+  removeCookie(TOKEN_COOKIE_NAMES.ACCESS_TOKEN)
+  removeCookie(TOKEN_COOKIE_NAMES.REFRESH_TOKEN)
 }

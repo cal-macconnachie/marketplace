@@ -10,6 +10,7 @@ export interface CloudFrontDistributionDefinition {
   subdomain?: string // Subdomain within the zone (e.g., 'images' for images.dev.domain.com)
   hostedZoneName?: string
   requireBasicAuth?: boolean // Enable basic auth for dev environment
+  requireAuthCookie?: boolean // Enable auth cookie to Authorization header transformation for API Gateway
   origins: {
     domainName: string
     originId: string

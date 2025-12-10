@@ -1,4 +1,4 @@
-import { clearAllAuthTokens, getAuthToken } from '@/utils/cookies'
+import { clearAllAuthTokens } from '@/utils/cookies'
 import { domain } from '@marketplace/constants'
 import type {
   AuthResponse,
@@ -55,7 +55,7 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: false, // Ensure we don't send cookies that might cause CORS issues
+  withCredentials: true, // Send httpOnly cookies with requests
 })
 
 const imageClient = axios.create({
@@ -63,22 +63,11 @@ const imageClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: false,
-})
-
-// Add request interceptor to include auth token if available
-apiClient.interceptors.request.use((config) => {
-  // Prefer access token; fall back to id token if present
-  const accessToken = getAuthToken('ACCESS_TOKEN')
-  const idToken = getAuthToken('AUTH_TOKEN')
-  const token = idToken || accessToken
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
+  withCredentials: true, // Send httpOnly cookies with requests
 })
 
 // Response interceptor for handling token refresh
+// Note: Auth tokens are now httpOnly cookies sent automatically by the browser
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -102,29 +91,18 @@ apiClient.interceptors.response.use(
     if ((status === 401 || status === 403) && !originalRequest._retry) {
       originalRequest._retry = true // Mark the request as retried to avoid infinite loops.
       try {
-        const refreshToken = getAuthToken('REFRESH_TOKEN') // Retrieve the stored refresh token.
-        // Make a request to your auth server to refresh the token.
-        if (refreshToken == null || refreshToken === '' || refreshToken === 'undefined')
-          return Promise.reject(error)
-        const refreshResponse = await axios.post(`${BASE_URL}/auth/refresh`, {
-          refreshToken,
-        })
+        // Call refresh endpoint - it will read the refresh token from httpOnly cookie
+        await axios.post(
+          `${BASE_URL}/auth/refresh`,
+          {},
+          {
+            withCredentials: true, // Send cookies with refresh request
+          }
+        )
 
-        const { accessToken, idToken, refreshToken: newRefreshToken } = refreshResponse.data
-        // Store the new access and refresh tokens in cookies
-        const { setAuthToken } = await import('@/utils/cookies')
-        setAuthToken('ACCESS_TOKEN', accessToken)
-        if (idToken) {
-          setAuthToken('AUTH_TOKEN', idToken)
-        }
-        if (newRefreshToken) {
-          setAuthToken('REFRESH_TOKEN', newRefreshToken)
-        }
-        // Update the authorization header with the new token on the original request
-        // Prefer idToken if available, otherwise use accessToken (matches request interceptor logic)
-        const token = idToken || accessToken
-        originalRequest.headers.Authorization = `Bearer ${token}`
-        return apiClient(originalRequest) // Retry the original request with the new access token.
+        // New tokens are now set as httpOnly cookies by the backend
+        // Browser will automatically include them in subsequent requests
+        return apiClient(originalRequest) // Retry the original request
       } catch (refreshError) {
         // Handle refresh token errors by clearing stored tokens and redirecting to the login page.
         console.error('Token refresh failed:', refreshError)
@@ -158,36 +136,29 @@ export const authAPI = {
 
   async login(data: LoginRequest): Promise<AuthResponse> {
     const response = await apiClient.post('/auth/login', data)
+    // Tokens are now set as httpOnly cookies by the backend
+    // Response only contains user data
     return response.data
   },
 
   async oauthLogin(data: OAuthLoginRequest): Promise<AuthResponse> {
     const response = await apiClient.post('/auth/login', data)
+    // Tokens are now set as httpOnly cookies by the backend
+    // Response only contains user data
     return response.data
   },
 
-  async refresh(
-    refreshToken: string,
-  ): Promise<{ accessToken: string; idToken?: string; refreshToken?: string }> {
-    if (!refreshToken || refreshToken === 'undefined') {
-      return Promise.reject(new Error('No refresh token available'))
-    }
-    const response = await apiClient.post('/auth/refresh', { refreshToken })
+  async refresh(): Promise<{ message: string }> {
+    // Refresh token is read from httpOnly cookie by the backend
+    // New tokens are set as httpOnly cookies in the response
+    const response = await apiClient.post('/auth/refresh', {})
     return response.data
   },
 
-  async logout(
-    accessToken: string,
-    token: string,
-    refreshToken: string,
-  ): Promise<{ redirectUrl?: string; requiresRedirect?: boolean } | void> {
-    const response = await apiClient.post(
-      '/auth/logout',
-      { accessToken, refreshToken },
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    )
+  async logout(): Promise<{ redirectUrl?: string; requiresRedirect?: boolean } | void> {
+    // Tokens are read from httpOnly cookies by the backend
+    // Cookies are cleared in the response
+    const response = await apiClient.post('/auth/logout', {})
     return response.data
   },
 
@@ -206,7 +177,7 @@ export const authAPI = {
   },
 
   async getCurrentUser(): Promise<User> {
-    // First try to get cognito_id from stored user data (kept in localStorage for non-sensitive data)
+    // Get cognito_id from stored user data (kept in localStorage for non-sensitive data)
     const storedUserData = localStorage.getItem('userData')
     let cognitoId: string | undefined
 
@@ -215,25 +186,12 @@ export const authAPI = {
         const userData = JSON.parse(storedUserData)
         cognitoId = userData.cognito_id
       } catch {
-        console.error('Failed to parse stored user data, will try JWT')
-      }
-    }
-
-    // If no cognito_id from stored data, extract from JWT in cookie
-    if (!cognitoId) {
-      const token = getAuthToken('AUTH_TOKEN')
-      if (!token) throw new Error('No auth token found')
-
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]))
-        cognitoId = payload.sub || payload.username
-      } catch {
-        throw new Error('Failed to decode JWT token')
+        console.error('Failed to parse stored user data')
       }
     }
 
     if (!cognitoId) {
-      throw new Error('No cognito_id found to fetch user data')
+      throw new Error('No cognito_id found in stored user data. User may need to log in again.')
     }
 
     const response = await apiClient.post('/get-users', { cognito_id: cognitoId })

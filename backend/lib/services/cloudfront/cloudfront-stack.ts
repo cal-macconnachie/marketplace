@@ -9,6 +9,8 @@ import {
 import {
   AllowedMethods,
   CachedMethods,
+  CacheCookieBehavior,
+  CacheHeaderBehavior,
   CachePolicy,
   CacheQueryStringBehavior,
   Function as CloudFrontFunction,
@@ -56,6 +58,37 @@ export class CloudFrontConstruct extends Construct {
       s3WebsiteUrls,
       hostedZones
     } = props || {}
+
+    // Create auth cookie to header function for API Gateway
+    const authCookieToHeaderFunction = new CloudFrontFunction(this, 'AuthCookieToHeaderFunction', {
+      code: FunctionCode.fromInline(`
+function handler(event) {
+  var request = event.request;
+  var cookies = request.cookies;
+
+  // Extract authToken from httpOnly cookies
+  // Priority: authToken (idToken) > accessToken
+  var token = null;
+  if (cookies.authToken) {
+    token = cookies.authToken.value;
+  } else if (cookies.accessToken) {
+    token = cookies.accessToken.value;
+  }
+
+  // If token found, add it to Authorization header for Cognito authorizer
+  if (token) {
+    request.headers.authorization = {
+      value: 'Bearer ' + token
+    };
+  }
+
+  return request;
+}
+      `.trim()),
+      functionName: `auth-cookie-to-header-${envName}`,
+      comment: 'Extracts auth token from httpOnly cookies and adds to Authorization header',
+      runtime: FunctionRuntime.JS_2_0
+    })
 
     // Create response headers function for Apple verification file
     const responseHeadersFunction = new CloudFrontFunction(this, 'ResponseHeadersFunction', {
@@ -253,29 +286,55 @@ function unauthorized(reason) {
         })
       })
 
-      // Create cache policy - with query string caching only for images
+      // Create cache policy
       const cachePolicy = new CachePolicy(this, `${def.name}-cache-policy`, {
         cachePolicyName: `${envName}-${def.name}-cache-policy`,
         comment: `Cache policy for ${def.name}`,
-        defaultTtl: def.defaultBehavior.ttl?.defaultTtl
+        defaultTtl: def.defaultBehavior.ttl?.defaultTtl !== undefined
           ? Duration.seconds(def.defaultBehavior.ttl.defaultTtl)
           : Duration.days(365),
-        maxTtl: def.defaultBehavior.ttl?.maxTtl
+        maxTtl: def.defaultBehavior.ttl?.maxTtl !== undefined
           ? Duration.seconds(def.defaultBehavior.ttl.maxTtl)
           : Duration.days(365),
-        minTtl: def.defaultBehavior.ttl?.minTtl
+        minTtl: def.defaultBehavior.ttl?.minTtl !== undefined
           ? Duration.seconds(def.defaultBehavior.ttl.minTtl)
           : Duration.seconds(0),
-        // Only cache query strings for image processing (w, h, q params)
+        // Query string behavior:
+        // - Image processing: cache by w, h, q params
+        // - API Gateway: forward all query strings (don't cache)
+        // - Others: none
         queryStringBehavior: def.name === 'image-processing-distribution'
           ? CacheQueryStringBehavior.allowList('w', 'h', 'q')
-          : CacheQueryStringBehavior.none(),
+          : def.name === 'api-gateway-distribution'
+            ? CacheQueryStringBehavior.all()
+            : CacheQueryStringBehavior.none(),
+        // For API Gateway, forward cookies and headers
+        ...(def.name === 'api-gateway-distribution' ? {
+          cookieBehavior: CacheCookieBehavior.all(),
+          headerBehavior: CacheHeaderBehavior.allowList(
+            'Authorization',
+            'Content-Type',
+            'Accept',
+            'Origin',
+            'Referer'
+          )
+        } : {}),
         enableAcceptEncodingGzip: true,
         enableAcceptEncodingBrotli: true
       })
 
-      // Prepare CloudFront Functions for basic auth in dev environment
+      // Prepare CloudFront Functions
       const functionAssociations = []
+
+      // Add auth cookie to header function for API Gateway
+      if (def.requireAuthCookie) {
+        functionAssociations.push({
+          function: authCookieToHeaderFunction,
+          eventType: FunctionEventType.VIEWER_REQUEST
+        })
+      }
+
+      // Add basic auth in dev environment (runs before auth cookie function if both present)
       if (def.requireBasicAuth && basicAuthFunction) {
         functionAssociations.push({
           function: basicAuthFunction,

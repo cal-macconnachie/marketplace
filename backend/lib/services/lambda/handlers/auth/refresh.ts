@@ -4,33 +4,33 @@ import {
 } from '@aws-sdk/client-cognito-identity-provider'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
+import { parseCookies, createAuthCookieHeaders, validateAndGetCorsHeaders } from '../../helpers/cookie-utils'
 
 const cognitoClient = new CognitoIdentityProviderClient({})
 
 export const refresh = rateLimitedHandler(async (event: APIGatewayProxyEvent) => {
   const CLIENT_ID = process.env.USER_POOL_CLIENT_ID
+  const corsHeaders = validateAndGetCorsHeaders(event.headers.origin)
+
   if (!CLIENT_ID) {
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'CLIENT_ID environment variable is not set' }),
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true,
-      }
+      headers: corsHeaders
     }
   }
 
-  const { refreshToken } = JSON.parse(event.body || '{}')
+  // Parse refresh token from httpOnly cookie
+  const cookies = parseCookies(event.headers.cookie || event.headers.Cookie)
+  const refreshToken = cookies.refreshToken
+
   console.log('Refresh token request for token:', refreshToken?.substring(0, 20) + '...')
 
   if (!refreshToken) {
     return {
       statusCode: 400,
       body: JSON.stringify({ message: 'Refresh token is required' }),
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true,
-      }
+      headers: corsHeaders
     }
   }
 
@@ -45,16 +45,21 @@ export const refresh = rateLimitedHandler(async (event: APIGatewayProxyEvent) =>
 
     const response = await cognitoClient.send(command)
 
+    // Set new tokens as httpOnly cookies
+    const cookieHeaders = createAuthCookieHeaders(
+      response.AuthenticationResult?.AccessToken || '',
+      response.AuthenticationResult?.IdToken,
+      response.AuthenticationResult?.RefreshToken
+    )
+
     return {
       statusCode: 200,
       body: JSON.stringify({
-        accessToken: response.AuthenticationResult?.AccessToken,
-        idToken: response.AuthenticationResult?.IdToken,
-        refreshToken: response.AuthenticationResult?.RefreshToken
+        message: 'Token refreshed successfully'
       }),
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true
+      headers: corsHeaders,
+      multiValueHeaders: {
+        'Set-Cookie': cookieHeaders
       }
     }
   } catch (error) {
@@ -65,10 +70,7 @@ export const refresh = rateLimitedHandler(async (event: APIGatewayProxyEvent) =>
         message: 'Failed to refresh token',
         error: error instanceof Error ? error.message : 'Unknown error'
       }),
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true
-      }
+      headers: corsHeaders
     }
   }
 }, {

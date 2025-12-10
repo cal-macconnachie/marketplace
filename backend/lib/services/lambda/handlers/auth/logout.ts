@@ -5,13 +5,18 @@ import {
 } from '@aws-sdk/client-cognito-identity-provider'
 import { domain } from '@marketplace/constants'
 import { APIGatewayProxyEvent } from 'aws-lambda'
+import { parseCookies, createClearAuthCookieHeaders, validateAndGetCorsHeaders } from '../../helpers/cookie-utils'
+
 const cognitoClient = new CognitoIdentityProviderClient({})
 
 export const logout = async (event: APIGatewayProxyEvent) => {
-  const { body } = event
-  const {
-    accessToken, refreshToken 
-  } = JSON.parse(body || '{}')
+  const corsHeaders = validateAndGetCorsHeaders(event.headers.origin)
+  const clearCookieHeaders = createClearAuthCookieHeaders()
+
+  // Parse tokens from httpOnly cookies
+  const cookies = parseCookies(event.headers.cookie || event.headers.Cookie)
+  const accessToken = cookies.accessToken
+  const refreshToken = cookies.refreshToken
 
   try {
     // Try GlobalSignOut first (works for native Cognito users)
@@ -25,10 +30,9 @@ export const logout = async (event: APIGatewayProxyEvent) => {
         return {
           statusCode: 200,
           body: JSON.stringify({ message: 'Logout successful' }),
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Credentials': true,
-            'Content-Type': 'application/json'
+          headers: corsHeaders,
+          multiValueHeaders: {
+            'Set-Cookie': clearCookieHeaders
           }
         }
       } catch (error) {
@@ -57,10 +61,9 @@ export const logout = async (event: APIGatewayProxyEvent) => {
           redirectUrl: cognitoLogoutUrl,
           requiresRedirect: true
         }),
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Credentials': true,
-          'Content-Type': 'application/json'
+        headers: corsHeaders,
+        multiValueHeaders: {
+          'Set-Cookie': clearCookieHeaders
         }
       }
     }
@@ -70,10 +73,9 @@ export const logout = async (event: APIGatewayProxyEvent) => {
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error instanceof Error ? error.message : 'Logout failed' }),
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Credentials': true,
-        'Content-Type': 'application/json'
+      headers: corsHeaders,
+      multiValueHeaders: {
+        'Set-Cookie': clearCookieHeaders
       }
     }
   }
