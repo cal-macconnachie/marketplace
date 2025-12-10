@@ -242,10 +242,11 @@ function handler(event) {
 
     if (isRootDomain || isSubdomain) {
       // Allow this origin with credentials
+      // NOTE: Cannot use wildcards (*) when credentials are enabled - must list specific headers
       headers['access-control-allow-origin'] = { value: origin };
       headers['access-control-allow-credentials'] = { value: 'true' };
       headers['access-control-allow-methods'] = { value: 'GET,HEAD,OPTIONS,PUT,POST,PATCH,DELETE' };
-      headers['access-control-allow-headers'] = { value: '*' };
+      headers['access-control-allow-headers'] = { value: 'Content-Type,Authorization,X-Requested-With,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,Accept,Accept-Language,Origin,Referer' };
       headers['access-control-max-age'] = { value: '600' };
     }
   }
