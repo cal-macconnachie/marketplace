@@ -297,18 +297,42 @@ export class DomainLambdaConstruct extends Construct {
         const integration = new apiGW.LambdaIntegration(fn)
 
         // Enable CORS if specified
+        // Use a mock integration that returns 200 OK with minimal headers
+        // CloudFront will add the proper dynamic CORS headers based on origin
         if (def.apiGw.cors) {
           const resourcePath = def.apiGw.path
           if (!this.corsEnabledResources.has(resourcePath)) {
-            resource.addCorsPreflight({
-              allowOrigins: apiGW.Cors.ALL_ORIGINS,
-              allowMethods: apiGW.Cors.ALL_METHODS,
-              allowHeaders: [
-                ...apiGW.Cors.DEFAULT_HEADERS,
-                'Authorization',
-                'X-Requested-With'
+            // Create mock integration for OPTIONS that returns 200
+            const mockIntegration = new apiGW.MockIntegration({
+              integrationResponses: [
+                {
+                  statusCode: '200',
+                  responseParameters: {
+                  // Don't set CORS headers here - CloudFront will handle them dynamically
+                    'method.response.header.Content-Type': "'application/json'"
+                  },
+                  responseTemplates: {
+                    'application/json': '{"statusCode": 200}'
+                  }
+                }
+              ],
+              requestTemplates: {
+                'application/json': '{"statusCode": 200}'
+              }
+            })
+
+            // Add OPTIONS method with mock integration
+            resource.addMethod('OPTIONS', mockIntegration, {
+              methodResponses: [
+                {
+                  statusCode: '200',
+                  responseParameters: {
+                    'method.response.header.Content-Type': true
+                  }
+                }
               ]
             })
+
             this.corsEnabledResources.add(resourcePath)
           }
         }
