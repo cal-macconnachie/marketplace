@@ -9,8 +9,6 @@ import {
 import {
   AllowedMethods,
   CachedMethods,
-  CacheCookieBehavior,
-  CacheHeaderBehavior,
   CachePolicy,
   CacheQueryStringBehavior,
   Function as CloudFrontFunction,
@@ -19,8 +17,14 @@ import {
   FunctionCode,
   FunctionEventType,
   FunctionRuntime,
+  ICachePolicy,
+  IOriginRequestPolicy,
   KeyValueStore,
   OriginProtocolPolicy,
+  OriginRequestCookieBehavior,
+  OriginRequestHeaderBehavior,
+  OriginRequestPolicy,
+  OriginRequestQueryStringBehavior,
   OriginSslPolicy,
   PriceClass,
   ViewerProtocolPolicy,
@@ -286,42 +290,47 @@ function unauthorized(reason) {
         })
       })
 
-      // Create cache policy
-      const cachePolicy = new CachePolicy(this, `${def.name}-cache-policy`, {
-        cachePolicyName: `${envName}-${def.name}-cache-policy`,
-        comment: `Cache policy for ${def.name}`,
-        defaultTtl: def.defaultBehavior.ttl?.defaultTtl !== undefined
-          ? Duration.seconds(def.defaultBehavior.ttl.defaultTtl)
-          : Duration.days(365),
-        maxTtl: def.defaultBehavior.ttl?.maxTtl !== undefined
-          ? Duration.seconds(def.defaultBehavior.ttl.maxTtl)
-          : Duration.days(365),
-        minTtl: def.defaultBehavior.ttl?.minTtl !== undefined
-          ? Duration.seconds(def.defaultBehavior.ttl.minTtl)
-          : Duration.seconds(0),
-        // Query string behavior:
-        // - Image processing: cache by w, h, q params
-        // - API Gateway: forward all query strings (don't cache)
-        // - Others: none
-        queryStringBehavior: def.name === 'image-processing-distribution'
-          ? CacheQueryStringBehavior.allowList('w', 'h', 'q')
-          : def.name === 'api-gateway-distribution'
-            ? CacheQueryStringBehavior.all()
+      // For API Gateway with no caching, use managed CACHING_DISABLED policy
+      // For others, create custom cache policy
+      let cachePolicy: ICachePolicy
+      let originRequestPolicy: IOriginRequestPolicy | undefined
+
+      if (def.name === 'api-gateway-distribution') {
+        // Use managed policy for no caching
+        cachePolicy = CachePolicy.CACHING_DISABLED
+
+        // Create origin request policy to control what gets forwarded to API Gateway
+        originRequestPolicy = new OriginRequestPolicy(this, `${def.name}-origin-request-policy`, {
+          originRequestPolicyName: `${envName}-${def.name}-origin-policy`,
+          comment: `Origin request policy for ${def.name} - forwards all headers, cookies, and query strings`,
+          cookieBehavior: OriginRequestCookieBehavior.all(),
+          headerBehavior: OriginRequestHeaderBehavior.all(),
+          queryStringBehavior: OriginRequestQueryStringBehavior.all()
+        })
+      } else {
+        // Custom cache policy for image processing and marketplace
+        cachePolicy = new CachePolicy(this, `${def.name}-cache-policy`, {
+          cachePolicyName: `${envName}-${def.name}-cache-policy`,
+          comment: `Cache policy for ${def.name}`,
+          defaultTtl: def.defaultBehavior.ttl?.defaultTtl !== undefined
+            ? Duration.seconds(def.defaultBehavior.ttl.defaultTtl)
+            : Duration.days(365),
+          maxTtl: def.defaultBehavior.ttl?.maxTtl !== undefined
+            ? Duration.seconds(def.defaultBehavior.ttl.maxTtl)
+            : Duration.days(365),
+          minTtl: def.defaultBehavior.ttl?.minTtl !== undefined
+            ? Duration.seconds(def.defaultBehavior.ttl.minTtl)
+            : Duration.seconds(0),
+          // Query string behavior for caching:
+          // - Image processing: cache by w, h, q params
+          // - Others: none
+          queryStringBehavior: def.name === 'image-processing-distribution'
+            ? CacheQueryStringBehavior.allowList('w', 'h', 'q')
             : CacheQueryStringBehavior.none(),
-        // For API Gateway, forward cookies and headers
-        ...(def.name === 'api-gateway-distribution' ? {
-          cookieBehavior: CacheCookieBehavior.all(),
-          headerBehavior: CacheHeaderBehavior.allowList(
-            'Authorization',
-            'Content-Type',
-            'Accept',
-            'Origin',
-            'Referer'
-          )
-        } : {}),
-        enableAcceptEncodingGzip: true,
-        enableAcceptEncodingBrotli: true
-      })
+          enableAcceptEncodingGzip: true,
+          enableAcceptEncodingBrotli: true
+        })
+      }
 
       // Prepare CloudFront Functions
       const functionAssociations = []
@@ -387,6 +396,7 @@ function unauthorized(reason) {
           cachedMethods: this.mapCachedMethods(def.defaultBehavior.cachedMethods),
           viewerProtocolPolicy: this.mapViewerProtocolPolicy(def.defaultBehavior.viewerProtocolPolicy),
           cachePolicy,
+          originRequestPolicy, // Only set for API Gateway distribution
           compress: def.defaultBehavior.compress ?? true,
           functionAssociations: functionAssociations.length > 0 ? functionAssociations : undefined
         }
