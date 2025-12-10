@@ -19,6 +19,7 @@ export interface CloudFrontDistributionDefinition {
       httpsPort?: number
       originProtocolPolicy: 'http-only' | 'match-viewer' | 'https-only'
       originSslProtocols?: string[]
+      originPath?: string
     }
     s3OriginConfig?: {
       originAccessIdentity?: string

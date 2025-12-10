@@ -122,51 +122,14 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
       ]
     })
 
-    // Setup custom domain for API Gateway
-    const hostedZoneName = domain
-    const apiDomain = `api.${domain}`
+    // Export API Gateway regional endpoint for CloudFront origin
+    // CloudFront will handle the custom domain (api.dev.marketplace.csm.codes)
+    const apiGatewayUrl = `${api.restApiId}.execute-api.${this.region}.amazonaws.com`
 
-    // Import hosted zone from SSM
-    const hostedZoneId = ssm.StringParameter.valueFromLookup(
-      this,
-      `/marketplace/${envName}/route53/${hostedZoneName.replace(/\./g, '-')}`
-    )
-    const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
-      hostedZoneId,
-      zoneName: hostedZoneName
-    })
-
-    // Import pre-provisioned API domain certificate (stored by Certificates stack)
-    const apiCertArn = ssm.StringParameter.valueFromLookup(
-      this,
-      `/marketplace/${envName}/acm/api-domain-cert-arn`
-    )
-    const certificate = certificatemanager.Certificate.fromCertificateArn(
-      this,
-      `ApiCertificate-${envName}`,
-      apiCertArn
-    )
-
-    // Create custom domain for API Gateway
-    const customDomain = new apiGW.DomainName(this, `ApiCustomDomain-${envName}`, {
-      domainName: apiDomain,
-      certificate: certificate,
-      endpointType: apiGW.EndpointType.REGIONAL,
-      securityPolicy: apiGW.SecurityPolicy.TLS_1_2
-    })
-
-    // Map the custom domain to the API Gateway
-    customDomain.addBasePathMapping(api, {
-      basePath: ''
-    })
-
-    // Create A record in Route53 pointing to the API Gateway custom domain
-    new route53.ARecord(this, `ApiARecord-${envName}`, {
-      zone: hostedZone,
-      recordName: apiDomain,
-      target: route53.RecordTarget.fromAlias(
-        new route53Targets.ApiGatewayDomain(customDomain)
-      )
+    new ssm.StringParameter(this, 'ApiGatewayEndpointUrl', {
+      parameterName: `/marketplace/${envName}/api-gateway/endpoint-url`,
+      stringValue: apiGatewayUrl,
+      description: 'API Gateway regional endpoint URL (without protocol) for CloudFront origin'
     })
 
     // Export API Gateway resources to SSM for domain stacks to import
@@ -281,7 +244,8 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
       envName,
       imageLambdaUrl,
       s3WebsiteUrls,
-      hostedZones
+      hostedZones,
+      apiGatewayUrl
     })
 
     // ========================================
@@ -295,10 +259,10 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
       exportName: `${envName}-api-gateway-url`
     })
 
-    new cdk.CfnOutput(this, 'ApiCustomDomainUrl', {
-      value: `https://${apiDomain}`,
-      description: 'API Gateway custom domain URL',
-      exportName: `${envName}-api-domain-url`
+    new cdk.CfnOutput(this, 'ApiGatewayRegionalEndpoint', {
+      value: apiGatewayUrl,
+      description: 'API Gateway regional endpoint (used by CloudFront)',
+      exportName: `${envName}-api-regional-endpoint`
     })
 
     new cdk.CfnOutput(this, 'ApiGatewayRestApiIdOutput', {

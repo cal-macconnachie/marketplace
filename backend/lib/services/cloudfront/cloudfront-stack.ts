@@ -47,6 +47,7 @@ interface CloudFrontConstructProps {
   imageLambdaUrl?: string
   s3WebsiteUrls?: { [key: string]: string }
   hostedZones?: { [zoneName: string]: IHostedZone }
+  apiGatewayUrl?: string
 }
 
 export class CloudFrontConstruct extends Construct {
@@ -60,7 +61,8 @@ export class CloudFrontConstruct extends Construct {
       envName,
       imageLambdaUrl,
       s3WebsiteUrls,
-      hostedZones
+      hostedZones,
+      apiGatewayUrl
     } = props || {}
 
     // Create auth cookie to header function for API Gateway
@@ -322,6 +324,11 @@ function handler(event) {
           domainName = s3WebsiteUrls[domain]
         }
 
+        // Use provided API Gateway URL for api-gateway-origin
+        if (origin.originId === 'api-gateway-origin' && apiGatewayUrl) {
+          domainName = apiGatewayUrl
+        }
+
         return new HttpOrigin(domainName, {
           httpsPort: origin.customOriginConfig?.httpsPort || 443,
           httpPort: origin.customOriginConfig?.httpPort || 80,
@@ -332,7 +339,8 @@ function handler(event) {
               : OriginProtocolPolicy.MATCH_VIEWER,
           originSslProtocols: origin.customOriginConfig?.originSslProtocols?.map(protocol =>
             protocol === 'TLSv1.2' ? OriginSslPolicy.TLS_V1_2 : OriginSslPolicy.TLS_V1_2
-          ) || [OriginSslPolicy.TLS_V1_2]
+          ) || [OriginSslPolicy.TLS_V1_2],
+          originPath: origin.customOriginConfig?.originPath
         })
       })
 

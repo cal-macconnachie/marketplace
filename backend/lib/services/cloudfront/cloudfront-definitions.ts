@@ -92,12 +92,13 @@ export const cloudFrontDefinitions: CloudFrontDistributionDefinition[] = [
     requireAuthCookie: true, // Enable auth cookie to header transformation
     origins: [
       {
-        domainName: `api.${domain}`, // Points to API Gateway custom domain
+        domainName: '', // Will be set dynamically from API Gateway regional endpoint
         originId: 'api-gateway-origin',
         customOriginConfig: {
           httpsPort: 443,
           originProtocolPolicy: 'https-only',
-          originSslProtocols: ['TLSv1.2']
+          originSslProtocols: ['TLSv1.2'],
+          originPath: `/${environment}` // API Gateway stage name in path
         }
       }
     ],
