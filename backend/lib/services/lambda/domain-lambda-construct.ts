@@ -50,16 +50,17 @@ export class DomainLambdaConstruct extends Construct {
     if (api) {
       this.optionsHandler = createDefaultNodejsFunction(
         this,
-        'options-handler',
+        `options-handler-${envName}`,
         {
-          name: 'options-handler',
-          handler: 'handlers/options-handler.handler',
-          handlerPath: path.join(__dirname, 'handlers', 'options-handler.ts'),
+          entry: path.join(__dirname, 'handlers', 'options-handler.ts'),
           description: 'Handles CORS preflight OPTIONS requests',
           timeout: Duration.seconds(3),
           memorySize: 128,
-        },
-        envName
+          environment: {
+            ENV_NAME: envName,
+            NODE_ENV: envName,
+          },
+        }
       )
     }
 
