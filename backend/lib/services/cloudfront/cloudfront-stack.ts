@@ -354,11 +354,24 @@ function handler(event) {
         cachePolicy = CachePolicy.CACHING_DISABLED
 
         // Create origin request policy to control what gets forwarded to API Gateway
+        // IMPORTANT: Do NOT forward Host header - API Gateway needs its own domain as Host
         originRequestPolicy = new OriginRequestPolicy(this, `${def.name}-origin-request-policy`, {
           originRequestPolicyName: `${envName}-${def.name}-origin-policy`,
-          comment: `Origin request policy for ${def.name} - forwards all headers, cookies, and query strings`,
+          comment: `Origin request policy for ${def.name} - forwards specific headers (NOT Host), all cookies and query strings`,
           cookieBehavior: OriginRequestCookieBehavior.all(),
-          headerBehavior: OriginRequestHeaderBehavior.all(),
+          headerBehavior: OriginRequestHeaderBehavior.allowList(
+            'Accept',
+            'Accept-Language',
+            'Authorization',
+            'CloudFront-Viewer-Country',
+            'Origin',
+            'Referer',
+            'User-Agent',
+            'Access-Control-Request-Headers',
+            'Access-Control-Request-Method',
+            'Content-Type',
+            'X-Requested-With'
+          ),
           queryStringBehavior: OriginRequestQueryStringBehavior.all()
         })
       } else {
