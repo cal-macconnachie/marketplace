@@ -239,8 +239,9 @@ function handler(event) {
     var rootDomain = '${rootDomain}';
     var isRootDomain = originDomain === rootDomain;
     var isSubdomain = originDomain.endsWith('.' + rootDomain);
+    var isLocalhost = originDomain.startsWith('localhost:') || originDomain === 'localhost';
 
-    if (isRootDomain || isSubdomain) {
+    if (isRootDomain || isSubdomain || isLocalhost) {
       // Allow this origin with credentials
       // NOTE: Cannot use wildcards (*) when credentials are enabled - must list specific headers
       headers['access-control-allow-origin'] = { value: origin };
@@ -259,7 +260,7 @@ function handler(event) {
 }
       `.trim()),
       functionName: `dynamic-cors-${envName}`,
-      comment: 'Dynamic CORS for all subdomains of root domain with credentials support',
+      comment: 'Dynamic CORS for all subdomains of root domain and localhost with credentials support',
       runtime: FunctionRuntime.JS_2_0
     })
 
