@@ -49,7 +49,7 @@
         </div>
         <ThemeToggle />
         <BaseButton
-          v-if="!appStore.isAuthenticated"
+          v-if="!appStore.isAuthenticated || !appStore.user"
           @click="showAuthForm = true"
           variant="primary"
           size="sm"
@@ -57,9 +57,9 @@
           Sign In
         </BaseButton>
         <UserAvatar
-          v-else
-          :given-name="appStore.user?.given_name"
-          :family-name="appStore.user?.family_name"
+          v-else-if="appStore.isAuthenticated && appStore.user"
+          :given-name="appStore.user.given_name"
+          :family-name="appStore.user.family_name"
           :badge="appStore.unreadNotificationCount"
           size="md"
           @click="goToAccount"

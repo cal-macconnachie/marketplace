@@ -27,7 +27,6 @@ import {
   OriginRequestQueryStringBehavior,
   OriginSslPolicy,
   PriceClass,
-  ResponseHeadersPolicy,
   ViewerProtocolPolicy,
 } from 'aws-cdk-lib/aws-cloudfront'
 import {
@@ -215,6 +214,52 @@ function unauthorized(reason) {
       })
     }
 
+    // Extract root domain from the domain constant (e.g., "dev.marketplace.csm.codes" -> "csm.codes")
+    const rootDomain = domain.split('.').slice(-2).join('.')
+
+    // Create CloudFront Function for dynamic CORS based on origin
+    // This allows any subdomain of the root domain to make authenticated requests
+    const dynamicCorsFunction = new CloudFrontFunction(this, 'DynamicCorsFunction', {
+      code: FunctionCode.fromInline(`
+function handler(event) {
+  var response = event.response;
+  var request = event.request;
+  var headers = response.headers;
+
+  // Get the origin from the request
+  var origin = request.headers.origin ? request.headers.origin.value : null;
+
+  if (origin) {
+    // Extract the domain from the origin (remove protocol)
+    var originDomain = origin.replace(/^https?:\\/\\//, '');
+
+    // Check if origin is root domain or subdomain of root domain
+    var rootDomain = '${rootDomain}';
+    var isRootDomain = originDomain === rootDomain;
+    var isSubdomain = originDomain.endsWith('.' + rootDomain);
+
+    if (isRootDomain || isSubdomain) {
+      // Allow this origin with credentials
+      headers['access-control-allow-origin'] = { value: origin };
+      headers['access-control-allow-credentials'] = { value: 'true' };
+      headers['access-control-allow-methods'] = { value: 'GET,HEAD,OPTIONS,PUT,POST,PATCH,DELETE' };
+      headers['access-control-allow-headers'] = { value: '*' };
+      headers['access-control-max-age'] = { value: '600' };
+    }
+  }
+
+  // Add security headers
+  headers['x-frame-options'] = { value: 'SAMEORIGIN' };
+  headers['x-content-type-options'] = { value: 'nosniff' };
+
+  return response;
+}
+      `.trim()),
+      functionName: `dynamic-cors-${envName}`,
+      comment: 'Dynamic CORS for all subdomains of root domain with credentials support',
+      runtime: FunctionRuntime.JS_2_0
+    })
+
     cloudFrontDefinitions.forEach((def: CloudFrontDistributionDefinition) => {
       // Determine the actual domain name based on environment and subdomain
       let actualDomainName: string | undefined = def.domainName
@@ -352,6 +397,14 @@ function unauthorized(reason) {
         })
       }
 
+      // Add dynamic CORS function for API Gateway (viewer response)
+      if (def.name === 'api-gateway-distribution') {
+        functionAssociations.push({
+          function: dynamicCorsFunction,
+          eventType: FunctionEventType.VIEWER_RESPONSE
+        })
+      }
+
       // Add response headers function for marketplace distribution (Apple verification)
       if (def.name === 'marketplace-distribution') {
         functionAssociations.push({
@@ -398,9 +451,7 @@ function unauthorized(reason) {
           viewerProtocolPolicy: this.mapViewerProtocolPolicy(def.defaultBehavior.viewerProtocolPolicy),
           cachePolicy,
           originRequestPolicy, // Only set for API Gateway distribution
-          responseHeadersPolicy: def.name === 'api-gateway-distribution'
-            ? ResponseHeadersPolicy.CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT
-            : undefined,
+          // CORS is now handled by dynamic CORS function for API Gateway
           compress: def.defaultBehavior.compress ?? true,
           functionAssociations: functionAssociations.length > 0 ? functionAssociations : undefined
         }
