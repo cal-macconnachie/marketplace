@@ -1,11 +1,9 @@
 import { domain } from '@marketplace/constants'
 import * as cdk from 'aws-cdk-lib'
 import * as apiGW from 'aws-cdk-lib/aws-apigateway'
-import * as certificatemanager from 'aws-cdk-lib/aws-certificatemanager'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as route53 from 'aws-cdk-lib/aws-route53'
-import * as route53Targets from 'aws-cdk-lib/aws-route53-targets'
 import * as ssm from 'aws-cdk-lib/aws-ssm'
 import { Construct } from 'constructs'
 import * as path from 'node:path'
@@ -234,7 +232,17 @@ export class MarketplaceNetworkingStack extends cdk.Stack {
       )
     }
 
-    // Reuse the same hosted zone for CloudFront
+    // Import hosted zone from SSM for CloudFront
+    const hostedZoneName = domain
+    const hostedZoneId = ssm.StringParameter.valueFromLookup(
+      this,
+      `/marketplace/${envName}/route53/${hostedZoneName.replace(/\./g, '-')}`
+    )
+    const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
+      hostedZoneId,
+      zoneName: hostedZoneName
+    })
+
     const hostedZones = {
       [hostedZoneName]: hostedZone
     }
