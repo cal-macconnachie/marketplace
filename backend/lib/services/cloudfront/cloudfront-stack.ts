@@ -27,6 +27,7 @@ import {
   OriginRequestQueryStringBehavior,
   OriginSslPolicy,
   PriceClass,
+  ResponseHeadersPolicy,
   ViewerProtocolPolicy,
 } from 'aws-cdk-lib/aws-cloudfront'
 import {
@@ -397,6 +398,9 @@ function unauthorized(reason) {
           viewerProtocolPolicy: this.mapViewerProtocolPolicy(def.defaultBehavior.viewerProtocolPolicy),
           cachePolicy,
           originRequestPolicy, // Only set for API Gateway distribution
+          responseHeadersPolicy: def.name === 'api-gateway-distribution'
+            ? ResponseHeadersPolicy.CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT
+            : undefined,
           compress: def.defaultBehavior.compress ?? true,
           functionAssociations: functionAssociations.length > 0 ? functionAssociations : undefined
         }
