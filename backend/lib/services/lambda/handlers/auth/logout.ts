@@ -69,7 +69,7 @@ export const logout = async (event: APIGatewayProxyEvent) => {
 
       // Build Cognito logout URL that redirects to oauth.cals-api.com
       const cognitoDomain = `auth.${domain}`
-      const cognitoLogoutUrl = `https://${cognitoDomain}/logout?client_id=${process.env.USER_POOL_CLIENT_ID}&redirect_uri=${encodeURIComponent(oauthLogoutUrl)}`
+      const cognitoLogoutUrl = `https://${cognitoDomain}/logout?client_id=${process.env.USER_POOL_CLIENT_ID}&logout_uri=${encodeURIComponent(oauthLogoutUrl)}`
 
       return {
         statusCode: 200,
