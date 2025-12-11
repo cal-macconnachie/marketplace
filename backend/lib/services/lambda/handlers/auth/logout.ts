@@ -24,7 +24,9 @@ export const logout = async (event: APIGatewayProxyEvent) => {
 
   try {
     // Determine the return URL (where to go after logout)
-    const returnUrl = event.queryStringParameters?.return_url || `https://${domain}`
+    // Priority: 1) query parameter, 2) origin header, 3) default domain
+    const origin = event.headers.origin || event.headers.Origin
+    const returnUrl = event.queryStringParameters?.return_url || origin || `https://${domain}`
 
     // Determine environment (dev vs prod) based on domain
     const isDevEnvironment = domain.includes('dev.')
@@ -37,9 +39,14 @@ export const logout = async (event: APIGatewayProxyEvent) => {
         })
         await cognitoClient.send(command)
 
+        // For native Cognito users, no hosted UI redirect needed
+        // Just return success - frontend will handle local redirect
         return {
           statusCode: 200,
-          body: JSON.stringify({ message: 'Logout successful' }),
+          body: JSON.stringify({
+            message: 'Logout successful',
+            requiresRedirect: false
+          }),
           headers: corsHeaders,
           multiValueHeaders: {
             'Set-Cookie': clearCookieHeaders
