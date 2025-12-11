@@ -3,7 +3,6 @@ import {
   GlobalSignOutCommand,
   RevokeTokenCommand
 } from '@aws-sdk/client-cognito-identity-provider'
-import { domain } from '@marketplace/constants'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import {
   createClearAuthCookieHeaders,
@@ -23,11 +22,6 @@ export const logout = async (event: APIGatewayProxyEvent) => {
   const refreshToken = cookies.refreshToken
 
   try {
-    // Determine the return URL (where to go after logout)
-    // Priority: 1) query parameter, 2) origin header, 3) default domain
-    const origin = event.headers.origin || event.headers.Origin
-    const returnUrl = event.queryStringParameters?.return_url || origin || `https://${domain}`
-
     // Try GlobalSignOut first (works for native Cognito users)
     if (accessToken) {
       try {
@@ -63,26 +57,12 @@ export const logout = async (event: APIGatewayProxyEvent) => {
       })
       await cognitoClient.send(revokeCommand)
 
-      // Build oauth.cals-api.com logout URL (registered in Cognito as allowed sign-out URL)
-      const oauthDomain = 'oauth.cals-api.com'
-      const oauthLogoutUrl = `https://${oauthDomain}`
-
-      // Pass logout info via state parameter (Cognito will pass this back to oauth.cals-api.com)
-      const logoutState = JSON.stringify({
-        logout: true,
-        return_url: returnUrl
-      })
-
-      // Build Cognito logout URL that redirects to oauth.cals-api.com
-      const cognitoDomain = `auth.${domain}`
-      const cognitoLogoutUrl = `https://${cognitoDomain}/logout?client_id=${process.env.USER_POOL_CLIENT_ID}&logout_uri=${encodeURIComponent(oauthLogoutUrl)}&state=${encodeURIComponent(logoutState)}`
-
+      // Tokens revoked successfully - no Cognito redirect needed
       return {
         statusCode: 200,
         body: JSON.stringify({
           message: 'Logout successful',
-          redirectUrl: cognitoLogoutUrl,
-          requiresRedirect: true
+          requiresRedirect: false
         }),
         headers: corsHeaders,
         multiValueHeaders: {
