@@ -28,9 +28,6 @@ export const logout = async (event: APIGatewayProxyEvent) => {
     const origin = event.headers.origin || event.headers.Origin
     const returnUrl = event.queryStringParameters?.return_url || origin || `https://${domain}`
 
-    // Determine environment (dev vs prod) based on domain
-    const isDevEnvironment = domain.includes('dev.')
-
     // Try GlobalSignOut first (works for native Cognito users)
     if (accessToken) {
       try {
@@ -67,12 +64,12 @@ export const logout = async (event: APIGatewayProxyEvent) => {
       await cognitoClient.send(revokeCommand)
 
       // Build oauth.cals-api.com logout URL (provides logout confirmation UI)
-      const oauthDomain = isDevEnvironment ? 'dev.oauth.cals-api.com' : 'oauth.cals-api.com'
+      const oauthDomain = 'oauth.cals-api.com'
       const oauthLogoutUrl = `https://${oauthDomain}/?logout=true&return_url=${encodeURIComponent(returnUrl)}`
 
       // Build Cognito logout URL that redirects to oauth.cals-api.com
       const cognitoDomain = `auth.${domain}`
-      const cognitoLogoutUrl = `https://${cognitoDomain}/logout?client_id=${process.env.USER_POOL_CLIENT_ID}&logout_uri=${encodeURIComponent(oauthLogoutUrl)}`
+      const cognitoLogoutUrl = `https://${cognitoDomain}/logout?client_id=${process.env.USER_POOL_CLIENT_ID}&redirect_uri=${encodeURIComponent(oauthLogoutUrl)}`
 
       return {
         statusCode: 200,
