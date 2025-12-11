@@ -3,8 +3,12 @@ import {
   InitiateAuthCommand
 } from '@aws-sdk/client-cognito-identity-provider'
 import { APIGatewayProxyEvent } from 'aws-lambda'
+import {
+  createAuthCookieHeaders,
+  parseCookies,
+  validateAndGetCorsHeaders
+} from '../../helpers/cookie-utils'
 import { rateLimitedHandler } from '../../helpers/rate-limited-handler'
-import { parseCookies, createAuthCookieHeaders, validateAndGetCorsHeaders } from '../../helpers/cookie-utils'
 
 const cognitoClient = new CognitoIdentityProviderClient({})
 
