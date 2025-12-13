@@ -26,6 +26,17 @@ export const internalApiEndpoints: LambdaEndpointDefinition[] = [
     }
   },
   {
+    name: 'checkSession',
+    handler: 'auth/check-session.checkSession',
+    description: 'Check Session Validity',
+    apiGw: {
+      path: 'auth/check-session',
+      method: 'POST',
+      auth: 'cognito',
+      cors: true
+    }
+  },
+  {
     name: 'changePassword',
     handler: 'auth/change-password.changePassword',
     description: 'Change Password',

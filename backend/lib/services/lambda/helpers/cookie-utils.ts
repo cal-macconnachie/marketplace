@@ -30,7 +30,10 @@ export function parseCookies(cookieHeader: string | undefined): Record<string, s
   if (!cookieHeader) return {}
 
   return cookieHeader.split(';').reduce((cookies, cookie) => {
-    const [name, ...rest] = cookie.trim().split('=')
+    const [
+      name,
+      ...rest
+    ] = cookie.trim().split('=')
     if (name && rest.length > 0) {
       cookies[name] = decodeURIComponent(rest.join('='))
     }
