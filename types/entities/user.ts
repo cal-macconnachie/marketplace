@@ -8,6 +8,7 @@ export interface User {
   id: string
   organization_id: string
   is_organization_admin: boolean
+  is_super_admin?: boolean
   given_name?: string
   family_name?: string
   /** Full name, can be a combination of given_name and family_name */

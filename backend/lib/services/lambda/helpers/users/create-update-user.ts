@@ -22,6 +22,7 @@ export const createUpdateUser = async (userInput: Partial<User>) => {
       throw new Error(`Organization with id ${userInput.organization_id} does not exist`)
     }
   }
+  if (userInput.is_super_admin) delete userInput.is_super_admin
   
   // get user if exists
   const existingUser = await getUserByEmail(userInput.email)
