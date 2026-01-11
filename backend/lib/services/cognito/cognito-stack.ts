@@ -135,7 +135,8 @@ export class CognitoStack extends Construct {
       },
       authFlows: {
         userPassword: true, userSrp: true
-      }
+      },
+      refreshTokenValidity: cdk.Duration.days(365 * 10),
     })
 
     if (googleProvider) {

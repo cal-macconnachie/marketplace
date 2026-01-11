@@ -558,15 +558,18 @@ export const useAppStore = defineStore('app', {
 
       // Try to fetch user data - if httpOnly cookies are valid, this will succeed
       // If cookies are invalid/expired, this will fail and user needs to login again
-      try {
-        await this.fetchCurrentUser()
-        await this.fetchOrganization()
-        this.isAuthenticated = true
-      } catch {
+      const userResult = await this.fetchCurrentUser()
+
+      if (!userResult.success) {
         // Cookies invalid or expired, user needs to login
         console.log('No valid session found, user needs to login')
         this.clearAuth()
+        return
       }
+
+      // Only fetch organization and set authenticated if user fetch succeeded
+      await this.fetchOrganization()
+      this.isAuthenticated = true
     },
 
     startTokenRefresh() {
