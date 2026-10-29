@@ -64,11 +64,17 @@ export class MarketplaceCognitoDomainStack extends cdk.Stack {
     })
 
     // Create A record for custom domain pointing to Cognito CloudFront
-    new route53.ARecord(this, `CognitoARecord-${envName}`, {
+    const cognitoARecord = new route53.ARecord(this, `CognitoARecord-${envName}`, {
       zone: hostedZone,
       recordName: cognitoCustomDomainName,
       target: route53.RecordTarget.fromAlias(new route53Targets.UserPoolDomainTarget(cognitoDomain))
     })
+
+    // Prod's auth domain keeps serving the shared login after the marketplace is removed
+    if (envName === 'prod') {
+      cognitoDomain.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN)
+      cognitoARecord.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN)
+    }
 
     new cdk.CfnOutput(this, 'CognitoCustomDomain', {
       value: cognitoCustomDomainName,
