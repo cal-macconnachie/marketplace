@@ -18,6 +18,22 @@ export class CognitoStack extends Construct {
       envName, postAuthTriggerFunction
     } = props
 
+    // Prod's pool is the login for csm.codes, the calendar, 444kipling and oauth.cals-api.com,
+    // so it outlives the marketplace and can't depend on marketplace Lambdas or tables
+    const retain = envName === 'prod'
+
+    const preSignUpTrigger = postAuthTriggerFunction ? new lambda.Function(this, `PreSignUpTrigger-${envName}`, {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromInline(`
+            exports.handler = async (event) => {
+              event.response.autoConfirmUser = true;
+              event.response.autoVerifyEmail = true;
+              return event;
+            };
+          `)
+    }) : undefined
+
     this.userPool = new cognito.UserPool(this, `UserPool-${envName}`, {
       userPoolName: `UserPool-${envName}`,
       selfSignUpEnabled: true,
@@ -31,19 +47,9 @@ export class CognitoStack extends Construct {
           required: true, mutable: true
         }
       },
-      lambdaTriggers: postAuthTriggerFunction ? {
-        postAuthentication: postAuthTriggerFunction,
-        preSignUp: new lambda.Function(this, `PreSignUpTrigger-${envName}`, {
-          runtime: lambda.Runtime.NODEJS_18_X,
-          handler: 'index.handler',
-          code: lambda.Code.fromInline(`
-            exports.handler = async (event) => {
-              event.response.autoConfirmUser = true;
-              event.response.autoVerifyEmail = true;
-              return event;
-            };
-          `)
-        })
+      lambdaTriggers: preSignUpTrigger ? {
+        ...(retain ? {} : { postAuthentication: postAuthTriggerFunction }),
+        preSignUp: preSignUpTrigger
       } : undefined
     })
     let googleProvider: cdk.aws_cognito.UserPoolIdentityProviderGoogle | undefined
@@ -144,6 +150,15 @@ export class CognitoStack extends Construct {
     }
     if (appleProvider) {
       this.userPoolClient.node.addDependency(appleProvider)
+    }
+
+    if (retain) {
+      // findAll covers the pre-sign-up Lambda's role and invoke permission as well
+      for (const construct of [this.userPool, this.userPoolClient, googleProvider, appleProvider, preSignUpTrigger]) {
+        construct?.node.findAll().forEach(child => {
+          if (child instanceof cdk.CfnResource) child.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN)
+        })
+      }
     }
   }
 }

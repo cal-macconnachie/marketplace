@@ -51,6 +51,10 @@ export class MarketplaceCertificatesStack extends cdk.Stack {
       domainName: cognitoCustomDomainName,
       validation: certificatemanager.CertificateValidation.fromDns(hostedZone)
     })
+    // Prod's auth domain outlives the marketplace and needs its certificate
+    if (envName === 'prod') {
+      cognitoCertificate.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN)
+    }
 
     // Store ARNs in SSM for dependent stacks
     new ssm.StringParameter(this, 'ApiDomainCertificateArnParam', {
