@@ -48,7 +48,13 @@ export class CognitoStack extends Construct {
         }
       },
       lambdaTriggers: preSignUpTrigger ? {
-        ...(retain ? {} : { postAuthentication: postAuthTriggerFunction }),
+        postAuthentication: retain
+          // personal-website's AuthStack owns this trigger and its invoke permission
+          ? lambda.Function.fromFunctionAttributes(this, 'CsmAuthPostAuthTrigger', {
+            functionArn: `arn:aws:lambda:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:function:csm-auth-post-auth-trigger`,
+            skipPermissions: true
+          })
+          : postAuthTriggerFunction,
         preSignUp: preSignUpTrigger
       } : undefined
     })
